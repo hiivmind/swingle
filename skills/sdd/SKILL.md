@@ -44,9 +44,27 @@ codex exec -m <model> -C <repo> -s workspace-write -c approval_policy="never" \
    Write your full report to $WORKSPACE/task-N-report.md. Begin." \
   > "$LOG" 2>&1 &
 ```
-Run in background; apply the **liveness protocol** (~5-min evidence checks: pgrep + log
-mtime/tail; stall evidence is the only kill criterion, never elapsed time — full rules in
-dispatch-reference.md).
+Run in background; apply the **liveness protocol** (stall evidence is the only kill
+criterion, never elapsed time — full rules in dispatch-reference.md).
+
+**Self-reaping dispatch (harness background tasks — the standard shape):** wrap the CLI
+and its stall watch in ONE background command, so stalls are killed at threshold without
+controller turns, the controller stays free to answer the user, and the completion
+notification means "finished or stall-killed":
+```bash
+<cli dispatch> > "$LOG" 2>&1 &
+CLI=$!
+while kill -0 $CLI 2>/dev/null; do
+  age=$(( $(date +%s) - $(stat -c %Y "$LOG") ))
+  [ $age -gt <stall-threshold, 300 for codex/opencode> ] && { kill $CLI; echo "STALL-KILLED after ${age}s log silence"; break; }
+  sleep 10
+done
+wait $CLI 2>/dev/null; echo "cli exit=$?"
+```
+(For agy, watch process existence + `--print-timeout`, not log age — it buffers.)
+Never dispatch foreground for anything longer than a sub-minute probe: a foreground call
+blocks the controller from answering the user AND disables the stall rule — the only kill
+left is the coarse backstop.
 
 **Task reviewer** — same shape but **`-s read-only`** (enforced), reviewer-tier model,
 prompt names: `task-reviewer-contract.md`, the brief, the report, the review-package
@@ -91,8 +109,9 @@ Economics table: references/sdd-external-dispatch.md "Dispatch flavours & econom
 (`-p`=password) · agy buffers (judge liveness by process, not log growth; brain-file sweep
 if stdout empty) · only codex is sandboxed — clean tree before, diff after, on agy/opencode
 · user asks "still running?" → check evidence immediately, never assert from belief
-· in harness background tasks run the CLI foreground-in-wrapper (notification == CLI exit)
-+ a stall-watcher; kill by recorded pid, never pkill-by-pattern from a dispatching shell
+· dispatch with the self-reaping wrapper (auto-kills on stall, notification == outcome);
+kill by recorded pid, never pkill-by-pattern from a dispatching shell; foreground only
+for sub-minute probes
 · opencode can hang at startup with a forever-0-byte log — stall rules apply from byte 0;
 after 2 consecutive channel stalls on a small fix, do it inline
 · opencode session ids come from `opencode session list`, not the run log.

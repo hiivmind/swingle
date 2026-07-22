@@ -146,3 +146,10 @@ same-day on the smoke2 repo. **Rejected for both lanes.**
 - **Data caveat (Zen docs):** free tier is "trial use only"; prompts logged and may be
   used to improve NVIDIA products/services — disqualifying for proprietary code even if
   quality were good. Applies presumptively to all `-free` tiers.
+
+**Addendum (same day):** user flagged that during the nemotron implementer probe the
+controller could neither answer "is it still running?" nor cut the stall early — the
+foreground call blocked both, and prior watchers only notified rather than killed.
+Doctrine upgraded (v1.1.3): SELF-REAPING wrapper is the standard dispatch shape — CLI
+backgrounded inside the wrapper, `$!` recorded, wrapper runs the stall watch and kills at
+threshold itself. Foreground reserved for sub-minute probes only.

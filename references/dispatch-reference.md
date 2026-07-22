@@ -113,11 +113,17 @@ Stall thresholds by CLI (how "silence" maps to "stalled"):
   `pkill -f '[o]pencode run'` kills the wrapper itself (observed 2026-07-22: shell died
   pre-launch, exit 125/144, 0-byte log). Capture `$!`/pgrep the specific pid at dispatch
   time; pattern-kill only from a shell that dispatches nothing.
-- **Harness background tasks: run the CLI in the wrapper's foreground.** Backgrounding
-  with `&` inside an already-backgrounded harness command makes the harness "completed"
-  notification fire when the wrapper exits — seconds after launch, not when the CLI
-  finishes. Foreground-in-wrapper makes notification == CLI exit; pair it with a separate
-  stall-watcher loop (wake on process exit OR log-silence past threshold).
+- **Harness background tasks: use the SELF-REAPING wrapper** (template in the sdd skill):
+  the wrapper backgrounds the CLI, records `$!`, and runs the stall-watch loop itself,
+  killing the CLI at the silence threshold and only then exiting. This makes the harness
+  notification mean "finished or stall-killed", executes the 5-min rule with zero
+  controller turns, and leaves the controller responsive to the user throughout.
+  Anti-patterns, both observed 2026-07-22: (a) bare `&` + wrapper exit → notification
+  fires seconds after launch, long before the CLI finishes; (b) a watcher that only
+  *notifies* → detection-to-kill costs extra controller turns; (c) FOREGROUND dispatch of
+  anything non-trivial → the controller cannot answer the user mid-call and the stall rule
+  cannot fire at all (only the coarse backstop kills; a stalled README probe ran 8 min
+  instead of dying at 5).
 - On any early exit, the log tail is the diagnosis — silent failure modes already
   documented: agy signed-out (exits quietly), agy `-p` footgun (answers the wrong prompt
   fast), codex stdin hang (waiting on EOF), opencode auth/balance errors (JSON on stdout).

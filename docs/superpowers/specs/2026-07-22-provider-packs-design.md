@@ -1,199 +1,292 @@
 # Provider-Pack Architecture — sdd-dispatch v2 design
 
-Date: 2026-07-22
-Status: approved-in-brainstorm, pending spec review
+Date: 2026-07-22 (rev 2, 2026-07-23 — after Sol design review, docs/sol-plan-review.md)
+Status: revised, pending re-review
 Target version: 1.2.0
 
 ## Problem
 
 Provider knowledge (dispatch incantations, gotchas, model inventories, verification
-history) for codex / opencode / agy is interleaved across shared reference files:
-`dispatch-reference.md` holds all three CLIs, `model-catalog.md` mixes the cross-provider
-policy grid with per-provider inventories, and `verification-log.md` is one chronological
-stream. This blocks three goals:
+history) for codex / opencode / agy is interleaved across shared reference files, and the
+whole plugin assumes Claude Code as the controlling harness. This blocks four goals:
 
 1. **Extensibility** — adding a provider means editing every shared file.
-2. **Machine-local relevance** — a machine without (say) agy still drags agy content
-   through every skill run; nothing skips absent providers.
-3. **Shareability** — there is no self-contained unit another user can take for "just
-   the opencode knowledge".
+2. **Machine-local relevance** — nothing skips providers absent from this machine.
+3. **Shareability** — no self-contained unit another user can take safely.
+4. **Harness portability** — the sdd skill must wrap superpowers:subagent-driven-development
+   from BOTH Claude Code and Codex CLI as controller (superpowers itself ships a Codex
+   platform adaptation).
 
-## Decisions (brainstorm outcomes)
+## Decisions
 
 | Fork | Decision |
 | --- | --- |
-| Unit of split | **Provider packs inside this plugin** (`providers/<name>/`); core stays shared. Not plugin-per-provider. |
-| Availability | **Runtime detection** (`command -v` per pack) **+ optional gitignored override** `providers.local.json`. |
-| Policy table | **Core defines roles→tiers (abstract); each pack maps tiers→models.** Adding a provider touches zero core files. |
+| Unit of split | Provider packs inside this plugin (`providers/<name>/`); core stays shared. |
+| Availability | Derived detection from a declarative manifest (no pack-authored shell) + layered config. |
+| Policy table | Core defines roles→(tier, lane); each pack maps (tier, lane)→models with explicit priority. |
+| Harness | Harness-neutral entry skill + thin per-harness adapters. Controller harness and external provider are separate session concepts. |
+| Validation | A deterministic validator/resolver script + fixture packs is IN scope; real-CLI probes remain environment smoke tests, not universal release gates. |
 
 ## Layout
 
 ```
 sdd-dispatch-plugin/
   core/
-    roles.md                  # SDD role → required tier + judgment bar (provider-free)
-    liveness.md               # self-reaping wrapper, effort-scaled thresholds, resume doctrine
-    safety-doctrine.md        # hard gate, controller commits, clean-tree/diff, read-only intent
-    playbook.md               # dispatch flavours & economics, E-rules (from sdd-external-dispatch.md)
-    verification-protocol.md  # probe suite P1–P12 + reviewer known-defect benchmark
-    verification-log.md       # cross-provider incidents and synthesis entries ONLY
+    roles.md                  # SDD role → (tier, lane) + judgment bar (provider- and harness-free)
+    liveness.md               # invariants only: self-reaping wrapper, effort-scaled thresholds,
+                              #   evidence rules, kill-is-checkpoint (stall-signal semantics abstract)
+    safety-doctrine.md        # hard gate, controller commits, clean-tree/diff, trust rules
+    playbook.md               # dispatch flavours & economics, E-rules — harness terms abstracted
+    verification-protocol.md  # probe suite P1–P13
+    verification-log.md       # cross-provider/cross-harness incidents + synthesis (new entries only)
   providers/
     codex/    pack.md  models.md  verification-log.md
     opencode/ pack.md  models.md  verification-log.md
     agy/      pack.md  models.md  verification-log.md
-  contracts/                  # implementer + task-reviewer contracts (unchanged, provider-agnostic)
+  contracts/                  # implementer + task-reviewer contracts (provider/harness-agnostic)
   skills/
-    sdd/                      # process skeleton + detection + pack resolution
-    sdd-dispatch-verify/      # pack-scoped verification
-  providers.local.json        # OPTIONAL, gitignored, machine-local
+    sdd/
+      SKILL.md                # harness-NEUTRAL entry point
+      harnesses/
+        claude-code.md        # Claude Code adapter (the ONLY place ${CLAUDE_PLUGIN_ROOT} appears)
+        codex.md              # Codex CLI adapter
+    sdd-dispatch-verify/SKILL.md
+  scripts/
+    validate-packs            # deterministic manifest+models validator and resolver (python3 stdlib)
+  tests/
+    fixtures/                 # fixture packs + stub executables + defect fixture for P13
+  archive/
+    v1.1/                     # the five pre-split reference files, verbatim (history preserved)
+  docs/
+    migration-1.2.0.md        # checked-in migration manifest: every old heading → new home
+  .claude-plugin/             # Claude packaging (plugin.json, marketplace.json)
+  codex/INSTALL.md            # Codex packaging: install & discovery instructions
 ```
+
+## Harness abstraction
+
+`skills/sdd/SKILL.md` is the harness-neutral entry: process skeleton, Step-0 procedure,
+dispatch overrides, flavour choice, controller rules — written without harness-specific
+tool names. It begins with: "identify your harness; read `harnesses/<harness>.md` first."
+
+Each adapter defines the mapping for exactly five concerns:
+
+| Concern | claude-code.md | codex.md |
+| --- | --- | --- |
+| Load superpowers SDD skill | Skill tool (`superpowers:subagent-driven-development`) | native skill loading per superpowers' codex adaptation |
+| Native subagent dispatch | Agent tool | `spawn_agent` |
+| Task tracking | TodoWrite | `update_plan` |
+| Background jobs & notifications | Bash `run_in_background` + task notifications | shell job + polling pattern |
+| Asset root resolution | `${CLAUDE_PLUGIN_ROOT}` | repo-relative from the physical SKILL.md |
+
+**Path rule:** everywhere outside `harnesses/claude-code.md`, asset references are
+relative to the plugin tree root, resolved from the physical location of the selected
+SKILL.md (`<root>/skills/sdd/SKILL.md` → `<root>/…`). `${CLAUDE_PLUGIN_ROOT}` never
+appears in core/, providers/, contracts/, or the neutral SKILL.md.
+
+**Lever rename:** "all Claude" becomes **`native-subagents`** (dispatch via the
+controller harness's own subagent mechanism; superpowers stock behavior). "all Claude"
+remains documented in the claude-code adapter as an alias.
+
+**Packaging:** one canonical tree serves both harnesses. Claude Code installs via
+`.claude-plugin/` marketplace as today. Codex installs by cloning/checking out the whole
+repository where its skill discovery can find `skills/sdd/SKILL.md` (whole-tree presence
+is required — the skill is useless without core/ and providers/); `codex/INSTALL.md`
+documents this. Version lives in `.claude-plugin/plugin.json` and is mirrored in the
+README header; a validator check keeps them in sync.
 
 ## The pack contract
 
-A directory under `providers/` is a valid pack iff it contains:
-
-### `pack.md`
-Starts with a YAML front-matter block — the machine-readable interface:
+A directory under `providers/` is a valid pack iff it contains `pack.md`, `models.md`,
+`verification-log.md`, and `pack.md` starts with a **declarative** front-matter manifest
+— data only, no executable shell strings:
 
 ```yaml
 ---
-name: opencode
-cli: opencode                     # binary name
-detect: command -v opencode       # availability probe (exit 0 = present)
-version-probe: opencode --version
-resume: opencode run -s <session-id>   # continuation incantation (+ --fork variant note)
-session-source: opencode session list  # where session ids come from
-stall-signal: log-age             # log-age | process+print-timeout
-sandbox: none                     # enforced | none
+schema-version: 1
+id: opencode                    # MUST equal the directory name; [a-z0-9-]+
+cli: opencode                   # executable NAME only ([a-z0-9-]+); detection = PATH lookup of this name
+verified-version: "1.17.18"     # version the pack's facts were verified against
+version-argv: ["opencode", "--version"]
+resume-argv: ["opencode", "run", "-s", "{session_id}"]   # {session_id} is the only placeholder
+fork-flag: "--fork"             # optional
+session-source: session-list    # enum: session-list | exec-output | conversation-id
+session-list-argv: ["opencode", "session", "list"]       # required iff session-source: session-list
+stall-signal: log-age           # enum: log-age | process+print-timeout
+sandbox: none                   # enum: enforced | none
 ---
 ```
 
-Body (prose, version-stamped): dispatch template, verified behavior, gotchas, auth notes,
-output conventions. All content that today lives in that provider's section of
-`dispatch-reference.md`.
+- **Detection executes nothing pack-authored**: Step 0 does a PATH lookup of the
+  validated `cli` name (`command -v -- "<cli>"` after the validator confirms the name
+  matches `[a-z0-9-]+`). `version-argv`/`session-list-argv` are argv arrays executed
+  only after schema validation, only for providers that pass detection, and only with
+  arguments from the closed placeholder set.
+- The body of `pack.md` is prose (version-stamped): canonical dispatch template, verified
+  behavior, gotchas, auth notes, output conventions. The pack's template is the ONLY
+  dispatch template for that CLI — the skill carries the abstract dispatch shape, not
+  per-CLI incantations.
 
 ### `models.md`
-Tier→model table for this provider:
 
 | Tier | Lane | Priority | Model id | Status | Pricing | Rationale |
 | --- | --- | --- | --- | --- | --- | --- |
-| cheapest | any | 1 | … | verified/listed/rejected | … | … |
-| standard | implement | 1 | … | | | |
-| standard | review | 1 | … | | | |
-| most-capable | any | 1 | … | | | |
 
-**Lane** (`implement` | `review` | `any`, default `any`) exists because a tier alone can
-under-specify: a provider may field different same-tier models for implementing vs
-reviewing (opencode: minimax-m3 implements at standard, deepseek-v4-pro reviews at
-standard). Resolution matches (tier, lane) with `any` as wildcard; the one-priority-1
-rule applies per (tier, lane) pair.
+- **Tier** ∈ `cheapest | standard | most-capable` (from core/roles.md).
+- **Lane** ∈ `implement | review | any`.
+- **Status** closed enum: `verified | experimental | unavailable | superseded | rejected`.
+  **Eligible for resolution: `verified`, `experimental` only.**
+- Documentary content — rejected models, watch list, superseded history — lives in
+  separate sections BELOW the resolvable table (rejected/watch rows there carry evidence
+  links into the pack's verification-log; they are outside resolution by construction).
+- Validity: within each (tier, lane) pair, priorities are unique positive integers and
+  exactly one row has priority 1. Row order carries no meaning.
 
-A tier MAY list alternates: multiple rows per tier, ordered by an explicit **Priority**
-column (1 = default; ascending = fallback order when the default is unavailable,
-rejected, or has just failed a task in this session). Row order in the file carries no
-meaning — only Priority does. Rows with Status `rejected` are never resolved regardless
-of priority (they remain in the table as documented evidence). Duplicate priorities
-within a tier are a pack validity error. Example: opencode adaptation tier —
-minimax-m3 priority 1, qwen3.7-plus priority 2.
-Plus watch list and rejected-models section (with evidence links into the pack's log).
-Namespaces, free-tier caveats, and per-model warnings (e.g. Luna long-context recall)
-live here.
+### Resolution algorithm (exact)
 
-### `verification-log.md`
-Append-only, this provider's probes, incidents, and model evaluations. Never rewritten.
+Input: role, provider. Steps:
+1. role → (tier, lane) via core/roles.md (lane is `implement` for implementer roles,
+   `review` for reviewer roles).
+2. In the provider's resolvable table, filter to Status ∈ {verified, experimental}.
+3. Candidate set = rows matching (tier, lane) exactly; **iff that set is empty**, rows
+   matching (tier, `any`).
+4. Choose the lowest priority number in the candidate set.
+5. If no candidate exists → explicit resolution error, surfaced to the user. Never
+   substitute across tiers or providers automatically.
 
-**Extensibility rule:** a new provider = one new directory following this contract.
-No core file changes. Sharing = copy the directory (or PR it upstream).
+### Routing precedence (which provider)
+
+When multiple packs are active, the provider for a dispatch is chosen by the first match:
+1. Explicit per-task directive in the plan.
+2. Session routing lever ("via agy", "delegate mechanical to opencode", `native-subagents`).
+3. Config `providers_by_lane` (per-lane provider map), then config `default_provider`.
+4. Built-in default: `codex` if active (structured-review contract, sandbox), else the
+   only/first active provider **iff exactly one is active**.
+5. Otherwise: stop with a route-selection question to the user.
+
+Naming an INACTIVE provider at any step → surface to the user (reroute or abort); never
+silently reroute.
+
+### Failure classes & fallback state
+
+- **Channel/capability failures** (CLI absent, auth failure, model-not-found, startup
+  stall, repeated zero-output hang): automatic fallback IS allowed — next priority in the
+  same (tier, lane); channel-level failures may also reroute provider via the precedence
+  ladder. Each attempt and exclusion is recorded in the SDD progress ledger
+  (`model-attempts: <role> <model> <failure-class>`) so post-compaction sessions do not
+  retry known-bad routes. Maximum two automatic fallbacks per role per session; then ask.
+- **Quality failures** (implementer BLOCKED, reviewer rejects repeatedly, gate failures):
+  NEVER silent fallback — escalate tier or adjudicate with the user, per the superpowers
+  status-handling rules. Exclusions reset at session end (ledger records survive as history).
+
+## Provider states & readiness
+
+`command -v` proves installation, not usability. Step 0 models four states:
+- **installed** — PATH lookup of `cli` succeeds.
+- **compatible** — `version-argv` output vs `verified-version`: mismatch → WARN in the
+  session (pack facts may be stale; point to `sdd-dispatch-verify <id>`); policy may
+  hard-block via config `require-verified-version: true`.
+- **ready** — bounded preflight (auth/session-list probe from the manifest) run ONLY for
+  the provider actually selected for the first dispatch, not the whole active set.
+- **active** — installed ∧ not disabled by config. (Compatibility warns; readiness is
+  checked lazily at first use.)
+
+## Configuration (replaces providers.local.json)
+
+Machine/project policy lives OUTSIDE the plugin tree (plugin caches are replaced on
+upgrade). Search order, first found wins:
+1. `$SDD_DISPATCH_CONFIG` (explicit path)
+2. `<project>/.sdd-dispatch.json` (project policy, committable)
+3. `${XDG_CONFIG_HOME:-~/.config}/sdd-dispatch/config.json` (user/machine policy)
+
+Schema (all keys optional):
+```json
+{
+  "disable": ["codex"],
+  "default_provider": "opencode",
+  "providers_by_lane": { "implement": "opencode", "review": "codex" },
+  "require-verified-version": false,
+  "note": "free text"
+}
+```
+Rules: config can only disable/steer — never enables an undetected CLI. Malformed JSON,
+unknown provider ids, or a disabled `default_provider` → **fail closed** with a specific
+actionable error (do not silently proceed with defaults). Empty active set after
+disables → error naming the disables. Unknown keys → warn, ignore.
 
 ## Core contents
 
-- **`roles.md`** — the abstract policy, provider-free:
+Core files contain **invariants and abstract procedures only** — validated by the
+provider-free check (no model ids, CLI names, or harness tool names in core/, excepting
+`codex` where it names the provider-pack id in routing precedence):
+- **roles.md** — role → (tier, lane) table + tiering rules.
+- **liveness.md** — self-reaping wrapper (abstract `<cli dispatch>` slot), effort-scaled
+  thresholds keyed off the manifest `stall-signal` enum, evidence-first rules, pid-only
+  kills, kill-is-checkpoint. Resume mechanics live in packs (`resume-argv`).
+- **safety-doctrine.md** — hard gate, controller commits, clean-tree/diff on
+  `sandbox: none`, never-trust-self-report.
+- **playbook.md** — flavours (inline / sub / ext / supervised) & economics with
+  harness-neutral wording (native-subagents, "the harness's subagent mechanism").
+- **verification-protocol.md** — P1–P12 + **P13 reviewer known-defect benchmark**: run the
+  candidate against the checked-in, versioned defect fixture (`tests/fixtures/p13/`), a
+  human-confirmed defect diff with expected findings; false-clean fails the candidate.
+- **verification-log.md** — new cross-provider/harness entries from v1.2.0 forward.
 
-  | SDD role | Tier | Mode |
-  | --- | --- | --- |
-  | Transcription implementer (complete code in brief) | cheapest | bg, write |
-  | Adaptation implementer (prose/design/debug) | standard | bg, write |
-  | Large-codebase / long-context implement | most-capable | bg, write |
-  | Read-only explore | cheapest | bg, read-only* |
-  | Research / synthesis | standard | bg, read-only* |
-  | Per-task reviewer | standard | bg, read-only* |
-  | Final whole-branch / design review | most-capable | bg, read-only* |
+## Validator (`scripts/validate-packs`)
 
-  Plus the tiering rules (turn count beats token price; scale reviewer to diff;
-  read-only is intent except where a pack declares `sandbox: enforced`).
-- **`liveness.md`** — self-reaping wrapper template, effort-scaled thresholds
-  (300s low/med, 600–900s high/xhigh), the `stall-signal` dispatch on pack front-matter
-  (agy-style buffering CLIs are watched by process + print-timeout, never log age),
-  kill-is-checkpoint recovery, pid-only kills, evidence-first "is it running" rules.
-- **`safety-doctrine.md`** — hard gate, controller commits, clean-tree-before/diff-after
-  on `sandbox: none` packs, never-trust-self-report.
-- **`playbook.md`** — dispatch flavours (inline / sub / ext / supervised) & economics,
-  token-efficiency rules E1–E7, triviality floor, batching.
-- **`verification-protocol.md`** — probe suite P1–P12, plus (new, promoted from smoke
-  run 2) the **reviewer known-defect benchmark**: re-run a candidate reviewer on a diff
-  where a trusted model already caught a defect; a false-clean fails the candidate.
-- **`verification-log.md`** — cross-provider synthesis and incidents spanning providers
-  (e.g. the harness wrapper-notification findings). Per-provider events go to pack logs.
+python3 stdlib, no third-party deps. Checks (exit non-zero on any failure, one line per
+finding):
+1. Every `providers/*/` has the three files; manifest parses; schema-version known; all
+   required fields present; enums valid; `id` == dirname; `cli` and `id` match `[a-z0-9-]+`;
+   argv entries are arrays of strings; only known placeholders.
+2. models.md tables parse; Tier/Lane/Status enums valid; per-(tier,lane) unique
+   priorities and exactly one P1; documentary sections contain no eligible statuses.
+3. Core purity: grep-class check that core/ contains no provider model ids, CLI
+   invocations, or harness tool names (allow-list: the routing-precedence mention of
+   `codex`).
+4. Version sync: plugin.json version == README header version.
+5. Markdown link check across core/, providers/, skills/, README (relative links resolve).
+6. `--resolve <role> <provider>` mode: prints the resolution walk (tier, lane, candidate
+   set, chosen id) — used by tests and by Step 0 documentation.
 
-## Detection & resolution flow (skill Step 0)
+Test fixtures (`tests/fixtures/`): fixture packs + stub executables covering — zero /
+one / multiple active providers; exact-lane vs `any`; duplicate priorities; missing P1;
+rejected-only candidates; malformed config; disabled default_provider; version mismatch;
+plus the P13 defect fixture. A fixture-driven run of `validate-packs` is the release
+gate. Live-CLI probes (P1–P12 against real codex/opencode/agy) remain environment smoke
+tests run where those CLIs exist — valuable, but never a portable release gate.
 
-1. For each `providers/*/pack.md`, run its `detect:` command → **detected set**.
-2. If `providers.local.json` exists, apply it:
-   ```json
-   { "disable": ["codex"], "prefer": "opencode", "note": "no ChatGPT seat on this box" }
-   ```
-   `disable` removes detected providers; `prefer` sets the default lane when the plan
-   doesn't name one. → **active set**.
-3. Load ONLY active packs' `pack.md` + `models.md`.
-4. Role→model resolution: role → tier (core `roles.md`) → model (active pack's
-   `models.md`), honoring the session's routing lever.
-5. If the plan/lever names an **inactive** provider: surface to the user (named provider
-   is absent/disabled here — reroute or abort?). Never silently reroute.
+Both-harness checks at release: Claude Code — plugin installs, skill loads, Step 0
+resolves a role through packs. Codex — repo checkout discovered, `skills/sdd/SKILL.md` +
+`harnesses/codex.md` readable, same Step-0 resolution walk on paper. (Automated Codex
+end-to-end is backlog; the resolution walk itself is harness-independent and covered by
+the validator.)
 
-`providers.local.json` is machine policy, not capability: it can only disable/steer, never
-enable an undetected CLI.
+## Migration plan
 
-## Skill changes
-
-- **`skills/sdd/SKILL.md`** — keeps the process skeleton (Step 0, dispatch overrides,
-  flavour choice, controller rules) but references `core/*` and "the active packs";
-  the per-CLI gotcha quick-list moves into pack.md bodies; Step 0 gains the
-  detection/resolution steps above.
-- **`skills/sdd-dispatch-verify/SKILL.md`** — becomes pack-scoped: verify one named
-  provider (only its pack files + log change) or sweep the active set. Model evaluations
-  use the known-defect reviewer benchmark + small implementer probe as standard.
-  Version bump policy unchanged (patch per verification commit).
-
-## Migration plan (content re-org, zero information loss)
-
-1. Create `core/` and `providers/{codex,opencode,agy}/`; move every fact from the five
-   current reference files into exactly one new home (mapping table kept in the
-   migration commit message).
-2. Split `verification-log.md`: cross-provider narratives stay in core; per-provider
-   entries copied into pack logs (originals preserved — logs are append-only history).
-3. Replace the five old files with one-line tombstones ("moved to core/… or
-   providers/…") for one release, since installed skill caches may reference old paths.
-4. Update both SKILL.md files, README, and `.gitignore` (+`providers.local.json`).
-5. Version → **1.2.0**; reinstall/reload; memory file pointer updated.
-
-## Testing
-
-1. **Detection**: dry Step-0 run on this machine → all three packs active; with
-   `providers.local.json` disabling codex → codex skipped and lever "via codex"
-   surfaces a user question.
-2. **Resolution**: one tiny ext-dispatch resolving role→tier→model purely through the
-   new pack files (no old paths anywhere in the skill run).
-3. **Pack validity**: front-matter of each pack parses; `detect`/`version-probe`
-   commands run clean; every tier in `models.md` has exactly one priority-1 row and no
-   duplicate priorities; no `rejected` row is resolvable.
-4. **Tombstones**: grep the repo for references to the five old paths — only tombstones
-   remain.
+1. **Migration manifest first**: write `docs/migration-1.2.0.md` mapping EVERY heading of
+   the five reference files (including model-catalog "Release history" → core log archive
+   note + pack models.md history sections, and dispatch-reference "Change history" →
+   archive) to exactly one destination. The manifest is the checked-in source of truth —
+   not commit messages.
+2. **Archive, then split**: copy the five files verbatim to `archive/v1.1/` (history
+   preserved unchanged, satisfying append-only). New per-provider logs start at v1.2.0
+   with a header line linking to the archive; entries whose content is provider-specific
+   are copied (not reworded) into the owning pack log with a `(from archive/v1.1)` tag;
+   cross-provider synthesis stays core. Mixed entries (e.g. the codex round's cross-CLI
+   synthesis paragraph) are split at paragraph level per the manifest.
+3. **Tombstones** at the five old `references/` paths: exact per-file destination lists
+   (clickable relative links), the archive path, and "removed at v1.3.0".
+4. **Link rewrite + check**: every relative link in moved content is rewritten;
+   `validate-packs` link check must pass.
+5. Skills/adapters rewritten (harness-neutral + two adapters); README (install for both
+   harnesses, new layout, "Adding a provider"); `.gitignore` unchanged (config now lives
+   outside the tree); version → 1.2.0.
 
 ## Out of scope (backlog)
 
-- Extracting packs into standalone marketplace plugins (layout deliberately preserves
-  this as a future move).
-- Auto-generated cross-provider comparison grid rendered from pack `models.md` files
-  (rejected for now: generated artifacts drift; revisit if eyeballing lanes side-by-side
-  is missed in practice).
-- A `pack.md` JSON-schema validator script in the verify skill.
+- Extracting packs into standalone marketplace plugins (layout preserves the option).
+- Automated Codex-controller end-to-end test harness.
+- Auto-generated cross-provider comparison grid (drift risk; revisit on demand).
+- Additional harness adapters (pi, antigravity) — the adapter contract is the extension
+  point; superpowers' own platform-adaptation files are the template.

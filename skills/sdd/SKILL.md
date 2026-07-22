@@ -99,6 +99,15 @@ enforced read-only lane where the pack provides one; otherwise obey
 **Fix / NEEDS_CONTEXT:** do not cold-dispatch. Resume the implementer through the active
 pack's validated continuation mechanism with the answers or findings list, then re-review.
 
+**Re-reviews (default: same thread):** resume the ORIGINAL reviewer's session with the fix
+summary and the updated review package — the reviewer keeps its own findings in context, so
+the re-review verifies fixes instead of re-deriving the review, and verdict continuity is
+explicit ("your Important finding is fixed" beats a cold reviewer guessing severity anew).
+Capture the reviewer's session id at first dispatch (per the pack's `session-source`) and
+record it in the ledger beside the task. If the resume channel fails or the pack lacks one,
+fall back to a cold re-review dispatch that attaches the prior review verbatim plus the fix
+report. The same applies to multi-round final reviews.
+
 ## Flavour choice (be explicit which “dispatch” you mean)
 
 - **Inline** (no dispatch): task below the orchestration floor — a single-file mechanical

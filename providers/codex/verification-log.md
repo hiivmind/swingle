@@ -35,3 +35,14 @@ Not tested: `--dangerously-bypass-approvals-and-sandbox` blocked by auto-mode cl
   own command string and unrelated `codex app-server` daemons; a naive `pkill` then kills
   the checker itself. Fixed pattern: bracket the first letter (`'[b]in/codex exec'`).
   archived dispatch reference liveness section updated.
+
+---
+
+## 2026-07-23 — reviewer-thread continuity via exec resume (v1.2.0 execution run)
+
+Re-reviews resumed on the original reviewer's session worked across five rounds in one
+run: two task-review fix loops and a three-round final review (findings → consolidated
+fix → verify → residual finding → verify), each round citing its own prior findings.
+Session id from exec output; overrides passed as `-c` keys only (see resume prose above).
+Verdict continuity held — the resumed reviewer confirmed or narrowed its own findings
+rather than re-deriving the review.

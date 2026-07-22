@@ -102,6 +102,11 @@ with NEEDS_CONTEXT and its questions in the status block; the controller answers
 active pack's continuation mechanism. The agent keeps its loaded context — the brief and
 codebase exploration — so nobody re-pays for it. The same applies to the fix loop: resume
 the implementer's session with the findings list instead of cold-starting a fixer.
+Re-reviews ride the same channel on the reviewer side: resume the original reviewer's
+session with the fix summary and updated package (default), so the reviewer verifies its
+own findings rather than re-deriving the review; cold re-dispatch (prior review attached
+verbatim) is the fallback when the continuation channel fails. Record both session ids in
+the ledger so post-compaction recovery can resume either thread.
 
 **E4 — Implementers do not commit; the controller commits.** The doctrine requires
 controller commits. Controller sequence per task: record BASE → dispatch → gate (tests

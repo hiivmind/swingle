@@ -59,7 +59,7 @@ bounded by the 5-min threshold — the protocol worked; the channel was the prob
 - (Release-history entries name provider models; each lives in the pertinent pack's
   models.md History section per the migration manifest — the 2026-07-21 Google release
   entry is primary in providers/agy/models.md, mirrored in providers/opencode/models.md.
-  Pre-split original: archive/v1.1/model-catalog.md.)
+  Pre-split original: the archived v1.1 model catalog.)
 
 ---
 

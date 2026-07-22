@@ -34,4 +34,4 @@ Not tested: `--dangerously-bypass-approvals-and-sandbox` blocked by auto-mode cl
 - **pgrep self-match false-alive**: `pgrep -f 'codex exec'` matches the checking shell's
   own command string and unrelated `codex app-server` daemons; a naive `pkill` then kills
   the checker itself. Fixed pattern: bracket the first letter (`'[b]in/codex exec'`).
-  dispatch-reference liveness section updated.
+  archived dispatch reference liveness section updated.

@@ -70,3 +70,28 @@ bounded by the 5-min threshold — the protocol worked; the channel was the prob
   agy permission model flipped open in 1.1.4; agy exit codes normalized;
   codex `.git` read-only reclassified from "intermittent" to by-design;
   opencode confirmed sandbox-free and stdin-safe.
+
+---
+
+## 2026-07-23 — v1.2.0 provider-pack migration (release gate)
+
+Migration map: docs/migration-1.2.0.md. Executed via /sdd (codex lane: luna/terra),
+10 tasks, per-task two-verdict reviews — doubling as smoke test 3 of the machinery.
+
+Gate results (controller-run):
+- `scripts/validate-packs --root .` → CLEAN (manifest grammar, argv safety, model
+  tables, purity, links, version sync).
+- `pytest tests/` → 25 passed.
+- `scripts/codex-smoke` → 4/4 PASS, repeated from a fresh `git clone` → 4/4 PASS.
+- Config fail-closed fixtures (malformed, disabled default) → exit 1 each.
+- Environment detection (this machine, non-blocking): agy installed, codex installed,
+  opencode installed.
+- Claude Code install/load smoke: deferred to the post-release user step (reinstall
+  plugin + confirm the sdd skill's Step 0 reaches the trust gate) — a live session
+  cannot reinstall itself mid-plan; recorded in the run ledger.
+
+Resolution walks (all three resolved to their pack's P1 row; model ids live in the
+pack tables — reproduce with `scripts/validate-packs --root . --resolve "<role>" <id>`):
+- per-task reviewer → (standard, review) → opencode P1 (verified)
+- transcription implementer → (cheapest, implement) → codex P1 (verified)
+- adaptation implementer → (standard, implement) → agy P1 (experimental)

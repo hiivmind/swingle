@@ -75,11 +75,18 @@ output conventions. All content that today lives in that provider's section of
 ### `models.md`
 Tier→model table for this provider:
 
-| Tier | Priority | Model id | Status | Pricing | Rationale |
-| --- | --- | --- | --- | --- | --- |
-| cheapest | 1 | … | verified/listed/rejected | … | … |
-| standard | 1 | … | | | |
-| most-capable | 1 | … | | | |
+| Tier | Lane | Priority | Model id | Status | Pricing | Rationale |
+| --- | --- | --- | --- | --- | --- | --- |
+| cheapest | any | 1 | … | verified/listed/rejected | … | … |
+| standard | implement | 1 | … | | | |
+| standard | review | 1 | … | | | |
+| most-capable | any | 1 | … | | | |
+
+**Lane** (`implement` | `review` | `any`, default `any`) exists because a tier alone can
+under-specify: a provider may field different same-tier models for implementing vs
+reviewing (opencode: minimax-m3 implements at standard, deepseek-v4-pro reviews at
+standard). Resolution matches (tier, lane) with `any` as wildcard; the one-priority-1
+rule applies per (tier, lane) pair.
 
 A tier MAY list alternates: multiple rows per tier, ordered by an explicit **Priority**
 column (1 = default; ascending = fallback order when the default is unavailable,

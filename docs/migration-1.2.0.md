@@ -62,7 +62,8 @@ The v1.1 archive is a preservation artifact, not a migration destination.
 | references/verification-log.md:## 2026-07-22 — smoke run 2 (opencode all-lanes), cut short by user at Task 3 (opencode findings 1 and 5) | providers/opencode/verification-log.md |
 | references/verification-log.md:## 2026-07-22 — smoke run 2 (opencode all-lanes), cut short by user at Task 3 (nemotron addendum context) | providers/opencode/verification-log.md |
 | references/verification-log.md:## 2026-07-22 — smoke run 2 (opencode all-lanes), cut short by user at Task 3 (harness/controller findings 2–4) | core/verification-log.md |
-| references/verification-log.md:## 2026-07-22 — smoke run 2 (opencode all-lanes), cut short by user at Task 3 (cost note and What worked) | core/verification-log.md |
+| references/verification-log.md:## 2026-07-22 — smoke run 2 (opencode all-lanes), cut short by user at Task 3 (cost note and What worked: stall-watcher bullet) | core/verification-log.md |
+| references/verification-log.md:## 2026-07-22 — smoke run 2 (What worked: NEEDS_CONTEXT-resume and reviewer-quality bullets — name opencode models, excluded from core by purity) | providers/opencode/verification-log.md |
 | references/verification-log.md:## 2026-07-22 — model evaluation: `opencode/nemotron-3-ultra-free` | providers/opencode/verification-log.md |
 | references/verification-protocol.md:# SDD Dispatch Verification Protocol (document identity and introduction) | core/verification-protocol.md |
 | references/verification-protocol.md:## Ground rules | core/verification-protocol.md |

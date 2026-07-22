@@ -81,5 +81,9 @@ agy --model gemini-3.6-flash --effort <low|medium|high> \
 ## Canonical dispatch template
 
 ```bash
-agy --model <m> --effort <e> --add-dir <repo> --print-timeout <t> -p "<PROMPT>" < /dev/null
+agy --model <resolvable-model-id> --add-dir <repo> --print-timeout <t> -p "<PROMPT>" < /dev/null
 ```
+
+**Effort XOR rule:** the resolvable model IDs already carry their effort suffix, so do
+not pass `--effort` with this template. Use either an effort-suffixed model ID **or** a
+base model slug with `--effort <low|medium|high>`, never both.

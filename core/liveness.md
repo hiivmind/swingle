@@ -34,9 +34,9 @@ recorded PID for both checks and kills.
 
 | Process | Log activity | Verdict | Action |
 | --- | --- | --- | --- |
-| absent | any | **Dead** — regardless of expectations | Read log tail for cause; re-dispatch (once) or escalate tier |
+| absent | any | **Dead** — regardless of expectations | Read log tail and classify the failure; a channel failure advances to the next candidate in this provider's resolution order (max 3 attempts), otherwise ask the user |
 | alive | mtime fresh (< stall threshold) | Running | Leave it alone; re-check at the next threshold |
-| alive | mtime stale (> stall threshold) | **Presumed hung** | Kill it, capture the log, re-dispatch once — second hang ⇒ change pack, don't loop |
+| alive | mtime stale (> stall threshold) | **Presumed hung** | Kill it, capture the log, and classify the failure; a channel failure advances to the next candidate in this provider's resolution order (max 3 attempts), otherwise ask the user |
 
 Thresholds are keyed to the manifest's `stall-signal`:
 
@@ -67,6 +67,8 @@ Thresholds are keyed to the manifest's `stall-signal`:
   the user and prevents the stall rule from firing.
 - On any early exit, the log tail is the diagnosis. Record any new hang/early-exit signature
   in the active pack and append the incident to the verification log.
+- Automatic recovery stays within the current provider and its ordered candidates only.
+  Tier escalation or a provider change is always user adjudication.
 
 ## Self-reaping wrapper
 

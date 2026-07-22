@@ -44,9 +44,11 @@ Read these plugin documents when their policy is needed:
    manifests — never execute manifest strings as shell; argv[0]==cli is
    validator-enforced). Apply layered config (first found): $SDD_DISPATCH_CONFIG →
    <project>/.sdd-dispatch.json → ${XDG_CONFIG_HOME:-~/.config}/sdd-dispatch/config.json
-   — disable/steer only; malformed/wrong-typed config, disabled default_provider or
-   providers_by_lane target, or set-but-unreadable $SDD_DISPATCH_CONFIG = STOP with the
-   error. ACTIVE = installed − disabled (− incompatible iff require-verified-version).
+   — disable/steer only; malformed/wrong-typed config, an unknown provider ID in
+   `disable`, `default_provider`, or any `providers_by_lane` value, a disabled
+   default_provider or providers_by_lane target, or set-but-unreadable
+   $SDD_DISPATCH_CONFIG = STOP with the error. ACTIVE = installed − disabled
+   (− incompatible iff require-verified-version).
 6. **Compatibility**: compare `version-argv` output to `verified-version`; mismatch →
    warn and suggest `sdd-dispatch-verify <id>` (block iff config require-verified-version).
 7. **Provider routing (before any model resolution)**: FIRST, if the `native-subagents`

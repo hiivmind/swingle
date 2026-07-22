@@ -62,9 +62,6 @@ codex exec -m <model> -C <repo> -s workspace-write -c approval_policy="never" \
 ## Canonical dispatch template
 
 ```bash
-BASE=$(git rev-parse HEAD)   # record BEFORE dispatch; never HEAD~1 later
-LOG=$WORKSPACE/task-N.log
-timeout --kill-after=30s <backstop≈4-5x estimate> \
 codex exec -m <model> -C <repo> -s workspace-write -c approval_policy="never" \
   -c model_reasoning_effort=<effort> --skip-git-repo-check -o $WORKSPACE/task-N-status.md \
   "Read $WORKSPACE/implementer-contract.md — your operating contract. \
@@ -72,8 +69,12 @@ codex exec -m <model> -C <repo> -s workspace-write -c approval_policy="never" \
    Scene: <one line: where this task fits>. \
    Interfaces from prior tasks: <lines, or 'none'>. \
    Write your full report to $WORKSPACE/task-N-report.md. Begin." \
-  > "$LOG" 2>&1 &
+  < /dev/null
 ```
+
+This is a foreground command. Place it inside the self-reaping wrapper in
+`core/liveness.md`; that wrapper exclusively owns backgrounding, logging, and PID
+tracking. Record `BASE=$(git rev-parse HEAD)` before starting the wrapper.
 
 ### Resume — a kill is a checkpoint, not a restart (from archive/v1.1)
 

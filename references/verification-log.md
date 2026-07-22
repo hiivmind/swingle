@@ -53,3 +53,22 @@ server-validated knobs); agy and opencode fail quiet and are unconstrained (flag
 read/write, silent knob failures, agy's silent `-p`/auth/brain-file traps). Codex is the
 default lane for writes and structured reviews; the controller hard gate is the only real
 safety boundary on all three.
+
+---
+
+## 2026-07-22 — incident notes from first live /sdd run (smoke test)
+
+- **Stdin-hang gotcha fired in production shape**: a Task-2 dispatch composed inside a
+  compound command omitted `< /dev/null` → codex hung with the documented signature
+  ("Reading additional input from stdin…", log frozen at 39 bytes). Caught by the
+  evidence-first liveness check (triggered by the user asking "is it still running?"),
+  killed, re-dispatched with the redirect — clean DONE. The redirect is easy to drop when
+  the dispatch is embedded in a larger shell line: putting it LAST after the redirections
+  is the safe habit.
+- **pgrep self-match false-alive**: `pgrep -f 'codex exec'` matches the checking shell's
+  own command string and unrelated `codex app-server` daemons; a naive `pkill` then kills
+  the checker itself. Fixed pattern: bracket the first letter (`'[b]in/codex exec'`).
+  dispatch-reference liveness section updated.
+- Full pipeline otherwise green end-to-end: contract compliance (no implementer commits,
+  ≤15-line status blocks), enforced read-only reviewer, two-verdict reviews with
+  file:line evidence, controller gate + commits, ledger, Sol final review READY TO MERGE.

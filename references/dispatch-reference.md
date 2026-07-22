@@ -78,7 +78,9 @@ resuming to see what's already landed.
 Never from memory, never from the fact that no completion notification has arrived.
 
 ```bash
-pgrep -fa 'codex exec|opencode run|agy '        # is the process even alive?
+pgrep -fa '[b]in/codex exec|[o]pencode run|[a]gy '   # is the process even alive?
+# bracket the first letter: a plain pattern matches YOUR OWN check command (the shell's
+# command string contains it) and long-lived `codex app-server` daemons — both false alives
 stat -c 'mtime=%y size=%s' "$LOG"; tail -5 "$LOG"   # when did it last say anything?
 ```
 

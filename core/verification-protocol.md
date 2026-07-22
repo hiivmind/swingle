@@ -91,6 +91,13 @@ For each newly present model in P1's list: one P2-style probe to confirm it actu
 dispatches (catalog `listed` → `verified`). For each model in the catalog now absent:
 record the removal.
 
+### P13 — Reviewer known-defect benchmark
+
+Dispatch the candidate reviewer with the standard task-reviewer contract against
+`tests/fixtures/p13/defect.diff` (+ its brief context in README). PASS iff every finding
+in expected-findings.md is cited at equal-or-higher severity. A false-clean disqualifies
+the candidate for review lanes.
+
 ## Recording
 
 Append to the appropriate verification log:

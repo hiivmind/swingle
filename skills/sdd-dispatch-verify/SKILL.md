@@ -1,53 +1,62 @@
 ---
 name: sdd-dispatch-verify
-description: Re-verify SDD dispatch CLI behavior (codex, opencode, agy) against this plugin's living knowledge base. Use when a CLI version bump is observed, a vendor releases new models, a dispatch behaves contrary to documented gotchas, or the user asks to "verify/test the dispatch CLIs", "re-run the CLI probes", or "check if the SDD reference is current".
+description: Re-verify one SDD dispatch provider pack, or all active packs, against this plugin's living knowledge base. Use when a CLI version bump is observed, a vendor releases new models, a dispatch behaves contrary to documented gotchas, or the user asks to verify the dispatch reference.
 ---
 
 # SDD Dispatch Verification
 
-Knowledge base (this plugin's `references/` directory — the living source of truth):
-- `${CLAUDE_PLUGIN_ROOT}/references/verification-protocol.md` — the probe suite P1–P12
-- `${CLAUDE_PLUGIN_ROOT}/references/dispatch-reference.md` — per-CLI facts + version stamps
-- `${CLAUDE_PLUGIN_ROOT}/references/model-catalog.md` — model inventories + tiering
-- `${CLAUDE_PLUGIN_ROOT}/references/verification-log.md` — append-only verdict history
+## Invocation and scope
 
-## Process
+The argument names exactly one provider id, or `--all-active`. A single-provider round
+edits only `<root>/providers/<id>/` and appends only that pack's
+`verification-log.md`. `--all-active` runs isolated single-provider rounds for every active
+pack. After two or more packs have results worth comparing, append the cross-provider
+synthesis to `<root>/core/verification-log.md`; never put provider-specific evidence there.
 
-1. **Read first**: the verification protocol (probe suite and ground rules) and the
-   current dispatch-reference version stamps. Determine which CLI(s) need a round:
-   compare `codex --version` / `opencode --version` / `agy --version` against the stamps,
-   and `opencode models` / `agy models` against the model catalog.
+Knowledge base (all paths are relative to the plugin tree root `<root>`):
 
-2. **Run the probe suite** for each affected CLI, in the session scratchpad directory.
-   Ground rules that must not be skipped:
-   - never mask exit codes with pipes (use `${PIPESTATUS[0]}` or unpiped `$?`)
-   - verify side effects on disk, never from agent prose
-   - bound every probe with `timeout`; treat 124/143 as "hangs"
-   - use each CLI's cheapest model for probes
+- `<root>/core/verification-protocol.md` — portable probe and benchmark requirements
+- `<root>/core/verification-log.md` — append-only cross-provider synthesis
+- `<root>/providers/<id>/pack.md` — provider facts, version stamp, and canonical dispatch
+- `<root>/providers/<id>/models.md` — provider model inventory and statuses
+- `<root>/providers/<id>/verification-log.md` — provider-specific append-only verdicts
 
-3. **Record**: append a dated verdict-matrix entry to `references/verification-log.md`
-   (Confirmed / Refuted / Refined / New, with one-line raw evidence). Never edit prior
-   entries — contradictions date behavior changes.
+## Procedure
 
-4. **Update the living docs**: `references/dispatch-reference.md` (facts + version
-   stamps), `references/model-catalog.md` (inventories, verified-status, watch list,
-   release history). If findings change how the `sdd` skill should dispatch, update
-   `${CLAUDE_PLUGIN_ROOT}/skills/sdd/SKILL.md` and the contracts in
-   `${CLAUDE_PLUGIN_ROOT}/contracts/` in the same round.
+1. **Validate before probing.** Run `scripts/validate-packs --root <root>` and proceed only
+   when it passes. The validator and repository fixtures are the portable gate.
 
-5. **Clean up** all probe artifacts: scratchpad files, throwaway git repos, and any
-   `/tmp` files created by the sandbox-escape probe (P7).
+2. **Read the selected pack first.** Read the verification protocol, then its `pack.md`,
+   `models.md`, and verification log. Compare the manifest's `version-argv` output with
+   `verified-version`, and identify the affected models and trigger.
 
-6. **Commit** in the plugin's own repo (`git -C "${CLAUDE_PLUGIN_ROOT}" …` if working the
-   installed copy is the source checkout; otherwise commit in the source checkout and
-   reinstall). Bump the plugin version in `.claude-plugin/plugin.json` for behavior-fact
-   changes. Message like:
-   `verify: round YYYY-MM-DD — <cli> <old>→<new>, <headline finding>`.
+3. **Run live smoke probes where the CLI exists.** P1–P12 are environment smoke tests, not
+   portable assertions: run them only in an environment with the selected provider CLI.
+   Work in a session scratchpad and follow the pack's canonical dispatch template. Never
+   mask exit codes with pipes; verify side effects on disk; bound every probe with
+   `timeout`; and use the cheapest eligible model.
+
+4. **Qualify new models for their lane.** Before adding a new review-lane model, dispatch it
+   with the standard task-reviewer contract against `tests/fixtures/p13/defect.diff` and its
+   README context. It must satisfy P13 at the specified severity; a false-clean excludes it
+   from review lanes. Before adding a new implement-lane model, run a small-implementer
+   probe and verify its real working-tree result.
+
+5. **Record only the active pack.** Append a dated verdict matrix with raw evidence to
+   `providers/<id>/verification-log.md`. Update only that pack's `pack.md` and `models.md`
+   when evidence changes facts, versions, or model status. Never rewrite earlier log entries.
+
+6. **Synthesize only across providers.** If this round supplies a comparison spanning two or
+   more packs, append the dated synthesis to `core/verification-log.md`. Otherwise leave the
+   core log unchanged.
+
+7. **Clean up and release.** Remove scratchpad artifacts and any test writes outside the
+   workspace. For every verification commit, bump the plugin version by one patch and keep
+   the repository version references aligned.
 
 ## Cautions
 
-- agy's permission model flipped completely between patch releases (1.1.1 → 1.1.4);
-  never assume any CLI's permission/sandbox behavior survived a version bump.
-- agy dispatches must put `-p "<PROMPT>"` last; codex and agy need `< /dev/null`.
-- These probes execute real dispatches that can WRITE (agy/opencode have no sandbox):
-  run only in the scratchpad, on a clean tree, and diff after.
+- Never assume a provider's permission or sandbox behavior survived a version bump.
+- These probes can write: run only in the scratchpad, on a clean tree, and inspect the diff
+  afterward.
+- `--all-active` is orchestration, not permission to blend pack facts or logs.

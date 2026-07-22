@@ -3,122 +3,134 @@ name: sdd
 description: Execute an implementation plan via subagent-driven development with external-CLI dispatch (codex/opencode/agy). Use whenever executing a written plan with SDD — wraps superpowers:subagent-driven-development and applies the external-dispatch optimizations mechanically. Triggers: "run this plan with SDD", "/sdd", "execute the plan via subagents", the Standard Delivery Flow reaching its execute step.
 ---
 
-# SDD with External-CLI Dispatch
+# SDD with Provider Packs
 
-This skill wraps **superpowers:subagent-driven-development**: that skill's process governs
-(per-task loop, task-brief/review-package scripts, statuses, two-verdict reviews, fix
-loops, ledger, pre-flight scan, final review). This skill replaces its **dispatch
-mechanism** with external CLIs.
+**Harness**: identify your controlling harness and read `harnesses/<harness>.md` (claude-code, codex) before Step 0 — it maps skill-loading, native subagent dispatch, task tracking, background jobs, and asset-root resolution. All paths below are relative to the plugin tree root `<root>` (the directory containing `skills/`, `core/`, `providers/`).
 
-Plugin references (read when a step needs detail):
-- `${CLAUDE_PLUGIN_ROOT}/references/sdd-external-dispatch.md` — the playbook + rationale
-- `${CLAUDE_PLUGIN_ROOT}/references/dispatch-reference.md` — verified per-CLI behavior, gotchas, liveness protocol
-- `${CLAUDE_PLUGIN_ROOT}/references/model-catalog.md` — role→tier→model table (the authority for model choice)
+This skill wraps **superpowers:subagent-driven-development**. Its process governs the
+per-task loop, task briefs and review packages, statuses, two-verdict reviews, fix loops,
+ledger, pre-flight scan, and final review. This skill replaces its dispatch mechanism with
+the active provider pack or, when selected, harness-native subagents.
+
+Read these plugin documents when their policy is needed:
+
+- `<root>/core/playbook.md` — SDD process mapping, dispatch flavours, and controller gates
+- `<root>/core/roles.md` — role, tier, and lane policy
+- `<root>/core/liveness.md` — required background and stall protocol
+- `<root>/core/safety-doctrine.md` — containment and controller-gate doctrine
+- `<root>/core/verification-protocol.md` and `<root>/core/verification-log.md` — verification policy and history
+- `<root>/providers/<id>/pack.md` and `models.md` — validated provider behavior, canonical dispatch, and model candidates
 
 ## Step 0 — Setup (once per session, before Task 1)
 
-1. Invoke `superpowers:subagent-driven-development` and follow its process EXCEPT the
+1. Use the harness adapter's skill-loading mechanism to invoke
+   `superpowers:subagent-driven-development`, then follow its process except for its
    dispatch steps, which this skill overrides.
-2. Run its `scripts/sdd-workspace`; copy the operating contracts into it:
-   `cp "${CLAUDE_PLUGIN_ROOT}/contracts/"*.md "$WORKSPACE"/`
+2. Run its `scripts/sdd-workspace`; copy the operating contracts into it from
+   `<root>/contracts/`.
 3. Check the ledger (`$WORKSPACE/progress.md`) — never re-dispatch a completed task.
-4. Read the role→model table from `${CLAUDE_PLUGIN_ROOT}/references/model-catalog.md`
-   and note the routing lever in effect: silent → "floor it" (cheapest model clearing
-   each bar); "play it safe" → one tier up on implementers; "via agy" / "delegate
-   mechanical to opencode" / "all Claude" reroute lanes. **"all Claude" = use the stock
-   skill's Agent-tool dispatch and skip this skill's overrides.**
+4. Read `<root>/core/roles.md`, `<root>/core/playbook.md`,
+   `<root>/core/safety-doctrine.md`, and `<root>/core/liveness.md`; determine the routing
+   lever in effect: silent means “floor it”, “play it safe” moves implementers one tier up,
+   and a provider or lane directive steers eligible work. The `native-subagents` lever
+   uses the harness-native subagent mechanism; under Claude Code, “all Claude” is its
+   alias.
+4b. **Trust gate**: run `python3 <root>/scripts/validate-packs --root <root>` — refuse
+   to proceed past a non-zero exit. THEN check `git -C <root> status --porcelain
+   providers/` — any untracked or modified provider directory requires explicit user
+   approval before its manifest or prose is used (git-tracked state is the trust anchor).
+5. **Detect providers**: read each <root>/providers/*/pack.md manifest; a provider is
+   INSTALLED iff `command -v -- "<cli>"` succeeds for its validated cli name (data-only
+   manifests — never execute manifest strings as shell; argv[0]==cli is
+   validator-enforced). Apply layered config (first found): $SDD_DISPATCH_CONFIG →
+   <project>/.sdd-dispatch.json → ${XDG_CONFIG_HOME:-~/.config}/sdd-dispatch/config.json
+   — disable/steer only; malformed/wrong-typed config, an unknown provider ID in
+   `disable`, `default_provider`, or any `providers_by_lane` value, a disabled
+   default_provider or providers_by_lane target, or set-but-unreadable
+   $SDD_DISPATCH_CONFIG = STOP with the error. ACTIVE = installed − disabled
+   (− incompatible iff require-verified-version).
+6. **Compatibility**: compare `version-argv` output to `verified-version`; mismatch →
+   warn and suggest `sdd-dispatch-verify <id>` (block iff config require-verified-version).
+7. **Provider routing (before any model resolution)**: FIRST, if the `native-subagents`
+   lever (or per-task native directive) is in effect → bypass external dispatch entirely
+   (harness-native subagents per adapter; no provider is selected). Otherwise: per-task
+   provider directive → session lever → config providers_by_lane[lane-of-role] /
+   default_provider → codex-if-active else sole-active-iff-exactly-one → ask. Inactive
+   provider named anywhere → ask, never silently reroute.
+8. **Resolve model within the routed provider**: role → (tier, lane) via core/roles.md →
+   ordered candidates in the pack's models.md (eligible statuses verified/experimental;
+   exact-lane rows by priority, THEN (tier, any) rows by priority — this order is the
+   complete fallback sequence); take the first; none → ask the user.
+   (`scripts/validate-packs --resolve "<role>" <provider>` prints the walk and order.)
+9. **Readiness**: before the FIRST dispatch to a chosen provider, run its bounded
+   preflight (version + session-list/auth probe per manifest); failures are
+   channel-class → fallback rules.
+10. **Failure classes**: channel failures (auth, model-not-found, startup stall) may
+    advance to the NEXT candidate in the resolution order (same provider; max 3 total
+    attempts per (task, role)); cross-provider moves are ALWAYS a user question. Ledger
+    line per attempt:
+    `model-attempt: task=<N> role=<role> provider=<id> model=<id> class=<channel|quality> outcome=<failed|ok>`
+    — channel-failed (provider, model) pairs are excluded session-wide and rebuilt from
+    the ledger after compaction; quality failures (BLOCKED, repeated review rejection)
+    create no exclusion and NEVER auto-fall-back — escalate tier or adjudicate.
 
-## Dispatch overrides (replace the skill's "dispatch subagent" steps)
+## Dispatch overrides (replace the stock skill's dispatch steps)
 
-**Implementer** (default lane codex; model from the catalog table — ALWAYS explicit):
-```bash
-BASE=$(git rev-parse HEAD)   # record BEFORE dispatch; never HEAD~1 later
-LOG=$WORKSPACE/task-N.log
-timeout --kill-after=30s <backstop≈4-5x estimate> \
-codex exec -m <model> -C <repo> -s workspace-write -c approval_policy="never" \
-  -c model_reasoning_effort=<effort> --skip-git-repo-check -o $WORKSPACE/task-N-status.md \
-  "Read $WORKSPACE/implementer-contract.md — your operating contract. \
-   Read $WORKSPACE/task-N-brief.md — your complete requirements. \
-   Scene: <one line: where this task fits>. \
-   Interfaces from prior tasks: <lines, or 'none'>. \
-   Write your full report to $WORKSPACE/task-N-report.md. Begin." \
-  > "$LOG" 2>&1 &
-```
-Run in background; apply the **liveness protocol** (stall evidence is the only kill
-criterion, never elapsed time — full rules in dispatch-reference.md).
+For every external implementer, reviewer, final reviewer, and resumed fix, use the active
+pack's canonical dispatch template (pack.md) inside the self-reaping wrapper
+(`core/liveness.md`). The adapter specifies how that background work is started and
+observed in the current harness. Keep stdout in the per-task log and record the provider
+session identifier for continuation.
 
-**Self-reaping dispatch (harness background tasks — the standard shape):** wrap the CLI
-and its stall watch in ONE background command, so stalls are killed at threshold without
-controller turns, the controller stays free to answer the user, and the completion
-notification means "finished or stall-killed":
-```bash
-<cli dispatch> > "$LOG" 2>&1 &
-CLI=$!
-while kill -0 $CLI 2>/dev/null; do
-  age=$(( $(date +%s) - $(stat -c %Y "$LOG") ))
-  [ $age -gt <stall-threshold, 300 for codex/opencode> ] && { kill $CLI; echo "STALL-KILLED after ${age}s log silence"; break; }
-  sleep 10
-done
-wait $CLI 2>/dev/null; echo "cli exit=$?"
-```
-(For agy, watch process existence + `--print-timeout`, not log age — it buffers and a
-log-age watch WOULD kill healthy runs.)
-**Threshold scales with reasoning effort** — silence is only stall evidence relative to
-the model's expected cadence: 300s at low/medium effort; 600–900s for high/xhigh-effort
-dispatches, whose single thinking steps can legitimately exceed 5 min of no output. And a
-stall-kill is always a checkpoint, never a loss: session id + working tree survive; if a
-killed run turns out to have been healthy (resume shows real progress), resume it and
-raise the threshold — never lower it mid-plan on suspicion alone.
-Never dispatch foreground for anything longer than a sub-minute probe: a foreground call
-blocks the controller from answering the user AND disables the stall rule — the only kill
-left is the coarse backstop.
+For native-subagent routing, use the adapter's native subagent mechanism instead. The
+controller still supplies the applicable contract, brief, scene, interface list, and report
+path; provider routing and model resolution do not apply.
 
-**Task reviewer** — same shape but **`-s read-only`** (enforced), reviewer-tier model,
-prompt names: `task-reviewer-contract.md`, the brief, the report, the review-package
-path, and the global constraints copied VERBATIM from the plan. Phrase the restriction
-"review only, change nothing in the repo; writing your review file is allowed" — a bare
-"modify nothing" makes obedient models skip the review file and answer inline (fine, but
-then the verdicts live only in the log tail).
+**Implementer:** use the implement role and selected tier/lane. The prompt references the
+implementer contract and task brief by path, states the scene and prior interfaces, and
+requires the report path. Record BASE before dispatch; implementers do not commit.
 
-**Fix / NEEDS_CONTEXT** — never a cold dispatch: resume the implementer's session
-(`codex exec resume --last "<answers or findings list>"`; opencode `run -s <id>`;
-agy `--conversation <id>`), then re-review.
+**Task reviewer:** use the review role and selected tier/lane. Provide the task reviewer
+contract, brief, report, review-package path, and global constraints verbatim. Say:
+“review only, change nothing in the repo; writing your review file is allowed.” Apply an
+enforced read-only lane where the pack provides one; otherwise obey
+`core/safety-doctrine.md`.
 
-## Flavour choice (be explicit which "dispatch" you mean)
+**Fix / NEEDS_CONTEXT:** do not cold-dispatch. Resume the implementer through the active
+pack's validated continuation mechanism with the answers or findings list, then re-review.
+
+**Re-reviews (default: same thread):** resume the ORIGINAL reviewer's session with the fix
+summary and the updated review package — the reviewer keeps its own findings in context, so
+the re-review verifies fixes instead of re-deriving the review, and verdict continuity is
+explicit ("your Important finding is fixed" beats a cold reviewer guessing severity anew).
+Capture the reviewer's session id at first dispatch (per the pack's `session-source`) and
+record it in the ledger beside the task. If the resume channel fails or the pack lacks one,
+fall back to a cold re-review dispatch that attaches the prior review verbatim plus the fix
+report. The same applies to multi-round final reviews.
+
+## Flavour choice (be explicit which “dispatch” you mean)
 
 - **Inline** (no dispatch): task below the orchestration floor — a single-file mechanical
-  fix the controller finishes in <~2k tokens. Batch several such tasks into one
-  ext-dispatch instead of paying per-task cold starts.
-- **Ext-dispatch** (this skill's default): Bash → external CLI, per the templates above.
-- **Supervised ext-dispatch** (long plans, > ~8 tasks): spawn ONE cheap Claude subagent
-  (haiku/sonnet, Agent tool) per task-cycle to run the ext-dispatch templates, liveness,
-  mechanical gate, and reviewer dispatch, returning a single report with evidence paths.
-  Adjudication and commits STILL happen here in the main thread.
-- **Sub-dispatch** (Claude subagent does the work itself) = the "all Claude" lever.
-Economics table: references/sdd-external-dispatch.md "Dispatch flavours & economics".
+  fix the controller finishes in roughly 2k tokens. Batch several such tasks into one pack
+  dispatch rather than paying per-task cold starts.
+- **Pack dispatch** (default): external provider dispatch through the active pack.
+- **Supervised pack dispatch** (long plans, more than about eight tasks): one cheap native
+  subagent (see adapter) per task cycle manages pack dispatch, liveness, the mechanical
+  gate, and reviewer dispatch, returning a concise report with evidence paths.
+  Adjudication and commits remain in the main thread.
+- **Sub-dispatch** (native subagent does the work itself): the `native-subagents` lever.
+
+For the economics and the detailed controller loop, read `<root>/core/playbook.md`.
 
 ## Controller rules (the hard gate — never offloaded)
 
-- Read back ONLY the status block, `git diff --stat`, and reviewer verdicts. Full diff
-  only on findings, ⚠️ items, critical paths, or stat/report disagreement. Never let CLI
-  stdout or full logs into context.
-- On DONE: re-run the covering tests yourself (output to file, read tail), then
-  **you commit** (implementers must not; codex cannot). Then `review-package $BASE HEAD`.
-- Ledger line per completed task: `Task N: complete (commits <b7>..<h7>, review clean, session <id>)`.
-- Adjudication stays yours: statuses, ⚠️ resolution, plan contradictions → batched to the
-  human. Never parallel implementers. Never re-dispatch a ledgered task.
-- Final whole-branch review: most-capable tier, `review-package MERGE_BASE HEAD` +
-  Minor-findings list; ONE consolidated fix dispatch if findings.
-
-## Gotcha quick-list (full detail: references/dispatch-reference.md)
-
-`< /dev/null` on codex/agy always · agy `-p "<PROMPT>"` LAST · opencode prompt positional
-(`-p`=password) · agy buffers (judge liveness by process, not log growth; brain-file sweep
-if stdout empty) · only codex is sandboxed — clean tree before, diff after, on agy/opencode
-· user asks "still running?" → check evidence immediately, never assert from belief
-· dispatch with the self-reaping wrapper (auto-kills on stall, notification == outcome);
-kill by recorded pid, never pkill-by-pattern from a dispatching shell; foreground only
-for sub-minute probes
-· opencode can hang at startup with a forever-0-byte log — stall rules apply from byte 0;
-after 2 consecutive channel stalls on a small fix, do it inline
-· opencode session ids come from `opencode session list`, not the run log.
+- Read only the status block, `git diff --stat`, and reviewer verdicts by default. Read a
+  full diff only for findings, warning items, critical paths, or report/stat disagreement.
+- On DONE, re-run the covering tests, commit only after the controller's gate, then create
+  the review package from BASE to HEAD.
+- Record completed tasks and session identifiers in the ledger. Never parallel
+  implementers or re-dispatch a ledgered task.
+- Keep adjudication in the controller: statuses, cannot-verify-from-diff items, and plan
+  contradictions go to the human when needed.
+- Perform the final whole-branch review with the most-capable review tier and one
+  consolidated fix cycle for findings.

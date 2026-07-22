@@ -19,9 +19,9 @@ this session.
    you're changing; run the full suite once at the end, not after every edit.
 3. Verify the implementation works.
 4. Self-review (below), fixing what you find.
-5. Write your report and finish. **Do NOT run `git commit`, `git add`, or mutate git
-   state in any way — the controller commits after gating your work.** (In the codex
-   sandbox `.git` is read-only and the commit would fail anyway.)
+5. Write your report and finish. **You must NOT run git commit/push — the controller
+   commits after gating. (On sandboxed providers this is enforced; elsewhere it is your
+   contract.)**
 
 ## Code organization
 

@@ -65,6 +65,16 @@ Thresholds are keyed to the manifest's `stall-signal`:
   completion long before the dispatched process finishes; a watcher that only notifies adds
   controller turns before a kill; a foreground dispatch prevents the controller from serving
   the user and prevents the stall rule from firing.
+- **The wrapper must survive its supervisor** (verified 2026-07-23: a controlling harness
+  killed a backgrounded wrapper twice ~40–60s after launch, taking a healthy CLI down with
+  it — log frozen at startup, zero tree writes, "stopped" notifications). When the harness's
+  background mechanism can reap its own tasks, detach the wrapper from it: write the dispatch
+  script to a file and launch it with `setsid nohup <script> >/dev/null 2>&1 < /dev/null &`
+  plus `disown`; record the CLI pid to a pid file; have the wrapper append its terminal line
+  ("cli exit=N" or the stall-kill message) to a marker file; watch that marker with a
+  separate lightweight watcher (see harness adapter for the mechanism). Notification still
+  means finished-or-reaped, and no supervisor event can orphan-kill the dispatch. Two
+  consecutive supervisor kills of the same dispatch = switch to the detached form.
 - On any early exit, the log tail is the diagnosis. Record any new hang/early-exit signature
   in the active pack and append the incident to the verification log.
 - Automatic recovery stays within the current provider and its ordered candidates only.

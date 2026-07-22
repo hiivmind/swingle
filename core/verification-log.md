@@ -102,3 +102,17 @@ commit addressed 8 (Claude smoke deferral accepted under Task 10 Step 3c). Round
 one ordering regression (native bypass vs config load); fixed with regression test.
 Round 3 verdict: READY TO MERGE. Final gates: pytest 31/31, validate-packs CLEAN,
 codex-smoke 4/4 (incl. fresh clone).
+
+---
+
+## 2026-07-23 — harness-kill of backgrounded wrappers (v1.2.0 execution run)
+
+During Task 7 of the migration run, the controlling harness killed the backgrounded
+dispatch wrapper twice, ~40–60s after launch (harness "stopped" notifications; log
+frozen at CLI startup; zero tree writes; no CLI process remaining). The CLI itself was
+healthy both times. Mitigation verified in the same run and used for all remaining
+dispatches: detach the wrapper (`setsid nohup` + pid file + terminal marker file) and
+watch the marker from a separate lightweight watcher. Doctrine added to core/liveness.md
+("the wrapper must survive its supervisor"); harness mechanism noted in the claude-code
+adapter. Also verified this run: the provider resume surface accepts only config-override
+flags (recorded in the codex pack, 2026-07-23).

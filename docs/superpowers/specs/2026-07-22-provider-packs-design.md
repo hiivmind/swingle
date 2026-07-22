@@ -75,14 +75,19 @@ output conventions. All content that today lives in that provider's section of
 ### `models.md`
 Tier→model table for this provider:
 
-| Tier | Model id | Status | Pricing | Rationale |
-| --- | --- | --- | --- | --- |
-| cheapest | … | verified/listed/rejected | … | … |
-| standard | … | | | |
-| most-capable | … | | | |
+| Tier | Priority | Model id | Status | Pricing | Rationale |
+| --- | --- | --- | --- | --- | --- |
+| cheapest | 1 | … | verified/listed/rejected | … | … |
+| standard | 1 | … | | | |
+| most-capable | 1 | … | | | |
 
-A tier MAY list alternates (multiple rows per tier, first row = default; e.g. opencode's
-adaptation tier carries minimax-m3 and qwen3.7-plus).
+A tier MAY list alternates: multiple rows per tier, ordered by an explicit **Priority**
+column (1 = default; ascending = fallback order when the default is unavailable,
+rejected, or has just failed a task in this session). Row order in the file carries no
+meaning — only Priority does. Rows with Status `rejected` are never resolved regardless
+of priority (they remain in the table as documented evidence). Duplicate priorities
+within a tier are a pack validity error. Example: opencode adaptation tier —
+minimax-m3 priority 1, qwen3.7-plus priority 2.
 Plus watch list and rejected-models section (with evidence links into the pack's log).
 Namespaces, free-tier caveats, and per-model warnings (e.g. Luna long-context recall)
 live here.
@@ -172,7 +177,8 @@ enable an undetected CLI.
 2. **Resolution**: one tiny ext-dispatch resolving role→tier→model purely through the
    new pack files (no old paths anywhere in the skill run).
 3. **Pack validity**: front-matter of each pack parses; `detect`/`version-probe`
-   commands run clean.
+   commands run clean; every tier in `models.md` has exactly one priority-1 row and no
+   duplicate priorities; no `rejected` row is resolvable.
 4. **Tombstones**: grep the repo for references to the five old paths — only tombstones
    remain.
 

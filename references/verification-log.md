@@ -1,7 +1,7 @@
 # SDD Dispatch Verification Log
 
 Append-only. Never rewrite prior entries — a later contradiction dates a behavior change.
-Format per [verification-protocol.md](verification-protocol.md).
+Format per [verification-protocol.md](../core/verification-protocol.md).
 
 ---
 

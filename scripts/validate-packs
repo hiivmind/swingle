@@ -128,13 +128,21 @@ def check_repo_docs(root):
     plugin_version = json.loads(plugin.read_text()).get("version") if plugin.exists() else None
     match = re.search(r"\*\*Version:\*\*\s*([0-9.]+)", readme.read_text()) if readme.exists() else None
     if plugin_version and match and plugin_version != match.group(1): find(f"version mismatch: plugin.json {plugin_version} != README {match.group(1)}")
-    banned, links = re.compile(r"gpt-5\.6|gemini-3|opencode-go/|deepseek|minimax|qwen|glm-5|Agent tool|TodoWrite|CLAUDE_PLUGIN_ROOT|spawn_agent"), re.compile(r"\]\(([^)#http][^)#]*)")
+    banned = re.compile(r"gpt-5\.6|gemini-3|opencode-go/|deepseek|minimax|qwen|glm-5|Agent tool|TodoWrite|CLAUDE_PLUGIN_ROOT|spawn_agent")
     for directory in ("core", "contracts"):
         for path in sorted((root / directory).glob("*.md")) if (root / directory).exists() else []:
             for n, line in enumerate(path.read_text().splitlines(), 1):
                 if banned.search(line) and "routing" not in line and "precedence" not in line: find(f"{path}:{n}: purity violation: {line.strip()[:70]}")
-    # Link validation is deliberately outside this pack-layout gate.  Review reports
-    # contain line-addressed Markdown references, which are not filesystem links.
+    link_re = re.compile(r"\]\(([^)#http][^)#]*)")
+    for path in sorted(root.rglob("*.md")):
+        relative = path.relative_to(root)
+        if "archive/" in str(relative) or ".git" in path.parts or ".superpowers" in path.parts: continue
+        if relative.parent == Path("docs") and relative.match("sol-*.md"): continue
+        if str(relative).startswith("docs/superpowers/"): continue  # specs/plans: planning artifacts, illustrative links
+        for n, line in enumerate(path.read_text().splitlines(), 1):
+            for target in link_re.findall(line):
+                if target.startswith("/"): continue
+                if not (path.parent / target).exists(): find(f"{path}:{n}: broken link {target}")
 
 def main():
     ap = argparse.ArgumentParser(); ap.add_argument("--root", default="."); ap.add_argument("--resolve", nargs=2, metavar=("ROLE", "PROVIDER")); ap.add_argument("--exclude", action="append", default=[]); ap.add_argument("--check-config"); ap.add_argument("--step0", action="store_true"); ap.add_argument("--config"); ap.add_argument("--path-dir", action="append", default=[]); ap.add_argument("--lever"); ap.add_argument("--task-provider"); ap.add_argument("--role"); a = ap.parse_args()

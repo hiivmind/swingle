@@ -1,7 +1,7 @@
 # SDD Dispatch Reference — codex / opencode / agy
 
 > Living document. Every fact is stamped with the CLI version it was verified against.
-> If the installed version differs, re-run the [verification protocol](verification-protocol.md) before trusting this page.
+> If the installed version differs, re-run the [verification protocol](../core/verification-protocol.md) before trusting this page.
 
 ## Cross-CLI comparison (the one-glance table)
 

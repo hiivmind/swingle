@@ -50,7 +50,10 @@ dispatch-reference.md).
 
 **Task reviewer** — same shape but **`-s read-only`** (enforced), reviewer-tier model,
 prompt names: `task-reviewer-contract.md`, the brief, the report, the review-package
-path, and the global constraints copied VERBATIM from the plan.
+path, and the global constraints copied VERBATIM from the plan. Phrase the restriction
+"review only, change nothing in the repo; writing your review file is allowed" — a bare
+"modify nothing" makes obedient models skip the review file and answer inline (fine, but
+then the verdicts live only in the log tail).
 
 **Fix / NEEDS_CONTEXT** — never a cold dispatch: resume the implementer's session
 (`codex exec resume --last "<answers or findings list>"`; opencode `run -s <id>`;
@@ -87,4 +90,9 @@ Economics table: references/sdd-external-dispatch.md "Dispatch flavours & econom
 `< /dev/null` on codex/agy always · agy `-p "<PROMPT>"` LAST · opencode prompt positional
 (`-p`=password) · agy buffers (judge liveness by process, not log growth; brain-file sweep
 if stdout empty) · only codex is sandboxed — clean tree before, diff after, on agy/opencode
-· user asks "still running?" → check evidence immediately, never assert from belief.
+· user asks "still running?" → check evidence immediately, never assert from belief
+· in harness background tasks run the CLI foreground-in-wrapper (notification == CLI exit)
++ a stall-watcher; kill by recorded pid, never pkill-by-pattern from a dispatching shell
+· opencode can hang at startup with a forever-0-byte log — stall rules apply from byte 0;
+after 2 consecutive channel stalls on a small fix, do it inline
+· opencode session ids come from `opencode session list`, not the run log.

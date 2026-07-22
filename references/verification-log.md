@@ -72,3 +72,55 @@ safety boundary on all three.
 - Full pipeline otherwise green end-to-end: contract compliance (no implementer commits,
   ≤15-line status blocks), enforced read-only reviewer, two-verdict reviews with
   file:line evidence, controller gate + commits, ledger, Sol final review READY TO MERGE.
+
+---
+
+## 2026-07-22 — smoke run 2 (opencode all-lanes), cut short by user at Task 3
+
+Plan: 3-task wordstats toolkit with a deliberate NEEDS_CONTEXT trap (brief referenced a
+nonexistent docs/output-format.md). Tasks 1–2 completed and review-approved; Task 3
+(README) skipped when the run was cut short.
+
+**What worked (verified in anger):**
+- `NEEDS_CONTEXT` → resume channel: `qwen3.7-plus` refused to guess the missing format
+  spec — STATUS: NEEDS_CONTEXT, zero tree writes, precise gap named. Controller committed
+  the missing doc and resumed with `-s <id>`; implementation then matched the spec
+  byte-for-byte (verified with `cat -A`).
+- Reviewer quality at the deepseek-v4-pro tier: caught (1) a tie-breaking test whose input
+  contained no tie — mandatory behavior untested while all tests passed; (2) traceback on
+  directory/permission paths where the spec required stderr + exit 2. Both genuine, both
+  file:line-cited. Re-reviews via reviewer-session resume worked.
+- 5-minute stall watchers caught every hang at threshold. Both times the user asked
+  "is it still running?" the evidence said no — the prior holds.
+
+**New findings (all opencode v1.17.18 / Zen, this machine):**
+1. **Intermittent zero-output startup hang on backgrounded `opencode run`** — process
+   alive, log 0 bytes forever, exit codes useless. ~5 occurrences in a ~40-min window
+   (22:46–23:18+), hitting `-s` resume, `--fork`, and cold dispatches alike; every
+   FOREGROUND run in the same window (incl. `--dir`-scoped PONG probes) succeeded
+   instantly. Eliminated: session-specific state, wedged daemon, per-project `--dir`
+   state. Unresolved — suspect interaction between opencode startup and non-tty/piped
+   stdio under the background harness. Mitigations now in the skill: 0-byte log past the
+   5-min threshold = stall (kill/checkpoint/retry); after 2 consecutive channel stalls on
+   a sub-2k-token fix, drop to inline (flavour rules already price this); foreground
+   dispatch is the fallback lane for short tasks.
+2. **`pkill` self-kill from a dispatching shell**: a wrapper shell whose command line
+   embeds the dispatch string (`bash -c '… opencode run …'`) matches
+   `pkill -f '[o]pencode run'` — the bracket trick does not protect it. The shell killed
+   itself before launching (observed exit 144/125 pair). Rule: from any shell that also
+   dispatches, kill by RECORDED PID only, never by pattern.
+3. **Harness wrapper notifications ≠ CLI completion**: backgrounding the CLI with `&`
+   inside a backgrounded harness command makes the harness report "completed" when the
+   wrapper exits, seconds after launch. Rule: in harness background tasks run the CLI in
+   the wrapper's foreground so notification == CLI exit; pair with a stall watcher.
+4. **Reviewer prompt phrasing**: "you are READ-ONLY: modify nothing" made the reviewer
+   (correctly) skip writing its review file — it reviewed inline to stdout instead.
+   Verdicts were still delivered; phrase as "review only, change nothing in the repo;
+   writing your review file is allowed".
+5. `opencode session list` is the session-id source — ids are NOT printed in plain-text
+   run logs. Resume (`-s`) and `--fork` both function when the channel isn't hanging
+   (finding 1); one resume hang recovered on plain retry.
+
+**Cost note:** the productive path (2 tasks, 2 reviews, 2 fix loops, resume Q&A) was
+~35 min wall-clock; the hang windows added ~40 min of detection/retry. Detection cost is
+bounded by the 5-min threshold — the protocol worked; the channel was the problem.

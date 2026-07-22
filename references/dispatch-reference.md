@@ -107,7 +107,17 @@ Stall thresholds by CLI (how "silence" maps to "stalled"):
 - **Check on cadence, not on suspicion**: after launching background dispatches, check
   liveness at the first stall threshold — don't wait for the user to ask.
 - **The user asking "is it still running?" is itself evidence it probably isn't.** Run the
-  check immediately; never answer from belief.
+  check immediately; never answer from belief. (Track record so far: 3 asks, 3 stalls.)
+- **Kill by recorded PID, never by pattern, from any shell that also dispatches.** A
+  wrapper shell embeds the dispatch string in its own command line, so even a bracketed
+  `pkill -f '[o]pencode run'` kills the wrapper itself (observed 2026-07-22: shell died
+  pre-launch, exit 125/144, 0-byte log). Capture `$!`/pgrep the specific pid at dispatch
+  time; pattern-kill only from a shell that dispatches nothing.
+- **Harness background tasks: run the CLI in the wrapper's foreground.** Backgrounding
+  with `&` inside an already-backgrounded harness command makes the harness "completed"
+  notification fire when the wrapper exits — seconds after launch, not when the CLI
+  finishes. Foreground-in-wrapper makes notification == CLI exit; pair it with a separate
+  stall-watcher loop (wake on process exit OR log-silence past threshold).
 - On any early exit, the log tail is the diagnosis — silent failure modes already
   documented: agy signed-out (exits quietly), agy `-p` footgun (answers the wrong prompt
   fast), codex stdin hang (waiting on EOF), opencode auth/balance errors (JSON on stdout).
@@ -176,6 +186,16 @@ opencode run --auto -m <provider/model> --variant <high|max|minimal…> \
   attachments, `-s/--session` + `--fork` continuation, `--attach` to a running server.
 - Model namespace: `opencode/<model>` and `opencode-go/<model>` are distinct lists —
   e.g. `deepseek-v4-flash-free` and `gemini-3.5-flash-lite` exist **only** under `opencode/`.
+- **Intermittent zero-output startup hang (observed 2026-07-22, v1.17.18/Zen):**
+  backgrounded `opencode run` occasionally hangs before its first output byte — process
+  alive, log 0 bytes indefinitely; hit resume (`-s`), `--fork`, and cold dispatches alike
+  (~5× in one window) while every foreground run succeeded. Cause undetermined (suspect
+  non-tty/piped stdio at startup). Handling: 0-byte log past the 5-min threshold = stall →
+  kill (by pid), retry once; second consecutive stall → switch to a FOREGROUND dispatch
+  (short tasks) or apply a sub-2k fix inline. Exit codes are useless here — judge by log
+  bytes only.
+- **Session ids are NOT in plain-text run logs** — get them from `opencode session list`
+  (newest first) for `-s` resume/`--fork`.
 
 ---
 

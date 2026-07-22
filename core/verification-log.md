@@ -17,17 +17,9 @@ safety boundary on all three.
 
 ## 2026-07-22 — incident notes from first live /sdd run (smoke test) (from archive/v1.1)
 
-- **Stdin-hang gotcha fired in production shape**: a Task-2 dispatch composed inside a
-  compound command omitted `< /dev/null` → codex hung with the documented signature
-  ("Reading additional input from stdin…", log frozen at 39 bytes). Caught by the
-  evidence-first liveness check (triggered by the user asking "is it still running?"),
-  killed, re-dispatched with the redirect — clean DONE. The redirect is easy to drop when
-  the dispatch is embedded in a larger shell line: putting it LAST after the redirections
-  is the safe habit.
-- **pgrep self-match false-alive**: `pgrep -f 'codex exec'` matches the checking shell's
-  own command string and unrelated `codex app-server` daemons; a naive `pkill` then kills
-  the checker itself. Fixed pattern: bracket the first letter (`'[b]in/codex exec'`).
-  dispatch-reference liveness section updated.
+- (Two incident bullets from this entry — the stdin-hang and the pgrep self-match —
+  contain provider invocation strings and live in providers/codex/verification-log.md
+  per the migration manifest.)
 - Full pipeline otherwise green end-to-end: contract compliance (no implementer commits,
   ≤15-line status blocks), enforced read-only reviewer, two-verdict reviews with
   file:line evidence, controller gate + commits, ledger, Sol final review READY TO MERGE.
@@ -43,11 +35,10 @@ safety boundary on all three.
   providers/opencode/verification-log.md per the migration manifest.)
 
 **New findings (all opencode v1.17.18 / Zen, this machine):**
-2. **`pkill` self-kill from a dispatching shell**: a wrapper shell whose command line
-   embeds the dispatch string (`bash -c '… opencode run …'`) matches
-   `pkill -f '[o]pencode run'` — the bracket trick does not protect it. The shell killed
-   itself before launching (observed exit 144/125 pair). Rule: from any shell that also
-   dispatches, kill by RECORDED PID only, never by pattern.
+2. (The pkill-self-kill finding contains provider invocation strings and lives in
+   providers/opencode/verification-log.md per the migration manifest. Its controller
+   rule — from any shell that also dispatches, kill by RECORDED PID only, never by
+   pattern — is doctrine in core/liveness.md.)
 3. **Harness wrapper notifications ≠ CLI completion**: backgrounding the CLI with `&`
    inside a backgrounded harness command makes the harness report "completed" when the
    wrapper exits, seconds after launch. Rule: in harness background tasks run the CLI in
@@ -65,9 +56,10 @@ bounded by the 5-min threshold — the protocol worked; the channel was the prob
 
 ## Release history (from archive/v1.1)
 
-- **2026-07-21 — Google**: Gemini **3.6 Flash** (new workhorse), **3.5 Flash-Lite**
-  (cheap/fast; *3.5-class — there is no "3.6 Lite"*), **3.5 Flash Cyber** (restricted).
-  Source: blog.google announcement. Table moved all agy Flash rows 3.5 → 3.6 same week.
+- (Release-history entries name provider models; each lives in the pertinent pack's
+  models.md History section per the migration manifest — the 2026-07-21 Google release
+  entry is primary in providers/agy/models.md, mirrored in providers/opencode/models.md.
+  Pre-split original: archive/v1.1/model-catalog.md.)
 
 ---
 

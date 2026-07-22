@@ -43,8 +43,8 @@ The v1.1 archive is a preservation artifact, not a migration destination.
 | references/model-catalog.md:## Watch list (unevaluated arrivals) (opencode arrivals) | providers/opencode/models.md (documentary section) |
 | references/model-catalog.md:## Watch list (unevaluated arrivals) (Google restricted item) | providers/agy/models.md (documentary section) |
 | references/model-catalog.md:## Watch list (unevaluated arrivals) (Google restricted item) | providers/opencode/models.md (mirror) History section |
-| references/model-catalog.md:## Release history | core/verification-log.md (release history entry) |
-| references/model-catalog.md:## Release history (Google 2026-07-21 item) | providers/agy/models.md (mirror) History section |
+| references/model-catalog.md:## Release history (heading + pointer; entries name provider models, excluded from core by purity) | core/verification-log.md (release history pointer) |
+| references/model-catalog.md:## Release history (Google 2026-07-21 item) | providers/agy/models.md History section |
 | references/model-catalog.md:## Release history (Google 2026-07-21 item) | providers/opencode/models.md (mirror) History section |
 | references/sdd-external-dispatch.md:# Mapping superpowers:subagent-driven-development onto External CLIs | core/playbook.md |
 | references/sdd-external-dispatch.md:## How the skill operates (compressed) | core/playbook.md |
@@ -58,7 +58,9 @@ The v1.1 archive is a preservation artifact, not a migration destination.
 | references/verification-log.md:## 2026-07-22 — opencode 1.17.18 (trigger: assertion review) | providers/opencode/verification-log.md |
 | references/verification-log.md:## 2026-07-22 — codex 0.144.3 (trigger: assertion review) (provider findings) | providers/codex/verification-log.md |
 | references/verification-log.md:## 2026-07-22 — codex 0.144.3 (trigger: assertion review) (Cross-CLI synthesis paragraph) | core/verification-log.md |
-| references/verification-log.md:## 2026-07-22 — incident notes from first live /sdd run (smoke test) | core/verification-log.md |
+| references/verification-log.md:## 2026-07-22 — incident notes from first live /sdd run (smoke test) (heading + pipeline-green bullet) | core/verification-log.md |
+| references/verification-log.md:## 2026-07-22 — incident notes (stdin-hang and pgrep-self-match bullets — contain provider invocation strings, excluded from core by purity) | providers/codex/verification-log.md |
+| references/verification-log.md:## 2026-07-22 — smoke run 2 (pkill-self-kill finding 2 — contains provider invocation strings) | providers/opencode/verification-log.md |
 | references/verification-log.md:## 2026-07-22 — smoke run 2 (opencode all-lanes), cut short by user at Task 3 (opencode findings 1 and 5) | providers/opencode/verification-log.md |
 | references/verification-log.md:## 2026-07-22 — smoke run 2 (opencode all-lanes), cut short by user at Task 3 (nemotron addendum context) | providers/opencode/verification-log.md |
 | references/verification-log.md:## 2026-07-22 — smoke run 2 (opencode all-lanes), cut short by user at Task 3 (harness/controller findings 2–4) | core/verification-log.md |

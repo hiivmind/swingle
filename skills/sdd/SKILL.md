@@ -61,7 +61,14 @@ while kill -0 $CLI 2>/dev/null; do
 done
 wait $CLI 2>/dev/null; echo "cli exit=$?"
 ```
-(For agy, watch process existence + `--print-timeout`, not log age — it buffers.)
+(For agy, watch process existence + `--print-timeout`, not log age — it buffers and a
+log-age watch WOULD kill healthy runs.)
+**Threshold scales with reasoning effort** — silence is only stall evidence relative to
+the model's expected cadence: 300s at low/medium effort; 600–900s for high/xhigh-effort
+dispatches, whose single thinking steps can legitimately exceed 5 min of no output. And a
+stall-kill is always a checkpoint, never a loss: session id + working tree survive; if a
+killed run turns out to have been healthy (resume shows real progress), resume it and
+raise the threshold — never lower it mid-plan on suspicion alone.
 Never dispatch foreground for anything longer than a sub-minute probe: a foreground call
 blocks the controller from answering the user AND disables the stall rule — the only kill
 left is the coarse backstop.

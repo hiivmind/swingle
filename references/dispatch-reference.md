@@ -94,7 +94,10 @@ Verdict table:
 
 Stall thresholds by CLI (how "silence" maps to "stalled"):
 - **codex / opencode** stream incrementally (tool calls, shell output) — log silence
-  **> ~5 min** on an active task = stalled.
+  **> ~5 min** on an active task = stalled **at low/medium effort**. At high/xhigh
+  reasoning effort use **600–900s**: a single hard thinking step can legitimately emit
+  nothing for over 5 minutes, and a 300s reaper would kill it healthy. Set the wrapper's
+  threshold from the effort knob at dispatch time.
 - **agy print mode buffers** — the log may legitimately stay empty until the final answer,
   so log-growth is NOT a liveness signal for agy. Rely on `--print-timeout` + process
   existence instead (and remember the brain-file diversion when stdout stays empty at exit).

@@ -13,9 +13,9 @@
 - **Spec is authority**: `docs/superpowers/specs/2026-07-22-provider-packs-design.md` rev 2. On any conflict between this plan and the spec, stop and escalate — do not improvise.
 - **Zero information loss**: `docs/migration-1.2.0.md` (Task 1) maps every heading of the five `references/*.md` files to exactly one destination; every later move follows it. Archive copies in `archive/v1.1/` are byte-identical to the originals.
 - **Append-only history**: log entries are copied whole or split at paragraph level per the manifest — never reworded.
-- **Pack manifest** is declarative data: fields `schema-version, id, cli, verified-version, version-argv, resume-argv, session-source, stall-signal, sandbox` (+ optional `fork-flag`, conditional `session-list-argv`); `id`/`cli` match `[a-z0-9-]+`; argv values are arrays of strings; only placeholder is `{session_id}`; no shell strings.
+- **Pack manifest** is declarative data: fields `schema-version, id, cli, verified-version, version-argv, resume-argv, session-source, stall-signal, sandbox` (+ optional `fork-flag, readiness-argv, readiness-timeout-seconds`, conditional `session-list-argv`); `id`/`cli` match `[a-z0-9-]+`; argv values are arrays of strings; **argv[0] MUST equal `cli`**; no absolute paths or shell metacharacters `;|&<>$` in argv elements; only placeholder is `{session_id}`. Front-matter is the spec's restricted `key: value` grammar (scalars + one-line JSON arrays), NOT general YAML.
 - **models.md**: columns Tier|Lane|Priority|Model id|Status|Pricing|Rationale. Tier ∈ cheapest|standard|most-capable; Lane ∈ implement|review|any; Status ∈ verified|experimental|unavailable|superseded|rejected (eligible: verified, experimental). Per (tier,lane): unique positive priorities, exactly one priority 1. Documentary sections (rejected/watch/history) sit below the resolvable table.
-- **Core purity**: no provider model ids, CLI invocations, or harness tool names in `core/` (single allow-listed exception: the word `codex` in the routing-precedence rule).
+- **Core purity**: no provider model ids, CLI invocations, or harness tool names in `core/` OR `contracts/` (single allow-listed exception: the word `codex` in the routing-precedence rule).
 - **Harness rule**: `${CLAUDE_PLUGIN_ROOT}` appears ONLY in `skills/sdd/harnesses/claude-code.md`.
 - Validation commands are the tests — run exactly as written, expected output stated. `scripts/validate-packs` (Task 6) becomes the gate for all later tasks; Tasks 2–5 use interim greps.
 - Do not bump the version until Task 10.
@@ -130,6 +130,7 @@ session-source: session-list
 session-list-argv: ["opencode", "session", "list"]
 stall-signal: log-age
 sandbox: none
+readiness-argv: ["opencode", "session", "list"]
 ---
 ```
 
@@ -243,16 +244,48 @@ def test_config_malformed_fails_closed():
 def test_config_disabled_default_fails():
     r = run("--check-config", str(FIX / "config-disabled-default.json"))
     assert r.returncode == 1 and "default_provider" in r.stdout
+
+def test_argv0_mismatch_fails():
+    r = run("--root", str(FIX / "bad-argv0"))
+    assert r.returncode == 1 and "argv[0]" in r.stdout
+
+def test_shell_metachar_argv_fails():
+    r = run("--root", str(FIX / "bad-metachar"))
+    assert r.returncode == 1 and "metacharacter" in r.stdout
+
+def test_exclusion_advances_fallback():
+    r = run("--root", str(FIX / "good-lanes"), "--resolve", "per-task reviewer", "alpha",
+            "--exclude", "alpha:review-model-exact")
+    assert r.returncode == 0 and "review-model-any" in r.stdout
+
+def test_step0_detection_and_routing():
+    r = run("--step0", "--root", str(FIX / "good-lanes"),
+            "--path-dir", str(FIX / "bins-alpha"))
+    assert r.returncode == 0 and "active: alpha" in r.stdout
+
+def test_step0_no_providers_installed():
+    r = run("--step0", "--root", str(FIX / "good-lanes"),
+            "--path-dir", str(FIX / "bins-empty"))
+    assert r.returncode == 1 and "no active providers" in r.stdout
+
+def test_step0_native_subagents_bypasses():
+    r = run("--step0", "--root", str(FIX / "good-lanes"),
+            "--path-dir", str(FIX / "bins-alpha"), "--lever", "native-subagents")
+    assert r.returncode == 0 and "native-subagents: bypass" in r.stdout
+
+def test_config_disabled_lane_target_fails():
+    r = run("--check-config", str(FIX / "config-disabled-lane.json"))
+    assert r.returncode == 1 and "providers_by_lane" in r.stdout
 ```
 
-- [ ] **Step 2: Build fixtures** — under `tests/fixtures/`: each `bad-*`/`good-*` dir mirrors the tree shape (`core/roles.md` minimal + `providers/alpha/{pack.md,models.md,verification-log.md}`). `good-lanes` models.md: cheapest/any P1 `cheap-any-model` (verified); standard/review P1 `review-model-exact` (verified); standard/any P1 `review-model-any` (verified). `bad-missing-p1`: standard/review has only P2. `bad-dup-priority`: two standard/review P1 rows. `bad-shell-detect`: manifest has `detect: command -v alpha` string field. `bad-id-mismatch`: dir `alpha`, manifest `id: beta`. `bad-rejected-only`: standard/review row Status rejected. Configs: `config-malformed.json` (truncated JSON), `config-disabled-default.json` = `{"disable":["alpha"],"default_provider":"alpha"}`. Minimal `core/roles.md` in fixtures maps: "transcription implementer"→(cheapest,implement); "per-task reviewer"→(standard,review).
+- [ ] **Step 2: Build fixtures** — under `tests/fixtures/`: each `bad-*`/`good-*` dir mirrors the tree shape (`core/roles.md` minimal + `providers/alpha/{pack.md,models.md,verification-log.md}`). `good-lanes` models.md: cheapest/any P1 `cheap-any-model` (verified); standard/review P1 `review-model-exact` (verified); standard/any P1 `review-model-any` (verified). `bad-missing-p1`: standard/review has only P2. `bad-dup-priority`: two standard/review P1 rows. `bad-shell-detect`: manifest has `detect: command -v alpha` string field. `bad-id-mismatch`: dir `alpha`, manifest `id: beta`. `bad-rejected-only`: standard/review row Status rejected. `bad-argv0`: version-argv `["sh","-c","true"]`. `bad-metachar`: resume-argv containing `"x;y"`. Stub bins: `bins-alpha/alpha` (executable shell stub printing `alpha 1.0.0`), `bins-empty/` (empty dir). Configs: `config-malformed.json` (truncated JSON), `config-disabled-default.json` = `{"disable":["alpha"],"default_provider":"alpha"}`, `config-disabled-lane.json` = `{"disable":["alpha"],"providers_by_lane":{"review":"alpha"}}`. Minimal `core/roles.md` in fixtures maps: "transcription implementer"→(cheapest,implement); "per-task reviewer"→(standard,review).
 - [ ] **Step 3: Run tests, verify all fail** — Run: `uv run --with pytest pytest tests/test_validate_packs.py -q` → all FAIL (script missing).
 - [ ] **Step 4: Implement `scripts/validate-packs`** — python3 stdlib only:
 
 ```python
 #!/usr/bin/env python3
-"""Validate sdd-dispatch provider packs; resolve (role, provider) -> model id."""
-import argparse, json, re, sys
+"""Validate sdd-dispatch provider packs; resolve models; simulate Step 0."""
+import argparse, json, os, re, sys
 from pathlib import Path
 
 MANIFEST_REQ = ["schema-version", "id", "cli", "verified-version", "version-argv",
@@ -265,6 +298,9 @@ LANES = {"implement", "review", "any"}
 STATUSES = {"verified", "experimental", "unavailable", "superseded", "rejected"}
 ELIGIBLE = {"verified", "experimental"}
 NAME_RE = re.compile(r"^[a-z0-9-]+$")
+META_RE = re.compile(r"[;|&<>$]")
+CONFIG_KEYS = {"disable": list, "default_provider": str, "providers_by_lane": dict,
+               "require-verified-version": bool, "note": str}
 findings = []
 
 def find(msg): findings.append(msg)
@@ -277,12 +313,11 @@ def parse_front_matter(path):
     while i < len(lines) and lines[i] != "---":
         m = re.match(r"^([a-z-]+):\s*(.*)$", lines[i])
         if m:
-            k, v = m.group(1), m.group(2).strip()
+            k, v = m.group(1), re.sub(r"\s+#.*$", "", m.group(2)).strip()
             if v.startswith("["):
                 try: v = json.loads(v.replace("'", '"'))
-                except json.JSONDecodeError: find(f"{path}: {k} is not a valid argv array")
-            else:
-                v = v.strip('"')
+                except json.JSONDecodeError: find(f"{path}: {k} is not a valid argv array"); v = []
+            else: v = v.strip('"')
             fm[k] = v
         i += 1
     return fm
@@ -292,20 +327,24 @@ def check_manifest(pack_dir):
     for k in MANIFEST_REQ:
         if k not in fm: find(f"{pack_dir}/pack.md: missing field {k}")
     for k, allowed in ENUMS.items():
-        if fm.get(k) not in allowed and k in fm: find(f"{pack_dir}/pack.md: bad enum {k}={fm[k]}")
+        if k in fm and fm.get(k) not in allowed: find(f"{pack_dir}/pack.md: bad enum {k}={fm[k]}")
     for k in ("id", "cli"):
         if k in fm and not NAME_RE.match(str(fm[k])): find(f"{pack_dir}/pack.md: {k} fails [a-z0-9-]+")
     if fm.get("id") and fm["id"] != pack_dir.name: find(f"{pack_dir}/pack.md: id != dirname")
-    if "detect" in fm: find(f"{pack_dir}/pack.md: shell 'detect' forbidden — detection derives from cli; use argv arrays")
-    for k in ("version-argv", "resume-argv", "session-list-argv"):
-        if k in fm and (not isinstance(fm[k], list) or not all(isinstance(x, str) for x in fm[k])):
-            find(f"{pack_dir}/pack.md: {k} must be an argv array of strings")
-    if fm.get("session-source") == "session-list" and "session-list-argv" not in fm:
-        find(f"{pack_dir}/pack.md: session-list-argv required for session-source: session-list")
-    for k in ("resume-argv",):
-        for tok in (fm.get(k) or []):
+    if "detect" in fm: find(f"{pack_dir}/pack.md: shell 'detect' forbidden; detection derives from cli")
+    for k in [k for k in fm if k.endswith("-argv")]:
+        v = fm[k]
+        if not isinstance(v, list) or not all(isinstance(x, str) for x in v):
+            find(f"{pack_dir}/pack.md: {k} must be an argv array of strings"); continue
+        if v and fm.get("cli") and v[0] != fm["cli"]:
+            find(f"{pack_dir}/pack.md: {k} argv[0] must equal cli ({v[0]} != {fm['cli']})")
+        for tok in v[1:]:
+            if META_RE.search(tok): find(f"{pack_dir}/pack.md: {k} contains shell metacharacter: {tok}")
+            if tok.startswith("/"): find(f"{pack_dir}/pack.md: {k} contains absolute path: {tok}")
             for ph in re.findall(r"\{([a-z_]+)\}", tok):
                 if ph != "session_id": find(f"{pack_dir}/pack.md: unknown placeholder {{{ph}}}")
+    if fm.get("session-source") == "session-list" and "session-list-argv" not in fm:
+        find(f"{pack_dir}/pack.md: session-list-argv required for session-source: session-list")
     return fm
 
 def parse_models(pack_dir):
@@ -321,11 +360,11 @@ def parse_models(pack_dir):
             if not prio.isdigit() or int(prio) < 1: find(f"{pack_dir}/models.md: bad priority {prio}")
             else: rows.append({"tier": tier, "lane": lane, "prio": int(prio),
                               "model": model, "status": status})
-    seen = {}
+    seen = set()
     for r in rows:
         key = (r["tier"], r["lane"], r["prio"])
         if key in seen: find(f"{pack_dir}/models.md: duplicate priority {key}")
-        seen[key] = True
+        seen.add(key)
     for (tier, lane) in {(r["tier"], r["lane"]) for r in rows}:
         if not any(r["prio"] == 1 for r in rows if (r["tier"], r["lane"]) == (tier, lane)):
             find(f"{pack_dir}/models.md: ({tier},{lane}) has no priority 1 row")
@@ -341,49 +380,91 @@ def parse_roles(root):
             roles[cells[0].lower()] = (cells[1], cells[2])
     return roles
 
-def resolve(rows, tier, lane):
-    elig = [r for r in rows if r["status"] in ELIGIBLE]
-    cand = [r for r in elig if (r["tier"], r["lane"]) == (tier, lane)] or \
-           [r for r in elig if (r["tier"], r["lane"]) == (tier, "any")]
-    return min(cand, key=lambda r: r["prio"]) if cand else None
+def candidate_order(rows, tier, lane, excl):
+    elig = [r for r in rows if r["status"] in ELIGIBLE and r["model"] not in excl]
+    exact = sorted([r for r in elig if (r["tier"], r["lane"]) == (tier, lane)], key=lambda r: r["prio"])
+    anyl = sorted([r for r in elig if (r["tier"], r["lane"]) == (tier, "any")], key=lambda r: r["prio"])
+    return exact + anyl
 
-def check_config(path):
+def load_config(path):
     try: cfg = json.loads(Path(path).read_text())
-    except (OSError, json.JSONDecodeError) as e: find(f"{path}: unreadable/malformed ({e})"); return
-    known = {"disable", "default_provider", "providers_by_lane", "require-verified-version", "note"}
-    for k in cfg:
-        if k not in known: print(f"warn: unknown key {k}", file=sys.stderr)
-    if cfg.get("default_provider") in (cfg.get("disable") or []):
-        find(f"{path}: default_provider is disabled")
+    except (OSError, json.JSONDecodeError) as e:
+        find(f"{path}: unreadable/malformed ({e})"); return None
+    for k, v in cfg.items():
+        if k not in CONFIG_KEYS: print(f"warn: unknown key {k}", file=sys.stderr); continue
+        if not isinstance(v, CONFIG_KEYS[k]): find(f"{path}: {k} has wrong type")
+    for lane in (cfg.get("providers_by_lane") or {}):
+        if lane not in ("implement", "review"): find(f"{path}: providers_by_lane bad lane {lane}")
+    disabled = set(cfg.get("disable") or [])
+    if cfg.get("default_provider") in disabled: find(f"{path}: default_provider is disabled")
+    for lane, pid in (cfg.get("providers_by_lane") or {}).items():
+        if pid in disabled: find(f"{path}: providers_by_lane[{lane}] names disabled provider {pid}")
+    return cfg
 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--root", default=".")
     ap.add_argument("--resolve", nargs=2, metavar=("ROLE", "PROVIDER"))
+    ap.add_argument("--exclude", action="append", default=[], metavar="PROVIDER:MODEL")
     ap.add_argument("--check-config")
+    ap.add_argument("--step0", action="store_true")
+    ap.add_argument("--config")
+    ap.add_argument("--path-dir", action="append", default=[])
+    ap.add_argument("--lever")
+    ap.add_argument("--task-provider")
     a = ap.parse_args()
     root = Path(a.root)
     if a.check_config:
-        check_config(a.check_config)
+        load_config(a.check_config)
     else:
         packs = sorted(p for p in (root / "providers").glob("*/") if (p / "pack.md").exists()) \
                 if (root / "providers").exists() else []
         if not packs: find(f"{root}: no packs found")
-        rows_by_id = {}
+        fms, rows_by_id = {}, {}
         for p in packs:
-            check_manifest(p)
+            fms[p.name] = check_manifest(p)
             for f in ("models.md", "verification-log.md"):
                 if not (p / f).exists(): find(f"{p}: missing {f}")
             if (p / "models.md").exists(): rows_by_id[p.name] = parse_models(p)
-        if a.resolve:
+        excl = {}
+        for e in a.exclude:
+            prov, _, model = e.partition(":")
+            excl.setdefault(prov, set()).add(model)
+        if a.step0:
+            if a.lever == "native-subagents":
+                print("native-subagents: bypass external dispatch (no provider selected)")
+            else:
+                installed = []
+                for pid, fm in fms.items():
+                    cli = fm.get("cli", "")
+                    if any((Path(d) / cli).exists() and os.access(Path(d) / cli, os.X_OK)
+                           for d in a.path_dir): installed.append(pid)
+                print(f"installed: {' '.join(installed) or '(none)'}")
+                cfg = load_config(a.config) if a.config else {}
+                if cfg is None: cfg = {}
+                active = [p_ for p_ in installed if p_ not in set(cfg.get("disable") or [])]
+                if not active: find("no active providers")
+                else:
+                    print(f"active: {' '.join(active)}")
+                    chosen = (a.task_provider or a.lever or
+                              cfg.get("default_provider") or
+                              ("codex" if "codex" in active else (active[0] if len(active) == 1 else None)))
+                    if chosen and chosen not in active: find(f"routed provider inactive: {chosen}")
+                    elif chosen: print(f"provider: {chosen}")
+                    else: find("route-selection: ask user (multiple active, no policy)")
+        elif a.resolve:
             role, provider = a.resolve[0].lower(), a.resolve[1]
             roles = parse_roles(root)
             tl = next((v for k, v in roles.items() if role in k), None)
             if not tl: find(f"unknown role: {role}")
             elif provider not in rows_by_id: find(f"unknown provider: {provider}")
             else:
-                r = resolve(rows_by_id[provider], *tl)
-                if r: print(f"{role} -> {tl} -> {r['model']} (P{r['prio']}, {r['status']})")
+                order = candidate_order(rows_by_id[provider], tl[0], tl[1],
+                                        excl.get(provider, set()))
+                if order:
+                    r = order[0]
+                    print(f"{role} -> {tl} -> {r['model']} (P{r['prio']}, {r['status']}); "
+                          f"fallback order: {', '.join(x['model'] for x in order)}")
                 else: find(f"no eligible model for {tl} in {provider}")
     for f in findings: print(f)
     sys.exit(1 if findings else 0)
@@ -409,28 +490,40 @@ if __name__ == "__main__":
 - [ ] **Step 1: Rewrite `skills/sdd/SKILL.md` harness-neutral** — keep frontmatter name/description; open with: "**Harness**: identify your controlling harness and read `harnesses/<harness>.md` (claude-code, codex) before Step 0 — it maps skill-loading, native subagent dispatch, task tracking, background jobs, and asset-root resolution. All paths below are relative to the plugin tree root `<root>` (the directory containing `skills/`, `core/`, `providers/`)." Replace all `${CLAUDE_PLUGIN_ROOT}` with `<root>`; replace "Agent tool"/"Claude subagent" wording in the Flavour section with "native subagent (see adapter)"; rename the "all Claude" lever to `native-subagents` ("alias 'all Claude' under Claude Code"). Step 0 gains:
 
 ```markdown
+4b. **Trust gate**: run `python3 <root>/scripts/validate-packs --root <root>` — refuse
+   to proceed past a non-zero exit (a copied/modified pack is validated before anything
+   in it is used).
 5. **Detect providers**: read each <root>/providers/*/pack.md manifest; a provider is
    INSTALLED iff `command -v -- "<cli>"` succeeds for its validated cli name (data-only
-   manifests — never execute manifest strings as shell). Apply layered config (first
-   found): $SDD_DISPATCH_CONFIG → <project>/.sdd-dispatch.json →
-   ${XDG_CONFIG_HOME:-~/.config}/sdd-dispatch/config.json — disable/steer only; malformed
-   config or disabled default_provider = STOP with the error. ACTIVE = installed − disabled.
+   manifests — never execute manifest strings as shell; argv[0]==cli is
+   validator-enforced). Apply layered config (first found): $SDD_DISPATCH_CONFIG →
+   <project>/.sdd-dispatch.json → ${XDG_CONFIG_HOME:-~/.config}/sdd-dispatch/config.json
+   — disable/steer only; malformed/wrong-typed config, disabled default_provider or
+   providers_by_lane target, or set-but-unreadable $SDD_DISPATCH_CONFIG = STOP with the
+   error. ACTIVE = installed − disabled (− incompatible iff require-verified-version).
 6. **Compatibility**: compare `version-argv` output to `verified-version`; mismatch →
    warn and suggest `sdd-dispatch-verify <id>` (block iff config require-verified-version).
 7. **Resolve models**: role → (tier, lane) via core/roles.md → active pack's models.md:
    eligible statuses verified/experimental only; exact-lane candidates, else (tier, any);
    lowest priority wins; no candidate → ask the user. (`scripts/validate-packs --resolve
    "<role>" <provider>` prints the walk.)
-8. **Provider precedence**: per-task directive → session lever → config providers_by_lane
-   / default_provider → codex-if-active else sole-active → ask. Inactive provider named
-   anywhere → ask, never silently reroute.
+8. **Provider precedence**: FIRST, if the `native-subagents` lever (or per-task native
+   directive) is in effect → bypass external dispatch entirely (harness-native subagents
+   per adapter; no provider is selected). Otherwise: per-task provider directive →
+   session lever → config providers_by_lane / default_provider → codex-if-active else
+   sole-active-iff-exactly-one → ask. Inactive provider named anywhere → ask, never
+   silently reroute.
 9. **Readiness**: before the FIRST dispatch to a chosen provider, run its bounded
    preflight (version + session-list/auth probe per manifest); failures are
    channel-class → fallback rules.
 10. **Failure classes**: channel failures (auth, model-not-found, startup stall) may
-    fall back to next priority (max 2 auto-fallbacks/role/session) and are ledgered as
-    `model-attempts: <role> <model> <class>`; quality failures (BLOCKED, repeated review
-    rejection) NEVER auto-fall-back — escalate tier or adjudicate.
+    advance to the NEXT candidate in the resolution order (same provider; max 3 total
+    attempts per (task, role)); cross-provider moves are ALWAYS a user question. Ledger
+    line per attempt:
+    `model-attempt: task=<N> role=<role> provider=<id> model=<id> class=<channel|quality> outcome=<failed|ok>`
+    — channel-failed (provider, model) pairs are excluded session-wide and rebuilt from
+    the ledger after compaction; quality failures (BLOCKED, repeated review rejection)
+    create no exclusion and NEVER auto-fall-back — escalate tier or adjudicate.
 ```
 
 Dispatch-override sections now say "use the active pack's canonical dispatch template (pack.md) inside the self-reaping wrapper (core/liveness.md)" — delete the inlined codex/opencode templates and the per-CLI gotcha quick-list (pointer to packs instead).
@@ -449,6 +542,7 @@ Dispatch-override sections now say "use the active pack's canonical dispatch tem
 
 - [ ] **Step 1: P13 fixture** — copy the smoke-2 known-defect review package `~/.claude/jobs/5dfe2f9a/tmp/smoke2-wordstats/.superpowers/sdd/review-d88cdcb..2cc2902.diff` to `tests/fixtures/p13/defect.diff`. If that path no longer exists, reconstruct: `defect.diff` = a diff adding a CLI whose file-handling is `path = Path(args.file)` / `if not path.exists(): print error, return 2` / `text = path.read_text()` — the defect being that directories and unreadable files bypass the guard and traceback. Write `expected-findings.md`: "Reviewer MUST flag (≥Important): non-file/unreadable paths (directory, permission-denied) reach read_text() and raise a traceback instead of the spec'd stderr error + exit 2 (path.exists() is an insufficient guard)." `README.md`: provenance (smoke run 2, 2026-07-22; deepseek-v4-pro caught it; nemotron-3-ultra-free false-cleaned it).
 - [ ] **Step 2: Append P13 to `core/verification-protocol.md`**: "### P13 — Reviewer known-defect benchmark. Dispatch the candidate reviewer with the standard task-reviewer contract against tests/fixtures/p13/defect.diff (+ its brief context in README). PASS iff every finding in expected-findings.md is cited at equal-or-higher severity. A false-clean disqualifies the candidate for review lanes."
+- [ ] **Step 2b: Contracts purity** — in `contracts/implementer-contract.md`, replace the codex-specific commit-restriction wording with sandbox-generic wording: "You must NOT run git commit/push — the controller commits after gating. (On sandboxed providers this is enforced; elsewhere it is your contract.)" Run: `grep -c 'codex' contracts/*.md` → `0`.
 - [ ] **Step 3: Rewrite `skills/sdd-dispatch-verify/SKILL.md`** — pack-scoped: arg names one provider id or `--all-active`; a run edits only that pack + appends its log; cross-provider synthesis → core log. Procedure prepends: `scripts/validate-packs --root <root>` must pass before probes; new review-lane models require P13; new implement-lane models require a small-implementer probe; live P1–P12 probes are environment smoke tests (run where the CLI exists), the validator+fixtures are the portable gate. Version bump per verification commit (patch).
 - [ ] **Step 4: Validate** — Run: `ls tests/fixtures/p13/` → `README.md defect.diff expected-findings.md`; `grep -c 'P13' core/verification-protocol.md skills/sdd-dispatch-verify/SKILL.md` → ≥1 each; `grep -c 'validate-packs' skills/sdd-dispatch-verify/SKILL.md` → ≥1.
 - [ ] **Step 5: Commit** — `git add -A && git commit -m "feat(verify): pack-scoped verify skill, P13 known-defect fixture"`
@@ -471,14 +565,15 @@ Dispatch-override sections now say "use the active pack's canonical dispatch tem
 ```
 - [ ] **Step 2: `codex/INSTALL.md`** — Codex installation: clone/checkout the whole repository (the skill requires `core/`, `providers/`, `contracts/` siblings — copying SKILL.md alone is unsupported); point codex skill discovery at `skills/sdd/SKILL.md`; first-run: read `skills/sdd/harnesses/codex.md`; verify with `python3 scripts/validate-packs --root .`.
 - [ ] **Step 3: `README.md`** — new layout tree; install sections for BOTH harnesses (Claude marketplace commands; Codex → codex/INSTALL.md); "Adding a provider" (one directory satisfying the pack contract; run validate-packs; zero core edits); version line `**Version:** 1.2.0` placeholder as `1.1.4` for now (Task 10 syncs).
-- [ ] **Step 4: Link rewrite sweep** — Run: `grep -rn '](.*references/' --include='*.md' core/ providers/ skills/ README.md | wc -l` → `0`; `grep -rn 'sdd-external-dispatch\|model-catalog\|dispatch-reference' --include='*.md' core/ providers/ skills/ README.md | wc -l` → `0` (tombstones/archive/docs excluded by path).
+- [ ] **Step 3b: `scripts/codex-smoke`** — bash: from the repo root verify (a) `skills/sdd/SKILL.md` exists at that exact relative path; (b) `skills/sdd/harnesses/codex.md` exists; (c) root derivation `ROOT=$(cd "$(dirname skills/sdd/SKILL.md)/../.." && pwd)` yields a dir containing `core/` and `providers/`; (d) `python3 scripts/validate-packs --root "$ROOT"` exits 0. Print PASS/FAIL per check; exit non-zero on any FAIL. chmod +x. Run: `./scripts/codex-smoke` → 4 PASS lines.
+- [ ] **Step 4: Link rewrite sweep** — Run: `grep -rn '](.*references/' --include='*.md' core/ providers/ skills/ contracts/ docs/migration-1.2.0.md codex/ README.md | wc -l` → `0`; `grep -rn 'sdd-external-dispatch\|model-catalog\|dispatch-reference' --include='*.md' core/ providers/ skills/ README.md | wc -l` → `0` (tombstones point to archive/ + new homes; archive/ itself exempt).
 - [ ] **Step 5: Commit** — `git add -A && git commit -m "refactor: tombstones with exact destinations, dual-harness README, codex INSTALL"`
 
 ### Task 10: Release 1.2.0
 
 **Files:** Modify: `.claude-plugin/plugin.json`, `README.md` (version sync), `core/verification-log.md`
 
-- [ ] **Step 1: Full gate** — Run: `./scripts/validate-packs --root . && echo CLEAN` → `CLEAN`. Run: `uv run --with pytest pytest tests/ -q` → all pass.
+- [ ] **Step 1: Full gate** — Run: `./scripts/validate-packs --root . && echo CLEAN` → `CLEAN`. Run: `uv run --with pytest pytest tests/ -q` → all pass (incl. --step0 and exclusion-fallback cases). Run: `./scripts/codex-smoke` → 4 PASS.
 - [ ] **Step 2: Resolution walks (document in commit message)** — Run: `./scripts/validate-packs --root . --resolve "per-task reviewer" opencode` → `opencode-go/deepseek-v4-pro (P1, verified)`; `--resolve "transcription implementer" codex` → `gpt-5.6-luna (P1, verified)`; `--resolve "adaptation implementer" agy` → `gemini-3.6-flash-medium (P1, experimental)`.
 - [ ] **Step 3: Detection dry-run (environment smoke, this machine)** — Run: `for p in providers/*/; do cli=$(sed -n 's/^cli: //p' "$p/pack.md" | head -1); command -v -- "$cli" >/dev/null && echo "$(basename $p): installed" || echo "$(basename $p): absent"; done` → three `installed` lines on this machine.
 - [ ] **Step 4: Config tests** — Run: `./scripts/validate-packs --check-config tests/fixtures/config-malformed.json; echo "exit=$?"` → `exit=1`; same for `config-disabled-default.json` → `exit=1`.

@@ -91,3 +91,8 @@ def test_link_scan_checks_relative_target_beginning_with_p(tmp_path):
     models.write_text(models.read_text() + "[missing](providers/missing.md)\n")
     r = run("--root", str(root))
     assert r.returncode == 1 and "broken link providers/missing.md" in r.stdout
+def test_step0_native_bypass_ignores_malformed_config():
+    r = run("--step0", "--root", str(FIX / "good-lanes"),
+            "--path-dir", str(FIX / "bins-alpha"), "--lever", "native-subagents",
+            "--config", str(FIX / "config-malformed.json"))
+    assert r.returncode == 0 and "native-subagents: bypass" in r.stdout

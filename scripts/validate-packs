@@ -178,13 +178,18 @@ def main():
     elif not a.step0 and not a.resolve:
         check_repo_docs(root)
     if a.step0:
-        cfg = load_config(a.config, set(manifests))
-        # Never detect or execute provider argv until every data-only input is valid.
-        if findings:
-            for finding in findings: print(finding)
-            return 1
-        if a.lever == "native-subagents": print("native-subagents: bypass external dispatch (no provider selected)")
+        # Native bypass first (rev 4): no provider is selected, so provider config is irrelevant.
+        if a.lever == "native-subagents":
+            if findings:
+                for finding in findings: print(finding)
+                return 1
+            print("native-subagents: bypass external dispatch (no provider selected)")
         else:
+            cfg = load_config(a.config, set(manifests))
+            # Never detect or execute provider argv until every data-only input is valid.
+            if findings:
+                for finding in findings: print(finding)
+                return 1
             installed = [provider for provider, fm in manifests.items() if any((Path(directory) / fm.get("cli", "")).exists() and os.access(Path(directory) / fm.get("cli", ""), os.X_OK) for directory in a.path_dir)]
             print(f"installed: {' '.join(installed) or '(none)'}")
             active = [provider for provider in installed if provider not in set(cfg.get("disable", []))]

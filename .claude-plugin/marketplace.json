@@ -1,0 +1,13 @@
+{
+  "name": "sdd-dispatch-marketplace",
+  "owner": {
+    "name": "Nathaniel Ramm"
+  },
+  "plugins": [
+    {
+      "name": "sdd-dispatch",
+      "source": "./",
+      "description": "SDD execution via external CLIs with verified dispatch knowledge base"
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "name": "sdd-dispatch",
+  "version": "1.0.0",
+  "description": "Subagent-driven development via external CLIs (codex/opencode/agy): plan execution with token-efficient dispatch, model tiering, liveness protocol, and a CLI-behavior verification suite",
+  "author": {
+    "name": "Nathaniel Ramm",
+    "email": "nathaniel.ramm@discretedatascience.com"
+  },
+  "license": "MIT",
+  "keywords": ["sdd", "subagents", "dispatch", "codex", "opencode", "antigravity", "model-tiering"]
+}

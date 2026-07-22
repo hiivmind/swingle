@@ -48,6 +48,40 @@ so the mapping is natural; the wins below come from pushing the last pasted thin
 Models per role: [model-catalog.md](model-catalog.md). Liveness rules apply to every
 background dispatch: [dispatch-reference.md → Background dispatch & liveness](dispatch-reference.md).
 
+## Dispatch flavours & economics — say which one you mean
+
+"Dispatch" is ambiguous. Four execution modes, three currencies. The currencies, in order
+of scarcity: **main-thread context** (multiplicative — resident tokens are re-sent every
+turn and degrade the controller's judgment as they accumulate), **Claude token budget**
+(our spend; disposable subagent contexts are one-shot), **external dollars** (near-free
+at luna/flash rates — largely fixed by the task, ~7.5k cold-start overhead per exec).
+
+| Mode | Main-ctx / task | Claude tokens | External | When |
+| --- | --- | --- | --- | --- |
+| **Inline** (controller does it) | 15–40k+, grows with task size | full task, premium | 0 | below the orchestration floor (~2k of work, single-file mechanical), or judgment-core work |
+| **Sub-dispatch** (Claude subagent via Agent tool) | 1–3k (prompt + report) | full task, isolated context | 0 | judgment-heavy isolated work; the "all Claude" lever |
+| **Ext-dispatch** (Bash → codex/opencode/agy) | ~2k + **6–8 controller turns** | orchestration only | task cost | the `/sdd` default for typical plans (≤ ~6–8 tasks) |
+| **Supervised ext-dispatch** (cheap Claude subagent runs the ext cycle) | ~0.5k — one consolidated report | supervisor turns on haiku/sonnet | task cost | long plans where the controller's orchestration turns are the binding cost |
+
+Rules that fall out:
+
+- **The main game is conserving main-thread context.** External tokens are linear,
+  one-shot, cheap; controller-resident tokens are re-billed every turn for the rest of
+  the session and — worse — crowd the adjudicator's attention. Flat ~2k/task context is
+  what lets a 20-task plan finish without compaction (whose observed failure mode is
+  re-dispatching completed work).
+- **The triviality floor**: if the controller could complete the task in fewer tokens
+  than the orchestration cycle costs (~2k + 6–8 turns), do it inline. Batch several
+  trivial tasks into ONE ext-dispatch rather than paying the ~7.5k cold start per task.
+- **Supervised ext-dispatch** moves the orchestration turns (launch, liveness, mechanical
+  gate, reviewer dispatch, verdict collection) into a disposable cheap-Claude context that
+  returns one report with evidence *paths*. Non-negotiable: **adjudication and commits
+  stay in the main thread** — the supervisor's "all green" is evidence to check, not a
+  gate result; the controller still reads verdicts, spot-checks the stat, and commits.
+- Fixed cost per external exec is real (~7.5k tokens before any work, measured) but paid
+  in the cheap currency; never let it push a large task inline — task *size* is exactly
+  what the flat-context property protects against.
+
 ## Token-efficiency playbook
 
 The controller's context is the scarce resource; external agents' tokens are cheap.

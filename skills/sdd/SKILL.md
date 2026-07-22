@@ -56,6 +56,19 @@ path, and the global constraints copied VERBATIM from the plan.
 (`codex exec resume --last "<answers or findings list>"`; opencode `run -s <id>`;
 agy `--conversation <id>`), then re-review.
 
+## Flavour choice (be explicit which "dispatch" you mean)
+
+- **Inline** (no dispatch): task below the orchestration floor — a single-file mechanical
+  fix the controller finishes in <~2k tokens. Batch several such tasks into one
+  ext-dispatch instead of paying per-task cold starts.
+- **Ext-dispatch** (this skill's default): Bash → external CLI, per the templates above.
+- **Supervised ext-dispatch** (long plans, > ~8 tasks): spawn ONE cheap Claude subagent
+  (haiku/sonnet, Agent tool) per task-cycle to run the ext-dispatch templates, liveness,
+  mechanical gate, and reviewer dispatch, returning a single report with evidence paths.
+  Adjudication and commits STILL happen here in the main thread.
+- **Sub-dispatch** (Claude subagent does the work itself) = the "all Claude" lever.
+Economics table: references/sdd-external-dispatch.md "Dispatch flavours & economics".
+
 ## Controller rules (the hard gate — never offloaded)
 
 - Read back ONLY the status block, `git diff --stat`, and reviewer verdicts. Full diff

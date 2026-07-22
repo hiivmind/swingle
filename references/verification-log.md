@@ -124,3 +124,25 @@ nonexistent docs/output-format.md). Tasks 1–2 completed and review-approved; T
 **Cost note:** the productive path (2 tasks, 2 reviews, 2 fix loops, resume Q&A) was
 ~35 min wall-clock; the hang windows added ~40 min of detection/retry. Detection cost is
 bounded by the 5-min threshold — the protocol worked; the channel was the problem.
+
+---
+
+## 2026-07-22 — model evaluation: `opencode/nemotron-3-ultra-free`
+
+User-proposed for transcription + review lanes ("strong and completely free"). Probed
+same-day on the smoke2 repo. **Rejected for both lanes.**
+
+- Namespace: `opencode/` (ALL five `-free` tiers live there, not `opencode-go/`:
+  deepseek-v4-flash-free, laguna-s-2.1-free, mimo-v2.5-free, nemotron-3-ultra-free,
+  north-mini-code-free). PONG probe: dispatches fine, exit 0.
+- **Reviewer probe (known-defect benchmark):** given the exact contract/brief/diff on
+  which deepseek-v4-pro had flagged the path.exists() directory-traceback as Important,
+  nemotron returned a clean "Approved" with one weak Minor — **missed the planted
+  defect**. False-clean is the costliest reviewer failure; benchmark method (re-review a
+  diff with a known caught defect) is cheap and now the standard for reviewer candidates.
+- **Implementer probe:** Task-3 README (small, fully-briefed) — hit the 480s foreground
+  backstop with ZERO output: no README, no report, clean tree. Same task class other
+  models finish in 2–3 min.
+- **Data caveat (Zen docs):** free tier is "trial use only"; prompts logged and may be
+  used to improve NVIDIA products/services — disqualifying for proprietary code even if
+  quality were good. Applies presumptively to all `-free` tiers.

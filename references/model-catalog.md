@@ -60,9 +60,17 @@ Priced/picked on **Zen pay-as-you-go** rates (opencode.ai/docs/zen), not list AP
 | `opencode-go/kimi-k2.7-code` | listed | coding-strong, 256K ctx |
 | `opencode/gemini-3.5-flash-lite` | ✅ verified | **the only route to Flash-Lite** ($0.30/$2.50, 350 tok/s) — doesn't undercut deepseek-v4-flash; a latency/Gemini-flavour option, not a new floor |
 | `opencode/gemini-3.6-flash` | listed | Gemini 3.6 via Zen, alternative to agy lane |
+| `opencode/nemotron-3-ultra-free` | ❌ rejected (2026-07-22) | free, but failed both probes: missed a planted Important defect as reviewer (false-clean); 480s timeout with zero output on a small README task. Free tier logs prompts for NVIDIA product improvement — unusable on proprietary code regardless |
+
+**Free-tier namespace + caveat:** all `-free` models live under `opencode/` (never
+`opencode-go/`). Zen marks them trial-use: prompts are logged and may train/improve the
+provider's products — throwaway/OSS work only, never proprietary code.
 
 ## Watch list (unevaluated arrivals)
 
+- `opencode/laguna-s-2.1-free`, `opencode/mimo-v2.5-free`, `opencode/north-mini-code-free`
+  — new free tiers spotted 2026-07-22 (trial-use data caveat presumed). Evaluate with the
+  known-defect reviewer benchmark + small implementer probe before any table slot.
 - `opencode-go/kimi-k3`, `opencode-go/grok-4.5`, `opencode-go/qwen3.7-max` — appeared by
   2026-07-22, not yet benchmarked/priced against the table. (`qwen3.7-max` was previously
   dropped as dominated by glm-5.2 on both quality and price — re-check if repriced.)

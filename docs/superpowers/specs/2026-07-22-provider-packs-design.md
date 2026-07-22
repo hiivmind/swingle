@@ -1,7 +1,7 @@
 # Provider-Pack Architecture — sdd-dispatch v2 design
 
-Date: 2026-07-22 (rev 3, 2026-07-23 — after Sol reviews: docs/sol-plan-review.md, docs/sol-rereview.md)
-Status: revised twice, pending final review
+Date: 2026-07-22 (rev 4, 2026-07-23 — after Sol reviews: docs/sol-plan-review.md, docs/sol-rereview.md, docs/sol-final-review.md)
+Status: final — Sol round-3 minimal changes applied
 Target version: 1.2.0
 
 ## Problem
@@ -134,8 +134,16 @@ Remaining elements must be flags/subcommands/placeholders (no absolute paths, no
 metacharacters `;|&<>$` — validator-enforced). Combined with the PATH-lookup detection
 rule this means a pack can only ever cause the declared CLI binary to run.
 **Trust gate:** Step 0 refuses to use any pack tree that does not pass
-`scripts/validate-packs` (cheap, stdlib, runs in <1s) — a copied/modified pack is
-validated before anything in it is executed or followed.
+`scripts/validate-packs` (cheap, stdlib, runs in <1s).
+**Trust policy (approval, not just validation):** the git-tracked state of the plugin
+repo is the trust anchor — the user controls what lands in the repo, so packs that are
+tracked and unmodified (`git status --porcelain providers/` clean for that dir) are
+trusted. Any provider directory that is untracked, locally modified, or outside the
+tracked tree requires EXPLICIT user approval at Step 0 before its manifest argv or prose
+is followed. Independently of trust, `validate-packs` rejects `cli` values naming
+interpreters/launchers (denylist: sh bash dash zsh ksh env python python3 perl ruby node
+deno bun npx uv uvx xargs nice timeout sudo doas) — a pack must declare a real provider
+CLI, and empty argv arrays are invalid.
 
 - **Detection executes nothing pack-authored**: Step 0 does a PATH lookup of the
   validated `cli` name (`command -v -- "<cli>"` after the validator confirms the name
@@ -300,13 +308,18 @@ finding):
 6. `--resolve <role> <provider> [--exclude provider:model ...]` mode: prints the
    resolution walk (tier, lane, ordered candidate list, chosen id).
 7. `--step0 --root DIR [--config FILE] [--path-dir DIR ...] [--lever NAME]
-   [--task-provider ID]` mode: runs the FULL Step-0 pipeline against a fixture root —
-   detection via PATH lookup restricted to the given `--path-dir`s (stub executables),
-   config load/validation (fail-closed cases), compatibility (against stub version
-   output), active-set construction, routing precedence (including the native-subagents
-   bypass), and resolution — printing each stage's outcome. This mode is what the
-   routing/config/state fixtures exercise; `--resolve` alone only covers the resolution
-   algorithm.
+   [--task-provider ID] [--role ROLE] [--exclude provider:model ...]` mode: runs the
+   FULL Step-0 pipeline against a fixture root, in spec order — (a) native-subagents
+   bypass check; (b) detection via PATH lookup restricted to the given `--path-dir`s
+   (stub executables); (c) config load/validation (all fail-closed cases, search-order
+   semantics via --config standing in for the first-found file); (d) compatibility (run
+   the stub's version-argv, regex-extract, compare, apply require-verified-version);
+   (e) active-set construction; (f) provider routing precedence (task-provider → lever →
+   providers_by_lane[lane-of-role] → default_provider → codex-if-active →
+   sole-active-iff-one → ask); (g) model resolution for --role with exclusions;
+   (h) readiness probe of the chosen provider's stub. Prints each stage's outcome. This
+   mode is what the routing/config/state fixtures exercise; `--resolve` alone only
+   covers the resolution algorithm.
 
 Test fixtures (`tests/fixtures/`): fixture packs + stub executables covering — zero /
 one / multiple active providers (via `--step0 --path-dir`); exact-lane vs `any`;
@@ -318,11 +331,19 @@ plus the P13 defect fixture. A fixture-driven run of `validate-packs` is the rel
 gate. Live-CLI probes (P1–P12 against real codex/opencode/agy) remain environment smoke
 tests run where those CLIs exist — valuable, but never a portable release gate.
 
-Both-harness checks at release: Claude Code — plugin installs, skill loads, Step 0
-resolves a role through packs. Codex — repo checkout discovered, `skills/sdd/SKILL.md` +
-`harnesses/codex.md` readable, same Step-0 resolution walk on paper. (Automated Codex
-end-to-end is backlog; the resolution walk itself is harness-independent and covered by
-the validator.)
+Both-harness checks at release: Claude Code — real install/load smoke on the release
+machine (marketplace add + plugin install into a scratch profile, or reinstall in place;
+skill invocation reaches Step 0 and the trust gate runs). Codex — `scripts/codex-smoke`
+run from a FRESH `git clone` to a temp dir (real discovery-path and root-resolution
+check, no codex binary required); full codex-driven end-to-end stays backlog. Live
+provider-CLI probes are environment smoke only: absent CLIs are reported, never a
+release blocker.
+
+**Codex-as-controller, codex-as-provider:** no prohibition. The codex adapter notes one
+verified-risk: nested `codex exec` inside a sandboxed codex session may be blocked by
+sandbox policy; the adapter instructs a one-shot nested-exec probe at first codex-lane
+dispatch under a codex controller, and on failure treats it as a channel-class failure
+(user question). Routing (`codex-if-active`) is unchanged.
 
 ## Migration plan
 

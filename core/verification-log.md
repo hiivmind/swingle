@@ -95,3 +95,10 @@ pack tables — reproduce with `scripts/validate-packs --root . --resolve "<role
 - per-task reviewer → (standard, review) → opencode P1 (verified)
 - transcription implementer → (cheapest, implement) → codex P1 (verified)
 - adaptation implementer → (standard, implement) → agy P1 (experimental)
+
+Post-gate final review (whole branch, most-capable tier): round 1 — 1 Critical
+(step0 executed argv despite validation findings) + 9 Important; consolidated fix
+commit addressed 8 (Claude smoke deferral accepted under Task 10 Step 3c). Round 2 —
+one ordering regression (native bypass vs config load); fixed with regression test.
+Round 3 verdict: READY TO MERGE. Final gates: pytest 31/31, validate-packs CLEAN,
+codex-smoke 4/4 (incl. fresh clone).

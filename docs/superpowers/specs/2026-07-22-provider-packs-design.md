@@ -1,7 +1,7 @@
 # Provider-Pack Architecture — sdd-dispatch v2 design
 
-Date: 2026-07-22 (rev 2, 2026-07-23 — after Sol design review, docs/sol-plan-review.md)
-Status: revised, pending re-review
+Date: 2026-07-22 (rev 3, 2026-07-23 — after Sol reviews: docs/sol-plan-review.md, docs/sol-rereview.md)
+Status: revised twice, pending final review
 Target version: 1.2.0
 
 ## Problem
@@ -89,11 +89,17 @@ controller harness's own subagent mechanism; superpowers stock behavior). "all C
 remains documented in the claude-code adapter as an alias.
 
 **Packaging:** one canonical tree serves both harnesses. Claude Code installs via
-`.claude-plugin/` marketplace as today. Codex installs by cloning/checking out the whole
-repository where its skill discovery can find `skills/sdd/SKILL.md` (whole-tree presence
-is required — the skill is useless without core/ and providers/); `codex/INSTALL.md`
-documents this. Version lives in `.claude-plugin/plugin.json` and is mirrored in the
-README header; a validator check keeps them in sync.
+`.claude-plugin/` marketplace as today. Codex installs by cloning the whole repository
+(the skill is useless without core/ and providers/ siblings); `codex/INSTALL.md` gives
+the CONCRETE discovery steps per superpowers' own codex adaptation
+(`superpowers/skills/using-superpowers/references/codex-tools.md`): where to register the
+skill so codex loads it, and how `<root>` is derived (three dirname steps up from the
+physical `skills/sdd/SKILL.md`). A `scripts/codex-smoke` check (part of validate-packs
+`--step0` or standalone) verifies from a fresh checkout: SKILL.md at the expected
+relative path, `harnesses/codex.md` present, root derivation resolves core/ and
+providers/, validator passes — runnable WITHOUT codex installed; full codex-driven
+end-to-end remains backlog. Version lives in `.claude-plugin/plugin.json` and is
+mirrored in the README header; a validator check keeps them in sync.
 
 ## The pack contract
 
@@ -114,14 +120,28 @@ session-source: session-list    # enum: session-list | exec-output | conversatio
 session-list-argv: ["opencode", "session", "list"]       # required iff session-source: session-list
 stall-signal: log-age           # enum: log-age | process+print-timeout
 sandbox: none                   # enum: enforced | none
+readiness-argv: ["opencode", "session", "list"]   # optional; default = version-argv
+readiness-timeout-seconds: 30   # optional; default 30
 ---
 ```
 
+**Front-matter grammar (not general YAML):** a restricted `key: value` grammar — keys
+`[a-z-]+`; values are unquoted/double-quoted scalars or JSON arrays of strings on one
+line. This is exactly what the stdlib validator parses; anything else is a validity error.
+
+**Executable-identity rule:** for EVERY `*-argv` field, `argv[0]` MUST equal `cli`.
+Remaining elements must be flags/subcommands/placeholders (no absolute paths, no shell
+metacharacters `;|&<>$` — validator-enforced). Combined with the PATH-lookup detection
+rule this means a pack can only ever cause the declared CLI binary to run.
+**Trust gate:** Step 0 refuses to use any pack tree that does not pass
+`scripts/validate-packs` (cheap, stdlib, runs in <1s) — a copied/modified pack is
+validated before anything in it is executed or followed.
+
 - **Detection executes nothing pack-authored**: Step 0 does a PATH lookup of the
   validated `cli` name (`command -v -- "<cli>"` after the validator confirms the name
-  matches `[a-z0-9-]+`). `version-argv`/`session-list-argv` are argv arrays executed
-  only after schema validation, only for providers that pass detection, and only with
-  arguments from the closed placeholder set.
+  matches `[a-z0-9-]+`). Argv fields are executed only after full schema validation
+  (including the argv[0]==cli rule), only for providers that pass detection, with the
+  closed placeholder set, under `readiness-timeout-seconds`.
 - The body of `pack.md` is prose (version-stamped): canonical dispatch template, verified
   behavior, gotchas, auth notes, output conventions. The pack's template is the ONLY
   dispatch template for that CLI — the skill carries the abstract dispatch shape, not
@@ -144,24 +164,34 @@ sandbox: none                   # enum: enforced | none
 
 ### Resolution algorithm (exact)
 
-Input: role, provider. Steps:
+Input: role, provider, exclusions (a possibly-empty set of (provider, model) pairs from
+this session's ledger). Steps:
 1. role → (tier, lane) via core/roles.md (lane is `implement` for implementer roles,
    `review` for reviewer roles).
-2. In the provider's resolvable table, filter to Status ∈ {verified, experimental}.
-3. Candidate set = rows matching (tier, lane) exactly; **iff that set is empty**, rows
-   matching (tier, `any`).
-4. Choose the lowest priority number in the candidate set.
+2. In the provider's resolvable table, filter to Status ∈ {verified, experimental} and
+   drop excluded (provider, model) pairs.
+3. **Candidate order** = rows matching (tier, lane) exactly, ascending priority, followed
+   by rows matching (tier, `any`), ascending priority.
+4. Resolve to the FIRST candidate. Fallback (below) means advancing to the next candidate
+   in this same order — the order is the complete fallback sequence.
 5. If no candidate exists → explicit resolution error, surfaced to the user. Never
-   substitute across tiers or providers automatically.
+   substitute across tiers automatically; never substitute across providers automatically
+   (see Failure classes — cross-provider moves are always a user decision).
 
 ### Routing precedence (which provider)
 
-When multiple packs are active, the provider for a dispatch is chosen by the first match:
-1. Explicit per-task directive in the plan.
-2. Session routing lever ("via agy", "delegate mechanical to opencode", `native-subagents`).
+**Step 0 of routing — before provider selection:** if the `native-subagents` lever (or a
+per-task native directive) is in effect, external dispatch is bypassed entirely — the
+harness's native subagent mechanism (per the adapter) handles the task and NO provider is
+selected. `native-subagents` is a dispatch mode, not a provider, and is never an input to
+resolution.
+
+Otherwise, the provider for a dispatch is chosen by the first match:
+1. Explicit per-task provider directive in the plan.
+2. Session routing lever ("via agy", "delegate mechanical to opencode").
 3. Config `providers_by_lane` (per-lane provider map), then config `default_provider`.
 4. Built-in default: `codex` if active (structured-review contract, sandbox), else the
-   only/first active provider **iff exactly one is active**.
+   only active provider **iff exactly one is active**.
 5. Otherwise: stop with a route-selection question to the user.
 
 Naming an INACTIVE provider at any step → surface to the user (reroute or abort); never
@@ -169,27 +199,38 @@ silently reroute.
 
 ### Failure classes & fallback state
 
-- **Channel/capability failures** (CLI absent, auth failure, model-not-found, startup
-  stall, repeated zero-output hang): automatic fallback IS allowed — next priority in the
-  same (tier, lane); channel-level failures may also reroute provider via the precedence
-  ladder. Each attempt and exclusion is recorded in the SDD progress ledger
-  (`model-attempts: <role> <model> <failure-class>`) so post-compaction sessions do not
-  retry known-bad routes. Maximum two automatic fallbacks per role per session; then ask.
+- **Channel/capability failures** (auth failure, model-not-found, startup stall,
+  repeated zero-output hang): automatic fallback IS allowed — advance to the next
+  candidate in the resolution order (same provider; the order already encodes exact-lane
+  then `any`). Maximum **3 total dispatch attempts** per (task, role); exhausting them, or
+  any need to change PROVIDER, is a user question — cross-provider rerouting is never
+  automatic, consistent with the routing rule.
+- **Ledger record** (one line per attempt, in the SDD progress ledger):
+  `model-attempt: task=<N> role=<role> provider=<id> model=<id> class=<channel|quality> outcome=<failed|ok>`
+  Exclusion scope: a `channel`-failed (provider, model) pair is excluded session-wide
+  (channel failures are provider/model-level, not task-level); `quality` failures create
+  NO exclusion — they route to escalation. Post-compaction sessions rebuild exclusions
+  from these ledger lines.
 - **Quality failures** (implementer BLOCKED, reviewer rejects repeatedly, gate failures):
-  NEVER silent fallback — escalate tier or adjudicate with the user, per the superpowers
-  status-handling rules. Exclusions reset at session end (ledger records survive as history).
+  NEVER any automatic fallback — escalate tier or adjudicate with the user, per the
+  superpowers status-handling rules.
 
 ## Provider states & readiness
 
 `command -v` proves installation, not usability. Step 0 models four states:
 - **installed** — PATH lookup of `cli` succeeds.
-- **compatible** — `version-argv` output vs `verified-version`: mismatch → WARN in the
-  session (pack facts may be stale; point to `sdd-dispatch-verify <id>`); policy may
-  hard-block via config `require-verified-version: true`.
-- **ready** — bounded preflight (auth/session-list probe from the manifest) run ONLY for
-  the provider actually selected for the first dispatch, not the whole active set.
-- **active** — installed ∧ not disabled by config. (Compatibility warns; readiness is
-  checked lazily at first use.)
+- **compatible** — run `version-argv` (bounded by `readiness-timeout-seconds`); extract
+  the first `[0-9]+(\.[0-9]+)+` match from its output; compatible iff it string-equals
+  `verified-version`. Mismatch, command failure, or no parseable version → WARN (pack
+  facts may be stale; point to `sdd-dispatch-verify <id>`). With config
+  `require-verified-version: true`, a provider that is not compatible is removed from the
+  ACTIVE set (hard block), and Step 0 says so.
+- **ready** — run `readiness-argv` (default: `version-argv`) with the timeout; ready iff
+  exit 0. Checked lazily, ONLY for the provider actually selected, before its first
+  dispatch. Not-ready → channel-class failure (user question or documented fallback —
+  never silent). A readiness probe proves the CLI answers; it does not guarantee model
+  access — model-not-found at dispatch remains a channel failure.
+- **active** — installed ∧ not disabled by config ∧ (compatible if required by config).
 
 ## Configuration (replaces providers.local.json)
 
@@ -209,10 +250,15 @@ Schema (all keys optional):
   "note": "free text"
 }
 ```
-Rules: config can only disable/steer — never enables an undetected CLI. Malformed JSON,
-unknown provider ids, or a disabled `default_provider` → **fail closed** with a specific
-actionable error (do not silently proceed with defaults). Empty active set after
-disables → error naming the disables. Unknown keys → warn, ignore.
+Types (closed): `disable` array of pack ids; `default_provider` pack id;
+`providers_by_lane` object with keys ⊆ {implement, review} and pack-id values;
+`require-verified-version` boolean; `note` string.
+Rules: config can only disable/steer — never enables an undetected CLI. Fail closed
+(specific, actionable error; never silently proceed with defaults) on: malformed JSON;
+wrong types; unknown provider ids anywhere; `default_provider` or any
+`providers_by_lane` value naming a disabled provider; `$SDD_DISPATCH_CONFIG` set but
+missing/unreadable. Duplicates in `disable` are ignored. Unknown top-level keys → warn,
+ignore. Empty active set after disables → error naming the disables.
 
 ## Core contents
 
@@ -245,13 +291,29 @@ finding):
    invocations, or harness tool names (allow-list: the routing-precedence mention of
    `codex`).
 4. Version sync: plugin.json version == README header version.
-5. Markdown link check across core/, providers/, skills/, README (relative links resolve).
-6. `--resolve <role> <provider>` mode: prints the resolution walk (tier, lane, candidate
-   set, chosen id) — used by tests and by Step 0 documentation.
+5. Markdown link check across ALL tracked .md files (core/, providers/, skills/,
+   contracts/, docs/, references/ tombstones, codex/INSTALL.md, README) — `archive/` is
+   excluded (frozen history, stale links by design).
+5b. Purity check extends to `contracts/`: contracts are provider-agnostic — the check
+   fails on provider names/CLI invocations there (the current implementer contract's
+   codex-specific line is rewritten sandbox-generically during migration).
+6. `--resolve <role> <provider> [--exclude provider:model ...]` mode: prints the
+   resolution walk (tier, lane, ordered candidate list, chosen id).
+7. `--step0 --root DIR [--config FILE] [--path-dir DIR ...] [--lever NAME]
+   [--task-provider ID]` mode: runs the FULL Step-0 pipeline against a fixture root —
+   detection via PATH lookup restricted to the given `--path-dir`s (stub executables),
+   config load/validation (fail-closed cases), compatibility (against stub version
+   output), active-set construction, routing precedence (including the native-subagents
+   bypass), and resolution — printing each stage's outcome. This mode is what the
+   routing/config/state fixtures exercise; `--resolve` alone only covers the resolution
+   algorithm.
 
 Test fixtures (`tests/fixtures/`): fixture packs + stub executables covering — zero /
-one / multiple active providers; exact-lane vs `any`; duplicate priorities; missing P1;
-rejected-only candidates; malformed config; disabled default_provider; version mismatch;
+one / multiple active providers (via `--step0 --path-dir`); exact-lane vs `any`;
+duplicate priorities; missing P1; rejected-only candidates; exclusion-driven fallback
+order; argv[0]≠cli manifests; shell-metacharacter argv; malformed config; wrong-typed
+config; disabled default_provider and disabled providers_by_lane target; version
+mismatch with and without require-verified-version; native-subagents bypass;
 plus the P13 defect fixture. A fixture-driven run of `validate-packs` is the release
 gate. Live-CLI probes (P1–P12 against real codex/opencode/agy) remain environment smoke
 tests run where those CLIs exist — valuable, but never a portable release gate.
@@ -264,11 +326,13 @@ the validator.)
 
 ## Migration plan
 
-1. **Migration manifest first**: write `docs/migration-1.2.0.md` mapping EVERY heading of
-   the five reference files (including model-catalog "Release history" → core log archive
-   note + pack models.md history sections, and dispatch-reference "Change history" →
-   archive) to exactly one destination. The manifest is the checked-in source of truth —
-   not commit messages.
+1. **Migration manifest first**: write `docs/migration-1.2.0.md` mapping EVERY heading
+   of the five reference files to exactly one **primary live destination** (archive
+   copies always exist in addition and are not destinations; a heading may additionally
+   list indexed **mirrors**, marked `(mirror)`, when content is deliberately duplicated
+   — e.g. a release-history item mirrored into two packs' history sections). Primary
+   ownership is what tombstones and links point to. The manifest is the checked-in
+   source of truth — not commit messages.
 2. **Archive, then split**: copy the five files verbatim to `archive/v1.1/` (history
    preserved unchanged, satisfying append-only). New per-provider logs start at v1.2.0
    with a header line linking to the archive; entries whose content is provider-specific

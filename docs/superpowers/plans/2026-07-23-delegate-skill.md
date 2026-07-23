@@ -18,10 +18,11 @@
 - Version 1.3.0 must appear in exactly three places, in sync: `.claude-plugin/plugin.json`, `.codex-plugin/plugin.json`, README `**Version:**` line.
 - `skills/delegate/agents/openai.yaml` sets `allow_implicit_invocation: false` (the skill writes).
 - No superpowers dependency anywhere in the delegate skill: it must not invoke superpowers skills, run `scripts/sdd-workspace`, or reference `.superpowers/sdd/`.
-- Delegate workspace path is exactly `.sdd-dispatch/delegate/` at the repo root, ignored via `.git/info/exclude` — NEVER by implicitly editing a tracked `.gitignore`.
+- Delegate workspace path is exactly `.sdd-dispatch/delegate/` at the repo root, ignored via the file resolved by `git rev-parse --git-path info/exclude` — NEVER by implicitly editing a tracked `.gitignore`.
 - Statuses are exactly: DONE / DONE_WITH_CONCERNS / NEEDS_CONTEXT / BLOCKED.
 - Supervision trigger formula: `cycles = planned initial worker dispatches + planned initial reviewer dispatches`, computed after batching; retries/resumes/fix rounds excluded; supervised iff cycles ≥ 3; explicit "supervised"/"unsupervised" overrides.
-- Write-lane evidence gate must cover staged, unstaged, AND untracked changes, and must verify HEAD is unchanged (`git status --porcelain=v1 --untracked-files=all` + `git diff HEAD`).
+- Evidence gate: clean tree + recorded HEAD/branch before EVERY repository dispatch (both lanes); after — HEAD unchanged (both lanes), and for write lane staged+unstaged+untracked coverage (`git status --porcelain=v1 --untracked-files=all` + `git diff HEAD`).
+- Pre-commit review containment: an unsandboxed reviewer never runs in the dirty target repo — enforced read-only provider, or artifact-only scratch directory.
 
 ---
 
@@ -50,6 +51,9 @@ task, the report file, and any source materials. This contract is how you operat
 - **Read-only.** Do not mutate the working tree, index, or any git state, and do not
   write any file except your report file. (On providers with an enforced read-only
   sandbox this is enforced; elsewhere it is your contract.)
+- **If your dispatch says you cannot write files** (enforced read-only lane): your
+  final message is the FULL report — everything the Report section below describes —
+  instead of the short status block. Begin it with the same STATUS/ANSWER lines.
 - If the task is unclear or a source named in your dispatch is missing, **stop and
   ask**: status NEEDS_CONTEXT with your questions in the final message. Do not guess.
 - Evidence discipline: every claim in your report carries its source — file:line for
@@ -169,9 +173,10 @@ stays inline unless the caller explicitly asked for external delegation. This sk
 `scripts/sdd-workspace`, and never reads or writes `.superpowers/sdd/`.
 
 **v1 scope: git repositories.** In a non-repo working directory accept only read-only
-research/synthesis: artifacts go to the harness's temporary/job directory, no durable
-ledger exists, and no resume promise is made — say so in the reply. Refuse write-lane
-work outside a git repository.
+research/synthesis: artifacts go to a fresh
+`mktemp -d "${TMPDIR:-/tmp}/sdd-delegate.XXXXXX"` directory, no durable ledger exists,
+and no resume promise is made — say so in the reply. Refuse write-lane work outside a
+git repository.
 
 Read these plugin documents when their policy is needed:
 
@@ -191,7 +196,10 @@ Read these plugin documents when their policy is needed:
   resolution sequence (the tier/lane candidate walk in the routed pack's models.md) —
   otherwise ask, never silently accept or substitute.
 - **Review**: "with review" — write lane: one reviewer dispatch before commit (see
-  Gate). Read lane: a second independent reader; the controller compares reports.
+  Gate). Read lane: a second independent reader WITHIN the resolved provider (next
+  eligible candidate in the resolution walk when one exists, else a fresh session of
+  the same model; a provider change is a user decision, never silent); the controller
+  compares reports.
 - **Lane pin**: "read-only" — forces the read lane. If the task text simultaneously
   demands writes ("fix this, read-only"), ask which governs — never silently convert
   requested write work into analysis.
@@ -229,10 +237,13 @@ Read these plugin documents when their policy is needed:
    preflight per its pack (version + auth/session probe; agy: the headless permission
    baseline check — on miss, STOP and hand the user the pack's baseline section).
 8. **Workspace**: create `.sdd-dispatch/delegate/` at the repo root. Check
-   `git check-ignore -q .sdd-dispatch`; if not ignored, append `.sdd-dispatch/` to
-   `.git/info/exclude` (repo-local, never tracked) and tell the user — NEVER edit a
-   tracked `.gitignore` implicitly (it dirties the tree right before a gate that
-   requires it clean; a tracked entry is the user's separate commit). Copy
+   `git check-ignore -q .sdd-dispatch/delegate/.probe` (a child sentinel, so negation
+   rules cannot silently expose workspace files); if not ignored, append
+   `.sdd-dispatch/` to the file resolved by `git rev-parse --git-path info/exclude`
+   (repo-local, never tracked; a literal `.git/info/exclude` path breaks in linked
+   worktrees) and tell the user — NEVER edit a tracked `.gitignore` implicitly (it
+   dirties the tree right before a gate that requires it clean; a tracked entry is the
+   user's separate commit). Copy
    `implementer-contract.md`, `task-reviewer-contract.md`, and `reader-contract.md`
    from `<root>/contracts/` into the workspace once per session.
 
@@ -262,7 +273,17 @@ research / synthesis → reader contract; a primary review job ("review this dif
 document") → task-reviewer contract, with the controller generating the inputs that
 contract expects: the artifact under review as a package file (for a diff: commit list
 + stat + `-U10`) plus whatever requirements text the caller supplied in place of a
-brief.
+brief. For whole-artifact scopes (a design doc, a whole branch) the dispatch prompt
+overrides the contract's task-scoped framing explicitly — state the actual scope; the
+contract's method and calibration rules still apply.
+
+**Output capture is role- and lane-specific — never demand an in-sandbox file write
+the lane forbids**: review-role dispatches use the reviewer contract's own output
+protocol (final message IS the verdict report), not the four-status block. On an
+enforced read-only lane the agent cannot write `NNN-report.md` — the FULL
+report/answer is the captured final output, saved by the controller (or the pack's
+host-side output mechanism) to the workspace path; the reader contract carries this
+switch. Unsandboxed read-intent lanes keep the report-file + short-status protocol.
 
 **Batching**: a homogeneous batch (near-identical mechanical items) is ONE job = one
 dispatch. Heterogeneous tasks are separate jobs, run sequentially. Never parallel
@@ -282,9 +303,10 @@ BEFORE launch — a crash or compaction never loses the number→task mapping.
    class), the task text verbatim, scene (one line: repo, branch, relevant paths), the
    report-file path (`NNN-report.md`), and the report contract — status ≤15 lines back
    (DONE / DONE_WITH_CONCERNS / NEEDS_CONTEXT / BLOCKED), detail in the report file.
-2. Write lane: the tree must be CLEAN — `git status --porcelain=v1
-   --untracked-files=all` empty, no exceptions on any pack. Record BASE (= HEAD) and
-   the current branch.
+2. EVERY repository dispatch, both lanes: the tree must be CLEAN — `git status
+   --porcelain=v1 --untracked-files=all` empty, no exceptions on any pack (pre-existing
+   dirt is indistinguishable from agent mutation). Record BASE (= HEAD) and the current
+   branch for both lanes.
 3. Dispatch with the active pack's canonical template inside the self-reaping wrapper
    (`core/liveness.md`), stdout to `NNN-dispatch.log`. Observe completion via the
    harness adapter's declared mechanism (background-task notification, polling, or the
@@ -298,9 +320,10 @@ BEFORE launch — a crash or compaction never loses the number→task mapping.
      --untracked-files=all` + `git diff HEAD --stat` — together covering unstaged,
      staged, AND untracked changes. Agent-created untracked files are part of the
      change: list them; include their content in any review package.
-   - Read lane: porcelain must be EMPTY (any mutation is a violation to surface, not
-     silently reset); the report file must exist, postdate the dispatch, and answer
-     the task.
+   - Read lane: HEAD must be UNCHANGED (an unsandboxed "reader" can commit and leave
+     a clean tree) and porcelain must be EMPTY (any mutation is a violation to
+     surface, not silently reset); the report (file or captured output, per the lane's
+     output-capture rule) must exist, postdate the dispatch, and answer the task.
 5. **NEEDS_CONTEXT, follow-ups, and fixes ride the resume channel** — the pack's
    validated continuation mechanism against the recorded session id. Cold re-dispatch
    only when the resume channel fails, with the prior report attached.
@@ -316,7 +339,8 @@ BEFORE launch — a crash or compaction never loses the number→task mapping.
      not a restart); check `git diff HEAD` for landed work before resuming.
    - Task/context blocker (BLOCKED, NEEDS_CONTEXT) → controller adjudication; nothing
      automatic.
-   - Quality failure → never auto-fallback; escalate tier or adjudicate with the user.
+   - Quality failure → stops ALL automatic recovery; any tier escalation requires
+     user approval (tier moves are never the controller's unilateral call).
    - Every attempt appends:
      `model-attempt: job=NNN role=<role> provider=<id> model=<id> class=<scope> outcome=<failed|ok>`.
 
@@ -343,13 +367,20 @@ commit — review role, standard tier (scaled up for large/risky diffs), review 
 task-reviewer contract, given the task text, the report, and a review package
 (BASE→current: commit list + stat + `-U10` diff of tracked changes + full content of
 agent-created untracked files) written to `NNN-review-package.md`; reviewer output to
-`NNN-review.md`. Critical/Important findings ride the implementer's resume channel; the
-re-review resumes the ORIGINAL reviewer's thread with the fix summary and a fresh
+`NNN-review.md`. **Pre-commit review containment**: the target tree holds uncommitted
+worker changes, so an unsandboxed reviewer must NEVER run in it — either the review
+lane's provider enforces read-only (repo access allowed), or dispatch the reviewer in
+an artifact-only scratch directory containing just the review package and task text
+(the default whenever the review lane is not enforced; the package is self-contained
+by construction). Critical/Important findings ride the implementer's resume channel;
+the re-review resumes the ORIGINAL reviewer's thread with the fix summary and a fresh
 versioned package (`NNN-review-package-2.md`). One fix/re-review round by default.
 
 **"with review" on a read-lane job**: a second independent reader (same contract and
-inputs, different session — a different model or provider when eligible); the
-controller compares the two reports and reconciles disagreements before answering.
+inputs, fresh session) per the lever's routing rule — within the resolved provider,
+next eligible candidate else same model; report to `NNN-reader2-report.md`, ledger
+events `NNN reader2-dispatched:` / `NNN reader2-session:`. The controller compares the
+two reports and reconciles disagreements before answering.
 
 ## Supervised delegate (auto by cost, announced)
 
@@ -397,7 +428,13 @@ or hands the answer to a fresh supervisor cycle for the remaining batch.
   NNN-review-package.md        # only when "with review" (write lane)
   NNN-review.md                # only when "with review"
   NNN-review-package-2.md      # re-review rounds: versioned, never overwritten
+  NNN-reader2-report.md        # only when "with review" (read lane)
 ```
+
+**Append semantics under retries**: `NNN-dispatch.log` and `NNN-report.md` are
+append-only across attempts — each retry/resume first appends an attempt boundary
+header (`=== attempt <n>: <provider>/<model> ===`), then its output, so the
+channel-failure evidence that justified a fallback is never overwritten.
 
 **Ledger = append-only lifecycle events**, one line each, written the moment each event
 happens (never only at completion):
@@ -405,10 +442,13 @@ happens (never only at completion):
 ```
 NNN allocated: role=<role> task="<summary, ≤10 words>" prompt=NNN-prompt.md
 NNN dispatched: provider=<id> model=<id> attempt=<n>
-NNN session: <session-id>                      # appended when observed (async)
-NNN review-dispatched: provider=<id> model=<id>
-NNN review-session: <session-id>               # reviewer's own resume thread
-NNN resumed: <needs-context|fix|follow-up>
+NNN session: attempt=<n> <session-id>          # appended when observed (async);
+                                               # attempt= disambiguates late arrivals
+NNN review-dispatched: provider=<id> model=<id> round=<n>
+NNN review-session: round=<n> <session-id>     # reviewer's own resume thread
+NNN reader2-dispatched: provider=<id> model=<id>
+NNN reader2-session: <session-id>
+NNN resumed: target=<worker|review> session=<id> reason=<needs-context|fix|follow-up>
 NNN complete: status=<DONE|...> outcome=<committed <sha7>|diff-left|answer-returned|blocked>
 model-attempt: job=NNN role=<role> provider=<id> model=<id> class=<scope> outcome=<failed|ok>
 ```
@@ -556,6 +596,15 @@ def _model_ids():
                 ids.add(cells[3].strip("`"))
     return ids
 
+def _pack_clis():
+    """The validated cli name from every provider pack manifest."""
+    clis = set()
+    for pack in (ROOT / "providers").glob("*/pack.md"):
+        m = re.search(r"^cli: (\S+)", pack.read_text(), re.M)
+        if m:
+            clis.add(m.group(1))
+    return clis
+
 def test_skill_exists_with_frontmatter():
     text = SKILL.read_text()
     assert text.startswith("---\n")
@@ -571,13 +620,30 @@ def test_purity_no_model_ids_in_any_skill():
         leaked = {m for m in ids if m in text}
         assert not leaked, f"{skill}: model ids leaked: {leaked}"
 
-def test_superpowers_independence_disclaimer():
-    # The skill legitimately NAMES superpowers in its boundary prose; the testable
-    # invariant is that the no-dependency disclaimer is present and the skill never
-    # references the sdd-workspace script it must not run outside that disclaimer.
+def test_purity_no_cli_invocations_in_fenced_code():
+    # Invocation strings live in provider packs only. No fenced code line in the
+    # delegate skill may start with a pack's cli binary name.
+    clis = _pack_clis()
+    assert clis, "expected pack manifests to declare cli names"
+    in_fence = False
+    for line in SKILL.read_text().splitlines():
+        if line.strip().startswith("```"):
+            in_fence = not in_fence
+            continue
+        if in_fence and line.strip():
+            first = line.strip().split()[0]
+            assert first not in clis, f"cli invocation leaked into skill: {line.strip()}"
+
+def test_superpowers_operational_independence():
+    # Normative rule: no operational dependency or invocation. The skill NAMES
+    # superpowers and its workspace exactly once each — in the negative disclaimer.
     text = SKILL.read_text()
     assert "no superpowers dependency" in text.lower()
-    assert text.count("scripts/sdd-workspace") <= 1  # only the disclaimer mention
+    assert text.count("scripts/sdd-workspace") == 1
+    assert text.count(".superpowers/sdd") == 1
+
+def test_root_resolution_stated():
+    assert "grandparent" in SKILL.read_text()
 
 def test_status_vocabulary_present():
     text = SKILL.read_text()
@@ -587,9 +653,10 @@ def test_status_vocabulary_present():
 def test_openai_yaml_disables_implicit_invocation():
     assert "allow_implicit_invocation: false" in YAML.read_text()
 
-def test_reader_contract_status_block():
+def test_reader_contract_protocol():
     text = READER.read_text()
-    for token in ("STATUS:", "ANSWER:", "REPORT:", "NEEDS_CONTEXT", "Read-only"):
+    for token in ("STATUS:", "ANSWER:", "REPORT:", "NEEDS_CONTEXT", "Read-only",
+                  "cannot write files"):
         assert token in text
 ```
 

@@ -81,9 +81,15 @@ agy --model gemini-3.6-flash --effort <low|medium|high> \
   *"Write your full report to `<path>` using your ordinary workspace FILE-WRITE tool. That
   path is a normal workspace file, NOT an artifact — do not use the artifact tool for it,
   and do not shell out to write it."*
-  Verified to fix it with no shell clause. Equally valid: skip agent-side file writing and
-  take the FULL report as the captured final message (the enforced-read-only output
-  protocol), which is immune to this failure mode.
+  This steering is **mechanistically targeted but NOT statistically verified**: a 19-run
+  controlled trial (2026-07-23) gave 10/10 steered vs 7/9 unsteered — Fisher one-tailed
+  p = 0.21, not significant, because the base failure rate is only ~22%. Carry it (it is
+  free and addresses the exact rejection seen in the transcript), but do not treat it as a
+  guarantee.
+  **The reliable fix is structural: skip agent-side file writing entirely** and take the
+  FULL report as the captured final message (the enforced-read-only output protocol). That
+  cannot hit the artifact path at all, so it removes the failure mode instead of reducing
+  its probability. Prefer it for agy read-lane dispatches.
 - Exit codes normal on ≥1.1.4 (0 success, 1 error). Bogus model → clean error listing all
   available models.
 - **Model naming**: display label verbatim (`"Gemini 3.6 Flash (Low)"`) or slug

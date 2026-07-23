@@ -184,3 +184,33 @@ cosmetic, it can hard-fail the report protocol.
 **Alternative, equally valid:** use the delegate skill's enforced-read-only output
 protocol (the FULL report IS the captured final message; the controller saves it), which
 sidesteps agent-side file writing entirely and is immune to this failure mode.
+
+### Addendum (same day) — the steering clause is NOT statistically verified
+
+The entry above prescribed a report-write steering sentence and called it "verified to fix
+it" on the strength of ONE successful dispatch. That was an overclaim for an intermittent
+failure, and a controlled trial does not support it.
+
+**Trial** (agy 1.1.5, `gemini-3.6-flash-low`, identical small read task, serialized, each
+run in a fresh state, report path `out/REPORT.md`):
+
+| Arm | Wrote report | Failed | Failure rate |
+| --- | --- | --- | --- |
+| Steered (clause present) | 10/10 | 0 | 0% |
+| Plain (control) | 7/9 | 2 | 22% |
+
+**Fisher one-tailed p = 0.21 — not significant.** P(11 straight steered successes, counting
+the earlier live dispatch, given a 22% base failure rate) = 0.063. Both control failures
+showed the identical signature (exit 0, auto-deny banner, no report), confirming the bug
+reproduces in a controlled setting — but the *efficacy of the mitigation* is unproven.
+Detecting a 22%→0% effect at conventional confidence needs roughly 15+ runs per arm; this
+trial was underpowered by design and is recorded as such rather than rounded up.
+
+**Standing conclusions:**
+1. The failure mode is real, reproducible (~22% on this task shape), and root-caused at the
+   transcript level (artifact-path rejection → Bash fallback → print-mode soft-deny).
+2. The steering clause is cheap, mechanistically aimed at that exact rejection, and
+   consistent with the data — keep it, claim nothing more.
+3. **The structural fix is the one to rely on**: take the full report as the captured final
+   message so no agent-side file write happens. This eliminates the failure mode rather
+   than lowering its rate, and needs no statistics to justify.

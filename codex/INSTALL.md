@@ -13,13 +13,18 @@ then install from the plugin browser:
 
 ```bash
 codex plugin marketplace add discreteds/sdd-dispatch-plugin
+codex plugin add sdd-dispatch@sdd-dispatch-marketplace
 ```
 
-Then in a Codex session enter `/plugins`, install **SDD Dispatch**, and start a new
+(Verified end-to-end 2026-07-23 on codex 0.144.3: the plugin installs to
+`~/.codex/plugins/cache/<marketplace>/sdd-dispatch/<version>/` with the full repository —
+`core/`, `providers/`, `contracts/` ship beside `skills/`, so root resolution works
+unchanged.) Alternatively install from the `/plugins` browser in a session. Start a new
 session before using the bundled skills. Refresh later with:
 
 ```bash
 codex plugin marketplace upgrade sdd-dispatch-marketplace
+codex plugin add sdd-dispatch@sdd-dispatch-marketplace
 ```
 
 The plugin bundles the whole repository, so the `sdd` skill's sibling directories

@@ -134,3 +134,20 @@ flags (recorded in the codex pack, 2026-07-23).
   evidence of work).
 - Detached-wrapper doctrine (liveness.md) held on its first deliberate use: wrapper
   survived, marker file fired, no supervisor kill.
+
+---
+
+## 2026-07-23 — Codex plugin distribution verified (v1.2.3)
+
+The repository is now a Codex plugin (`.codex-plugin/plugin.json`, official schema per
+learn.chatgpt.com/docs/build-plugins) with a self-hosted marketplace
+(`.agents/plugins/marketplace.json`, plugin source `local ./` — the marketplace snapshot
+IS the repo clone; a `git-subdir` self-reference fails with "plugin not found").
+Verified end-to-end on codex 0.144.3 against the public GitHub repo:
+`codex plugin marketplace add discreteds/sdd-dispatch-plugin` →
+`codex plugin add sdd-dispatch@sdd-dispatch-marketplace` → installed+enabled at
+`~/.codex/plugins/cache/…/sdd-dispatch/1.2.3/` with the complete sibling layout
+(core/, providers/, contracts/ beside skills/), so skill root resolution is intact.
+Note: `codex plugin add` works headlessly — the docs' /plugins-browser flow is optional.
+Skills-only fallback (`.agents/skills` symlinks) documented as Route B; the previously
+documented `~/.codex/skills` location is NOT in the official scan list.

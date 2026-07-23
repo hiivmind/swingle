@@ -28,9 +28,10 @@ marketplace:
 
 ```bash
 codex plugin marketplace add discreteds/sdd-dispatch-plugin
+codex plugin add sdd-dispatch@sdd-dispatch-marketplace
 ```
 
-then `/plugins` in a Codex session to install **SDD Dispatch**. Manual alternative
+Manual alternative
 (clone + symlink into `$HOME/.agents/skills/`) and full details:
 [codex/INSTALL.md](codex/INSTALL.md). The Codex entry point is `skills/sdd/SKILL.md`.
 

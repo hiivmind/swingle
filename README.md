@@ -7,7 +7,7 @@ knowledge base that makes dispatch safe.
 Everything is self-contained. The `sdd` skill and provider packs are discovered
 from this repository; no machine-specific paths are required.
 
-**Version:** 1.2.5
+**Version:** 1.3.0
 
 ## Install with Claude Code
 

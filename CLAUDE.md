@@ -85,12 +85,25 @@ second mention of either string fails the suite.
 
 ## Git flow for this repo
 
-- Feature/architecture work: `feature/*` branch → merge to `main` on the owner's
-  explicit instruction.
-- Living-document rounds (verification entries, pack fact updates, doc fixes): commit
-  directly to `main` and push, per the owner's standing direction — but only after the
-  hard gate passes.
+**`main` is protected by a ruleset (2026-07-23). Everything lands via a PR — including
+docs and living-document rounds.** This supersedes the previous standing direction to
+commit doc fixes directly to `main`: that exception is withdrawn, because the ruleset now
+enforces the PR path and a documented exception that only an admin bypass can satisfy is
+worse than no exception at all.
+
+- Any change: `feature/*` / `bugfix/*` / `docs/*` / `chore/*` branch → PR to `main` →
+  merge on the owner's instruction. `main` also blocks force-pushes, deletion, and
+  non-linear history; conversation resolution is required.
+- The ruleset lists **repo admin as a bypass actor**, so a direct push to `main` will
+  succeed for the owner. That is an emergency escape hatch, not the flow — using it
+  silently reintroduces the conflict this section exists to remove.
 - Tag releases `v<plugin-version>` when the owner asks.
+
+**CI does not replace the hard gate.** `.github/workflows/ci.yml` runs `pytest` only, as
+the `tests` required status check. `pytest` drives `scripts/validate-packs` via subprocess
+(`tests/test_validate_packs.py`), so the validator IS enforced on GitHub — but
+`./scripts/codex-smoke` is **not** in CI by deliberate choice: it asserts developer-workspace
+layout, not repo correctness. Run the full gate locally, chained with `&&`, as above.
 
 ## Testing
 

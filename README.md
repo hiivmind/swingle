@@ -43,7 +43,7 @@ skills/delegate/                  # direct one-off dispatch skill (no plan machi
 skills/sdd-dispatch-verify/       # CLI re-verification skill
 core/                             # shared doctrine, playbook, roles, and logs
 providers/<id>/                    # self-contained provider packs
-contracts/                         # implementer and reviewer contracts
+contracts/                         # implementer, reviewer, and reader contracts
 codex/INSTALL.md                   # Codex installation instructions
 archive/v1.1/                      # verbatim legacy references
 references/                        # v1.1 tombstones with migration links
@@ -84,6 +84,26 @@ python3 scripts/validate-packs --root .
 ```
 
 Adding a provider requires zero edits to `core/`; routing is manifest-driven.
+
+The manifest is the YAML front matter of `pack.md`. Required: `schema-version`, `id`,
+`cli`, `verified-version`, `version-argv`, `resume-argv`, `session-source`,
+`stall-signal`, `sandbox`. Optional: `fork-flag`, `session-list-argv`,
+`readiness-argv`, `readiness-timeout-seconds`, and:
+
+| Field | Values | Meaning |
+| --- | --- | --- |
+| `report-transport` | `report-file` (default) · `captured-output` | How an agent's report gets back to the controller |
+
+Declare `captured-output` when the CLI cannot reliably write an agent-authored file to a
+workspace path. The skills then ask for **no file** and take the full report as the
+captured final message, saving it themselves. Getting this wrong is not cosmetic: on such
+a provider a report-file request fails *intermittently* while the exit code stays 0, so
+the report is silently missing and any reviewer downstream loses an input. `agy` is
+`captured-output`; `codex` and `opencode` are `report-file`.
+
+Every value is validator-enforced, and `*-argv` arrays are data — `argv[0]` must equal
+`cli`, and shell metacharacters are rejected, so a manifest can never smuggle in a
+command to execute.
 
 ## Reporting verification findings
 

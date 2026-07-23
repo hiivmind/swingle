@@ -33,26 +33,69 @@ def test_skill_exists_with_frontmatter():
     assert re.search(r"^name: delegate$", front, re.M)
     assert re.search(r"^description: .{40,}", front, re.M)
 
+def _skill_files():
+    """Every skill-authored file whose content the purity boundary binds."""
+    files = list((ROOT / "skills").glob("*/SKILL.md"))
+    files += [p for p in (ROOT / "skills").glob("*/agents/*.yaml")]
+    return files
+
 def test_purity_no_model_ids_in_any_skill():
     ids = _model_ids()
     assert ids, "expected provider model tables to parse"
-    for skill in (ROOT / "skills").glob("*/SKILL.md"):
+    for skill in _skill_files():
         text = skill.read_text()
         leaked = {m for m in ids if m in text}
         assert not leaked, f"{skill}: model ids leaked: {leaked}"
 
+# Leading markdown furniture that can precede a command on a line: list bullets,
+# ordered-list markers, blockquotes, and shell prompts.
+_MARKER = re.compile(r"^(?:[-*+>]\s+|\d+[.)]\s+|[$#]\s+)")
+
+def _cli_invocation(line, clis):
+    """A command-shaped use of a pack cli, or None.
+
+    Command-shaped means: a pack cli name in leading position (after stripping
+    markdown/prompt furniture and code-span backticks) carrying at least one flag
+    argument. Requiring a flag is what separates a real invocation
+    ("agy --model X ...", "- codex exec --json") from prose that merely opens with
+    the name ("codex is the default when active").
+    """
+    stripped = line.strip()
+    while True:
+        m = _MARKER.match(stripped)
+        if not m:
+            break
+        stripped = stripped[m.end():]
+    stripped = stripped.strip("`").strip()
+    parts = stripped.split()
+    if len(parts) < 2 or parts[0] not in clis:
+        return None
+    if not any(p.startswith("-") for p in parts[1:]):
+        return None
+    return stripped
+
 def test_purity_no_cli_invocations_anywhere():
-    # Invocation strings live in provider packs only. No line ANYWHERE in the skill
-    # (fenced or prose) may be command-shaped for a pack cli: first token equal to a
-    # cli name, followed by whitespace and an argument. Prose mentions like
-    # "(codex/opencode/agy)" or "via codex" do not match.
+    # Invocation strings live in provider packs only. No line ANYWHERE in a skill
+    # (fenced or prose) may be a command-shaped use of a pack cli. Prose mentions
+    # like "(codex/opencode/agy)", "via codex", or "codex is active" do not match;
+    # bullets and shell prompts ("- codex exec --json", "$ agy -p ...") do.
     clis = _pack_clis()
     assert clis, "expected pack manifests to declare cli names"
-    for line in SKILL.read_text().splitlines():
-        stripped = line.strip()
-        parts = stripped.split(None, 1)
-        if len(parts) == 2 and parts[0] in clis:
-            raise AssertionError(f"command-shaped cli line leaked into skill: {stripped}")
+    for skill in _skill_files():
+        for n, line in enumerate(skill.read_text().splitlines(), 1):
+            leaked = _cli_invocation(line, clis)
+            assert not leaked, f"{skill}:{n}: cli invocation leaked into skill: {leaked}"
+
+def test_cli_invocation_detector_discriminates():
+    # Guards the heuristic itself: the detector must fire on real invocations
+    # (including ones dressed in markdown) and stay silent on prose.
+    clis = {"codex", "agy", "opencode"}
+    for bad in ("agy --model X -p \"t\"", "- codex exec --json", "$ agy -p 'x'",
+                "1. opencode run --model m", "`codex exec --cd .`", "> agy --version"):
+        assert _cli_invocation(bad, clis), f"should have flagged: {bad}"
+    for ok in ("codex is active", "via codex", "(codex/opencode/agy)",
+               "- codex, opencode, and agy are the packs", "the agy pack", "codex"):
+        assert _cli_invocation(ok, clis) is None, f"false positive: {ok}"
 
 def test_superpowers_operational_independence():
     # Normative rule: no operational dependency or invocation. The skill NAMES

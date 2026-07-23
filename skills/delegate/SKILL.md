@@ -25,7 +25,10 @@ stays inline unless the caller explicitly asked for external delegation. This sk
 research/synthesis: artifacts go to a fresh
 `mktemp -d "${TMPDIR:-/tmp}/sdd-delegate.XXXXXX"` directory, no durable ledger exists,
 and no resume promise is made — say so in the reply. Refuse write-lane work outside a
-git repository.
+git repository. Report the directory's path with the answer and leave it in place for
+the session (the report is the deliverable and the user may want it); never delete it
+before returning the answer, and never treat OS temp pruning as a guarantee it will
+persist.
 
 Read these plugin documents when their policy is needed:
 
@@ -223,7 +226,10 @@ agent-created untracked files) written to `NNN-review-package.md`; reviewer outp
 `NNN-review.md`. **Pre-commit review containment — always artifact-only**: the target
 tree holds uncommitted worker changes, so pre-commit reviewers run in an artifact-only
 scratch directory containing just the review package and task text, on EVERY provider
-(the package is self-contained by construction). A pre-commit reviewer never enters
+(the package is self-contained by construction). Concretely: the controller COPIES
+`NNN-review-package.md` and `NNN-prompt.md` (plus the reviewer contract) into that
+scratch directory and scopes the dispatch to it — it never passes workspace paths that
+would pull the reviewer back into the repository. A pre-commit reviewer never enters
 the target repository — the clean-tree rule stays exception-free and a reviewer
 mutation can never masquerade as worker work. Critical/Important findings ride the implementer's resume channel;
 the re-review resumes the ORIGINAL reviewer's thread with the fix summary and a fresh

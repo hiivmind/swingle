@@ -12,6 +12,12 @@ per-task loop, task briefs and review packages, statuses, two-verdict reviews, f
 ledger, pre-flight scan, and final review. This skill replaces its dispatch mechanism with
 the active provider pack or, when selected, harness-native subagents.
 
+**Never dispatch from memory.** The documents below are read at Step 0, before the first
+dispatch — not recalled. They change under you: packs are re-verified on every CLI version
+bump, and tiering, roles, and dispatch templates move with them. A dispatch built from
+remembered doctrine looks identical to a correct one and fails silently — a stale flag, a
+superseded model id, a tier that no longer matches the role.
+
 Read these plugin documents when their policy is needed:
 
 - `<root>/core/playbook.md` — SDD process mapping, dispatch flavours, and controller gates
@@ -90,6 +96,12 @@ path; provider routing and model resolution do not apply.
 implementer contract and task brief by path, states the scene and prior interfaces, and
 requires the report path. Record BASE before dispatch; implementers do not commit.
 
+**Every dispatch prompt states the status vocabulary inline** — contracts move by path
+(playbook E1), the four status tokens do not (E1a). Append verbatim: “End with a status
+block whose first line is exactly one of: STATUS: DONE | DONE_WITH_CONCERNS |
+NEEDS_CONTEXT | BLOCKED.” One line in the prompt buys conformance the contract citation
+alone did not get at the cheapest tier; a missing block still means UNKNOWN, never DONE.
+
 **Report transport:** honor the routed pack's `report-transport`. On `report-file` (the
 default when the field is absent) the agent writes `task-N-report.md` itself. On
 `captured-output` the provider cannot reliably write an agent-authored file to a workspace
@@ -104,6 +116,16 @@ contract, brief, report, review-package path, and global constraints verbatim. S
 “review only, change nothing in the repo; writing your review file is allowed.” Apply an
 enforced read-only lane where the pack provides one; otherwise obey
 `core/safety-doctrine.md`.
+
+**Design / plan reviewer:** when the review target is an artifact that has not been
+implemented yet — the plan itself, a spec it derives from, an architecture document —
+dispatch the final/design reviewer row with `design-reviewer-contract.md`, not the task
+reviewer contract. This is the shape of a pre-flight plan review and of any review the
+caller frames as design-stage; `specs/*-design.md` and `plans/*.md` are the usual paths.
+The task reviewer contract is built around a diff, so pointing it at an unimplemented
+design yields findings that restate the design's absence. Say explicitly in the prompt:
+“this is a design review — the work is not yet implemented; judge whether it would be
+correct if built, and do not check whether code implements it.”
 
 **Fix / NEEDS_CONTEXT:** do not cold-dispatch. Resume the implementer through the active
 pack's validated continuation mechanism with the answers or findings list, then re-review.

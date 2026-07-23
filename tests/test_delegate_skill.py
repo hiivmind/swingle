@@ -189,3 +189,39 @@ def test_reader_contract_inline_switch_is_not_sandbox_only():
     text = READER.read_text()
     assert "captured output" in text, \
         "reader contract must cover the captured-output transport, not just read-only lanes"
+
+
+DESIGN = ROOT / "contracts" / "design-reviewer-contract.md"
+SDD_SKILL = ROOT / "skills" / "sdd" / "SKILL.md"
+
+
+def test_design_reviewer_contract_states_the_no_code_premise():
+    # The whole point of a separate contract: a design review must not degrade into
+    # checking whether the design has been implemented. If that framing is ever edited
+    # out, the contract is indistinguishable from the task-reviewer contract.
+    text = " ".join(DESIGN.read_text().split())
+    assert "has NOT been implemented yet" in text
+    for token in ("Architectural flaws", "Missed edge cases", "Bad assumptions"):
+        assert token in text, f"design contract missing lens: {token!r}"
+    assert "not check whether the design has been carried out" in text
+
+
+def test_both_skills_route_unimplemented_artifacts_to_the_design_contract():
+    for skill in (SKILL, SDD_SKILL):
+        text = skill.read_text()
+        assert "design-reviewer-contract.md" in text, \
+            f"{skill}: no route to the design-reviewer contract"
+
+
+def test_status_vocabulary_is_required_inline_in_prompts():
+    # playbook E1a: contracts move by path, the four status tokens move in the prompt.
+    for f in (ROOT / "core" / "playbook.md", SKILL, SDD_SKILL):
+        text = " ".join(f.read_text().split())
+        assert "inline" in text.lower() and "STATUS: DONE" in text, \
+            f"{f}: inline status-vocabulary rule missing"
+
+
+def test_explicit_model_rule_is_stated_in_roles():
+    text = " ".join((ROOT / "core" / "roles.md").read_text().split())
+    assert "always passed explicitly" in text
+    assert "inherits whatever model the caller's own session is running" in text

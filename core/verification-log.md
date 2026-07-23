@@ -151,3 +151,27 @@ Verified end-to-end on codex 0.144.3 against the public GitHub repo:
 Note: `codex plugin add` works headlessly — the docs' /plugins-browser flow is optional.
 Skills-only fallback (`.agents/skills` symlinks) documented as Route B; the previously
 documented `~/.codex/skills` location is NOT in the official scan list.
+
+## 2026-07-23 — supervised delegate: a native supervisor truncated the append-only ledger (v1.3.0)
+
+Smoke C exercised the supervised delegate flavour (3 mechanical jobs = 3 planned cycles,
+at the ≥3 auto-supervision trigger) with a cheap harness-native subagent running the
+mechanical cycle. The cycle itself worked — three sequential agy dispatches, HEAD unchanged
+throughout, all work left uncommitted for the controller, correct evidence reads returned
+with paths.
+
+**Finding: the supervisor REWROTE `ledger.md` instead of appending to it**, destroying the
+`NNN allocated:` lines the controller had written before launch — precisely the durable
+job-number→task mapping that exists so a killed supervisor loses no state. The dispatch
+instruction said "append", which was not enough; the subagent recreated the file with its
+own header. **Rule for supervised dispatch: instruct the supervisor to append with `>>`
+only, never to create, truncate, or rewrite the ledger, and have the controller re-read the
+ledger after the supervisor returns to confirm its pre-launch allocations survived.**
+
+**Second, smaller finding: the supervisor's summary paraphrased worker statuses.** It
+reported `status=COMPLETED` for all three jobs — a token outside the four-status vocabulary
+— because the cheapest-tier workers never emitted a real status block (see the agy log,
+same date). The controller's independent re-check (HEAD, porcelain, stat, full diff, and
+its own test run: 7/7) is what established the work was actually sound. This is the
+doctrine working as designed: **the supervisor's "all green" is evidence to check, not a
+gate result.**

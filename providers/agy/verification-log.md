@@ -62,3 +62,50 @@ read-only intent held under clean-tree/diff-after.
 Machinery notes from this smoke (v1.2.0, first agy-lane run): resolver walk, trust gate,
 detached wrapper + marker + Monitor, and the process+print-timeout liveness contract all
 behaved; the wrapper survived, marker fired, and the gate caught the silent no-op.
+
+## 2026-07-23 — delegate-skill post-plan smokes (v1.3.0, agy lane)
+
+Three live smokes of the new `delegate` skill on agy 1.1.5 (`gemini-3.6-flash-low`
+worker/reader, `gemini-3.6-flash-medium` reviewer). All three passed; four behavioral
+findings recorded.
+
+**Finding 1 — a denied shell command can abort the whole run, and the gate is what
+catches it.** Smoke A (read-lane explore) attempt 1 returned exit 0 with only the
+auto-deny banner and NO report: the reader reached for a shell command outside the
+allow-list and stopped rather than falling back to file reads. The read-lane evidence
+gate (report must exist) caught it correctly — exit 0 is never evidence. Attempt 2, with
+the prompt stating that shell execution is denied and directing the agent to file-read
+tools plus a named file list, produced a fully cited, accurate report. **Operating rule:
+every agy dispatch prompt should carry an explicit "shell is denied, use file tools,
+continue rather than stop on a denial" clause.**
+
+**Finding 2 — the documented baseline's git allow-rule does not cover exploration.**
+`command(git (status|diff|log|show|rev-parse|ls-files|branch))` excludes `git grep`, the
+natural first move for a codebase-explore role, and there is no rule matching a repo-local
+script path (`./scripts/codex-smoke`), so plan-mandated gate steps were auto-denied on
+every implement dispatch of this run. Harmless under doctrine (the controller re-runs all
+gates and never trusts agent-reported results), but it means **agent-side gate steps
+should not be dispatched to agy at all** — hand them to the controller.
+
+**Finding 3 — the cheapest tier does not reliably emit the mandated status block.**
+`gemini-3.6-flash-low` workers in the supervised batch (jobs 003–005) ignored the
+contract's four-status vocabulary (DONE / DONE_WITH_CONCERNS / NEEDS_CONTEXT / BLOCKED)
+and emitted a prose `## Status` markdown section instead. `gemini-3.6-flash-medium`
+emitted the exact block every time (jobs 001, 002 and both reviews). Consequence: any
+controller or supervisor that parses status by keyword must treat a missing block as
+unknown-and-escalate, never as success — and status-block fidelity is a reason to prefer
+the standard tier when a machine reads the status.
+
+**Finding 4 — resume channel re-verified on both worker and reviewer threads.**
+`agy --conversation <id>` resumed the worker for a fix round (retained its own prior work
+— "the mul() work you just completed" — and made only the requested change, HEAD
+unchanged) and separately resumed the ORIGINAL reviewer with a versioned package
+(`002-review-package-2.md`); the reviewer verified its own finding as resolved rather than
+re-deriving the review. Conversation ids taken from newest-first
+`~/.gemini/antigravity-cli/brain/` under strictly serialized dispatch, per the pack's
+concurrency caveat.
+
+Also confirmed this run: pre-commit reviewer containment (artifact-only scratch directory
+outside the target repo) held — the target tree after the review carried exactly the
+worker's two modified files and nothing else; and the write-lane evidence gate
+(HEAD-unchanged + porcelain + stat) held across all five delegate jobs.

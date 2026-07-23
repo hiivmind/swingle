@@ -121,3 +121,32 @@ def test_reader_contract_protocol():
     for token in ("STATUS:", "ANSWER:", "REPORT:", "NEEDS_CONTEXT", "Read-only",
                   "cannot write files"):
         assert token in text
+
+def test_validator_ignores_delegate_workspace():
+    # Regression: the delegate workspace is git-ignored agent scratch whose reports are
+    # full of illustrative links. Before this guard, running the delegate skill inside
+    # this repo made the repo's own hard gate fail on those links.
+    #
+    # Run the real validator on the real tree twice — once as-is, once with a
+    # link-broken report planted in the workspace — and require identical results.
+    # Comparing against the tree's own baseline isolates the workspace's effect
+    # without needing a complete fixture copy.
+    import subprocess, tempfile, os
+    cmd = ["python3", str(ROOT / "scripts" / "validate-packs"), "--root", str(ROOT)]
+    before = subprocess.run(cmd, capture_output=True, text=True)
+    ws = ROOT / ".sdd-dispatch" / "delegate"
+    ws.mkdir(parents=True, exist_ok=True)
+    fd, name = tempfile.mkstemp(prefix="zz-regression-", suffix=".md", dir=ws)
+    os.close(fd)
+    planted = Path(name)
+    try:
+        planted.write_text(
+            "See [roles](file:///nowhere/core/roles.md#L1-L2) and [x](./nope.md).\n")
+        after = subprocess.run(cmd, capture_output=True, text=True)
+    finally:
+        planted.unlink()
+    assert after.returncode == before.returncode, (
+        f"delegate workspace changed the validator verdict "
+        f"({before.returncode} -> {after.returncode}):\n{after.stdout}{after.stderr}")
+    assert planted.name not in after.stdout + after.stderr, (
+        "validator scanned a file inside the delegate workspace")

@@ -8,7 +8,7 @@
 
 **Tech Stack:** Markdown provider packs; `scripts/validate-packs` + `scripts/codex-smoke`; live `grok` 0.2.111 CLI; pytest structural suite.
 
-**Spec:** `docs/superpowers/specs/2026-07-23-grok-provider-design.md` (rev 2, GLM 5.2 findings folded) — the authority for all behavior below.
+**Spec:** `docs/superpowers/specs/2026-07-23-grok-provider-design.md` (rev 3, user-guide-backed + GLM findings) — the authority for all behavior below. CLI behavior authority: `~/.grok/docs/user-guide/`.
 
 ## Global Constraints
 
@@ -16,12 +16,19 @@
 - Before EVERY commit: `python3 scripts/validate-packs --root . && ./scripts/codex-smoke` must exit 0 (chain with `&&`, never `;`).
 - Purity: model ids and invocation strings live only in `providers/grok/`; skills/core may list provider **names** only.
 - Model Status cells are a **single** enum ∈ `{verified, experimental, unavailable, superseded, rejected}` — never `experimental → verified`.
-- Canonical dispatch template ships only **smoke-verified** flags (`-p`, `-m`, `--always-approve`). Promote `--cwd` / `--output-format plain` only after P11 Confirms.
-- `resume-argv` is `["grok", "--resume", "{session_id}"]` — **no** embedded `-p` (agy convention; skill appends `-p "<prompt>"`).
+- Canonical dispatch template follows **Grok user-guide headless automation**
+  (`~/.grok/docs/user-guide/14-headless-mode.md`): `-p`, `-m`, `--cwd`, `--always-approve`
+  (≡ `--yolo`), lane sandbox (`workspace` implement / `read-only` review), `--output-format`.
+- `resume-argv` is `["grok", "--resume", "{session_id}"]` — **no** embedded `-p` (agy
+  convention; skill appends `-p "<prompt>"`). Prefer session id from `--output-format json`
+  → `.sessionId` (`session-source: exec-output`).
+- `sandbox: enforced` with documented profiles; do not re-discover whether sandbox exists.
 - `verified-version: "0.2.111"` only after P2 + P6(file+shell) + implement-shaped on-disk evidence.
 - Live probes run in `$SCRATCH` (mktemp), never the plugin working tree for destructive writes.
+  Probes **confirm** docs on this version; they do not invent flags.
 - Verification log is append-only; Incomplete is honest; never invent Confirmed.
 - Version triad 1.6.0: `.claude-plugin/plugin.json`, `.codex-plugin/plugin.json`, README `**Version:**`.
+- On every CLI bump: read `~/.grok/docs/user-guide/{14,17,18,22}-*.md` before probing.
 
 ## File map
 
@@ -64,28 +71,28 @@ verified-version: "0.2.111"
 version-argv: ["grok", "--version"]
 resume-argv: ["grok", "--resume", "{session_id}"]
 fork-flag: "--fork-session"
-session-source: session-list
+session-source: exec-output
 session-list-argv: ["grok", "sessions", "list"]
 stall-signal: log-age
 report-transport: report-file
-sandbox: none
+sandbox: enforced
 readiness-argv: ["grok", "models"]
 ---
 
 ## Cross-CLI comparison — grok cells
 
-| Property | grok 0.2.111 |
+| Property | grok 0.2.111 (user-guide + smoke) |
 | --- | --- |
-| Prompt argument | `-p` / `--single` (also `--prompt-file`) |
-| `< /dev/null>` needed | **No** (verified smoke; harmless insurance) |
-| Sandbox | Built-ins (`none`, `workspace`, `read-only`); unknown profile **fails closed** |
-| Permission flags | **`--always-approve`** for implement (shell + file). `acceptEdits` alone / with always-approve: shell silent no-op |
-| Exit codes | Often 0 even on model/tool failure — **not work evidence** |
-| Model validation | Local error text (`unknown model id`); exit may still be 0 |
-| Reasoning-effort control | `--reasoning-effort` / `--effort` (P9 for invalid/silent-ignore) |
-| Output contract | stdout final message (P10 for diversion / report-file) |
-| Auth | grok.com / OAuth (`grok login`); SuperGrok for higher limits |
-| Changelog | product/docs for Grok Build CLI — re-read on every version bump |
+| Prompt argument | `-p` / `--single` (also `--prompt-file`, `--prompt-json`) |
+| `< /dev/null>` needed | **No** — headless does not read piped stdin as prompt |
+| Sandbox | **Enforced** profiles: `off`, `workspace`, `read-only`, `strict`, `devbox` (Landlock/Seatbelt) |
+| Permission flags | **`--always-approve`** ≡ `--yolo` ≡ `bypassPermissions`. Do not use `--permission-mode acceptEdits` headless (flag does not enable that policy) |
+| Exit codes | Docs: 0/1/130/143; smoke: bogus model may still exit 0 — gate on disk/stdout |
+| Model validation | Error text (`unknown model id`); re-check exit code on verify |
+| Reasoning-effort control | `--reasoning-effort` / `--effort`: none…max (P9 for invalid) |
+| Output contract | `plain` (default), `json` (`.sessionId` + `.text`), `streaming-json` |
+| Auth | grok.com OAuth / `XAI_API_KEY`; SuperGrok for higher limits |
+| Docs | `~/.grok/docs/user-guide/` — read 14/17/18/22 on every version bump |
 
 ## Resume — a kill is a checkpoint, not a restart
 
@@ -116,25 +123,28 @@ grok --resume <session_id> --fork-session -p "<continuation>" --always-approve
 
 ### Canonical dispatch template
 
+**Implement:**
 ```bash
-grok -p "<PROMPT>" -m <model> --always-approve
+grok -p "<PROMPT>" -m <model> --cwd <repo> --always-approve --sandbox workspace --output-format plain
 ```
 
-Optional: `< /dev/null` at the end (not mandatory).
+**Review:**
+```bash
+grok -p "<PROMPT>" -m <model> --cwd <repo> --always-approve --sandbox read-only --output-format plain
+```
 
-Provisional (do **not** treat as canonical until P11 Confirms in verification-log):
-`--cwd <repo>`, `--output-format plain`.
+Session id: prefer `--output-format json` and parse `.sessionId` (or `grok sessions list`).
 
 ### Gotchas
 
-1. Exit codes are not work evidence — gate on stdout + on-disk effects.
-2. `acceptEdits` is not a safe implement ceiling (shell silent no-op).
-3. `-p` / `--single` = one user turn with multi-tool agency; `--prompt-file` for large briefs.
-4. Stdin close optional.
-5. Unknown sandbox profile fails closed.
-6. Only `grok-4.5` in inventory as of 0.2.111.
-7. Quota exhaustion is a **dispatch-time channel failure** (upsell message on the
-   dispatch). `readiness-argv` (`grok models`) proves the CLI answers, not remaining quota.
+1. Do not use `--permission-mode acceptEdits` headless — use `--always-approve` / `--yolo`.
+2. Gate on stdout + on-disk effects (bogus model may still exit 0).
+3. `-p` = one user turn with multi-tool agency; stdin is not the prompt.
+4. `-s` creates only (UUID); resume with `-r` / `-c`.
+5. Sandbox profiles are real; resume cannot change profile.
+6. Only `grok-4.5` in inventory as of 0.2.111 until `grok models` grows.
+7. Quota exhaustion is a **dispatch-time channel failure**.
+8. Re-read `~/.grok/docs/user-guide/{14,17,18,22}-*.md` on every CLI bump.
 ````
 
 - [ ] **Step 2: Create `providers/grok/models.md`**
@@ -346,18 +356,18 @@ models Status experimental for review rationale — do not mark review lane veri
 Append a new `## 2026-07-23 — grok 0.2.111 (trigger: new provider; full suite)` table
 with every probe's Confirmed/Refuted/Refined/New/Incomplete verdict and one-line evidence.
 
-Then, **only where evidence supports it**:
+Then, **only where live evidence revises or promotes**:
 
-| Field | Promote when |
+| Field | Rule |
 | --- | --- |
 | `models.md` Status → `verified` | P2 + implement-shaped on-disk work succeeded |
 | `verified-version` stamp | P2 + P6 file+shell + implement-shaped report |
-| `report-transport` | P10 settles report-file vs captured-output |
-| `sandbox` | P7 proves real containment → `enforced`, else stay `none` |
-| `stall-signal` | P11 plain buffering → keep `log-age` or document change |
-| Canonical template adds `--cwd` / `--output-format plain` | P11 Confirms both |
+| `report-transport` | P10 only if report-file fails → `captured-output` |
+| `sandbox` | Already `enforced` from docs; P7 records profile boundaries on this kernel |
+| Template flags `--cwd` / `--always-approve` / sandbox | **Documented** — do not demote; only fix if this version refutes docs |
 
 Do not leave Status as `experimental → verified`. Single enum only.
+Do not re-litigate first-class documented flags as "unverified inventions."
 
 - [ ] **Step 6: Validate + commit**
 

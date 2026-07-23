@@ -1,12 +1,19 @@
 # Grok CLI Provider Pack — sdd-dispatch v1.6.0
 
 Date: 2026-07-23  
-Status: **approved** (rev 2 after GLM 5.2 design review — findings folded in)  
+Status: **approved** (rev 3 — official Grok CLI user-guide folded in)  
 Target version: **1.6.0**  
 Branch: `feature/grok-provider` (seeded from `main` / v1.5.0)  
 Design review: `.sdd-dispatch/delegate/001-review.md` (opencode / `opencode-go/glm-5.2`,
-2026-07-23) — Verdict: *Sound with required changes*; all Important + Minor findings
-addressed below.
+2026-07-23) — Verdict: *Sound with required changes*; Important + Minor findings
+addressed in rev 2.  
+**Rev 3:** pack facts re-anchored on the **shipped Grok CLI user guide**
+(`~/.grok/docs/user-guide/`, especially `14-headless-mode.md`,
+`17-sessions.md`, `18-sandbox.md`, `22-permissions-and-safety.md`) and
+`~/.grok/README.md` — not on first-principles reverse-engineering. Live
+verification still stamps behavior that can flip per version (exit codes, model
+inventory, silent permission footguns); it does **not** re-litigate documented
+first-class flags.
 
 ## Purpose
 
@@ -62,17 +69,38 @@ and recovered after SuperGrok subscription.
 | Bogus model | Error text (`unknown model id`); **exit 0** — exit code is not a failure signal |
 | Sessions | `grok sessions list` prints UUID column; resume via `-r` / `--resume` |
 | Sandbox | Built-ins include at least `none`, `workspace`, `read-only`; unknown profile **refuses to start** rather than run unsandboxed |
-| `--prompt-file` | Works for single-turn headless |
-| `--reasoning-effort` | Accepted in smoke (full P9 still required for invalid/silent-ignore) |
-| `--cwd` / `--output-format` | **Not smoke-verified** — provisional until P11 |
+| `--prompt-file` | Works for single-turn headless (documented) |
+| `--reasoning-effort` | Documented levels; P9 still checks invalid/silent-ignore on this version |
+| `--cwd` / `--output-format` | **Documented first-class headless flags** (14-headless-mode) — not provisional |
 
-**Permission ceiling decision (revised after evidence):**
+### Authority: official headless surface (user-guide 14 / 17 / 18 / 22)
 
-Canonical implement flags are **`--always-approve` alone**, not
-`acceptEdits + always-approve`. The latter was the initial design preference; live
-shell probes refuted it. Document `bypassPermissions` as the fallback if
-`--always-approve` regresses. Never treat exit 0 as proof of work — controller
-diff-after / report-exists remains the gate (same doctrine as agy).
+| Fact | Source |
+| --- | --- |
+| Headless trigger | `-p` / `--single`, `--prompt-file`, `--prompt-json` |
+| Always-approve | `--always-approve` ≡ `--yolo` ≡ `--permission-mode bypassPermissions` |
+| Working directory | `--cwd <PATH>` (project root discovery walks up from cwd for `.git`) |
+| Output formats | `plain` (default), `json` (includes `sessionId`), `streaming-json` (NDJSON; streams) |
+| Session resume | `grok -p "…" --resume <id>` or `-c`; capture id via `--output-format json \| jq -r .sessionId` |
+| New named session UUID | `-s` / `--session-id` creates only (must be UUID; does **not** resume) |
+| Fork | `--fork-session` with `-r`/`-c` (optional `-s` names child UUID) |
+| Stdin | Headless **does not** read piped stdin into the prompt (no hang class) |
+| Sandbox profiles | `off` (default), `workspace`, `read-only`, `strict`, `devbox` — OS-enforced (Landlock/Seatbelt) |
+| Review isolation | `--sandbox read-only` for exploration/code review (writes only `~/.grok/` + temp) |
+| Implement isolation | `--sandbox workspace` (write CWD + temp + `~/.grok/`) when containment wanted |
+| Exit codes (documented) | `0` success, `1` error, `130` SIGINT, `143` SIGTERM |
+| Effort levels | `none`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max` (+ per-model menu ids) |
+| `--permission-mode` caveat | Flag only fully enables **`bypassPermissions`** and **`default`**; `acceptEdits` / `dontAsk` / `plan` via the flag are accepted but **do not enable that policy** — set via `defaultMode` in settings. Explains smoke: `acceptEdits` + shell looked like silent no-op |
+
+**Permission ceiling (docs + smoke):**
+
+Canonical unattended implement flags: **`--always-approve`** (or `--yolo`). That is
+the documented always-approve path for headless automation. Do **not** use
+`--permission-mode acceptEdits` for implement dispatches — the CLI flag does not
+actually enable acceptEdits policy (user-guide 22), and smoke showed shell no-ops.
+Optional containment: add `--sandbox workspace` for implement, `--sandbox read-only`
+for review. Never treat exit 0 alone as proof of work when smoke shows counterexamples
+(bogus model); controller diff-after / report-exists remains the gate.
 
 ## Pack contract
 
@@ -96,87 +124,105 @@ verified-version: "0.2.111"   # only after P2 + P6(file+shell) + implement-shape
 version-argv: ["grok", "--version"]
 resume-argv: ["grok", "--resume", "{session_id}"]
 fork-flag: "--fork-session"
-session-source: session-list
+session-source: exec-output
 session-list-argv: ["grok", "sessions", "list"]
-stall-signal: log-age          # provisional until P11 buffering check; flip if plain buffers
-report-transport: report-file  # provisional until P10; flip to captured-output if diversion
-sandbox: none                  # provisional until P7; flip to enforced if workspace/read-only is real
+stall-signal: log-age
+report-transport: report-file
+sandbox: enforced
 readiness-argv: ["grok", "models"]
 ---
 ```
 
 Notes:
 
-- **`resume-argv` excludes the prompt flag** — matches the agy convention
-  (`["agy", "--conversation", "{session_id}"]`). Skills append `-p "<continuation>"`
-  (and optional `--always-approve`) after the substituted `resume-argv`. Never embed
-  `-p` in the manifest: a skill that also appends `-p` would produce a double flag.
-- **`fork-flag` insertion:** when forking a resumed session, insert `--fork-session`
-  after the session id and before the skill-appended prompt flag:
+- **`session-source: exec-output`** — preferred capture is `--output-format json` →
+  `.sessionId` (user-guide 14/17). `session-list-argv` remains available as a fallback
+  (`grok sessions list`) when plain output was used. (If the validator requires
+  `session-list-argv` only for `session-source: session-list`, keep the field optional
+  and document list as recovery.)
+- **`resume-argv` excludes the prompt flag** — matches agy. Skills append
+  `-p "<continuation>"` (and implement flags). Documented form:
+  `grok -p "…" --resume <id>` (flag order flexible).
+- **`fork-flag`:** with resume, insert `--fork-session` before skill-appended `-p`:
   `grok --resume <id> --fork-session -p "<continuation>" --always-approve`.
-  Confirm with a resume+fork smoke in the same PR.
-- `stall-signal: log-age` assumes progressive stdout under headless. P11 must probe
-  buffering under piped stdout; if headless buffers like agy print-mode, switch to
-  `process+print-timeout` (or document a wall-clock bound) before shipping.
-- No new manifest fields are required for v1.6.0 unless a skill must branch and pack
-  prose is insufficient.
+- **`sandbox: enforced`** — Grok has real OS-level profiles (`workspace`, `read-only`,
+  `strict`, …). Pack prose documents which profile the template uses per lane; P7
+  confirms on this machine/kernel rather than discovering whether a sandbox exists.
+- **`stall-signal: log-age`** — for implement logs prefer progressive output. When
+  capturing session ids use `--output-format json` (single object at end — do not use
+  log-age against a silent json buffer; the self-reaping wrapper watches the CLI
+  process). For long plain/streaming runs, `streaming-json` advances log mtime.
+- **`report-transport: report-file`** default; P10 only flips if agent-authored
+  workspace report paths fail (unlikely given normal file tools).
+- No new manifest fields required for v1.6.0.
 
 ### Canonical dispatch template
 
-**Smoke-verified core (ship this first):**
+**Implement (documented headless automation pattern):**
 
 ```bash
 grok -p "<PROMPT>" \
   -m <model> \
-  --always-approve
+  --cwd <repo> \
+  --always-approve \
+  --sandbox workspace \
+  --output-format plain
 ```
 
-Optional insurance (not mandatory): `< /dev/null` at the end.
+Aliases: `--yolo` ≡ `--always-approve`. For session-id capture on the same run, use
+`--output-format json` and parse `.sessionId` / `.text`.
 
-**Provisional flags (not in the canonical template until P11 Confirms them):**
+**Review (read-only intent + enforced sandbox):**
 
-| Flag | Intent | Gate |
-| --- | --- | --- |
-| `--cwd <repo>` | pin working directory | P11: write lands under `--cwd`, not caller cwd |
-| `--output-format plain` | clean stdout for logs | P11: streams under pipe (mtime advances) vs buffers |
+```bash
+grok -p "<PROMPT>" \
+  -m <model> \
+  --cwd <repo> \
+  --always-approve \
+  --sandbox read-only \
+  --output-format plain
+```
 
-If P11 verifies both, promote them into the canonical template in the same PR. Success
-criterion: **the template in pack.md matches verified flags only** — never aspirational
-ones.
+(`read-only` still allows writes to `~/.grok/` + temp for session persistence; project
+tree writes are blocked at the kernel.)
 
-Review-lane intent today: same flags (sandbox not yet claimed as enforced). If P7
-proves `--sandbox read-only` blocks writes while allowing reads, document a review
-template variant and set `sandbox: enforced` only if the boundary is real and
-documented.
+Optional: `< /dev/null` is unnecessary (stdin not consumed) but harmless.
 
 Resume (after kill / fix loop) — skill assembles from `resume-argv` + prompt flag:
 
 ```bash
-grok --resume <session_id> -p "<continuation prompt>" --always-approve
-# branch a new session id when needed:
-grok --resume <session_id> --fork-session -p "<continuation>" --always-approve
+grok --resume <session_id> -p "<continuation prompt>" --always-approve --cwd <repo>
+# fork:
+grok --resume <session_id> --fork-session -p "<continuation>" --always-approve --cwd <repo>
 ```
 
-Session id source: newest matching row from `grok sessions list` immediately after
-dispatch (or id printed in any exec metadata if P1 finds a cleaner source).
+Sandbox on resume is **session-fixed** (user-guide 18): omit `--sandbox` on resume or
+pass the same profile; a different profile is refused.
+
+Session id sources (prefer in order):
+
+1. `--output-format json` → `.sessionId`
+2. `grok sessions list` (cwd-scoped UUID column)
 
 ### Gotchas to document in pack.md (seed list; verify may refine)
 
-1. **Exit codes are not work evidence** — bogus model and permission-starved shell
-   can still exit 0. Gate on stdout content + on-disk effects.
-2. **`acceptEdits` is not a safe implement ceiling** — pairs poorly with shell tools
-   (silent no-op). Use `--always-approve`.
-3. **Prompt flag is `-p` / `--single`** — single user turn with multi-tool agency, not
-   "one model reply without tools". Also: `--prompt-file` for large briefs.
-4. **No mandatory stdin close** (unlike codex/agy) — still harmless to redirect.
-5. **Sandbox unknown profile fails closed** — refuse to start rather than run
-   unsandboxed.
-6. **Model inventory is thin** — only `grok-4.5` as of 0.2.111; all tiers map to it.
-7. **Free-tier / quota exhaustion** surfaces as a **dispatch-time channel failure**
-   (SuperGrok upsell message on the dispatch), not as a readiness miss —
-   `readiness-argv: ["grok", "models"]` only proves the CLI answers and lists inventory;
-   it does not prove remaining quota. Classify as provider-wide channel failure (STOP /
-   fix env), not task BLOCKED.
+1. **Do not use `--permission-mode acceptEdits` for headless implement** — the flag
+   does not enable acceptEdits policy (only `bypassPermissions` / `default` via that
+   flag); use `--always-approve` / `--yolo`.
+2. **Exit 0 is documented success, but smoke saw exit 0 on bogus model** — still gate
+   on stdout content + on-disk effects, not exit alone.
+3. **`-p` / `--single`** = one user turn with multi-tool agency; `--prompt-file` for
+   large briefs. Headless does not ingest piped stdin as prompt.
+4. **`-s` is create-only** (UUID) — never use it to resume; use `-r` / `-c`.
+5. **Sandbox unknown / unapplyable custom profile fails closed**; built-in profiles
+   are real. Resume cannot change sandbox profile.
+6. **Model inventory is thin** — only `grok-4.5` listed on this machine as of 0.2.111;
+   all tiers map to it until `grok models` grows.
+7. **Quota exhaustion** is a **dispatch-time channel failure** (upsell on the
+   dispatch). `grok models` readiness does not prove remaining quota.
+8. **Primary docs path for re-verify:** `~/.grok/docs/user-guide/` (versioned with the
+   install) — read headless/permissions/sandbox/sessions on every CLI bump before
+   probing.
 
 ### models.md
 
@@ -220,22 +266,24 @@ Full suite still required for the PR to claim a complete pack:
 
 | Probe | Focus for grok |
 | --- | --- |
-| P3 | Bogus model error text; **exit 0 gotcha** |
-| P4 | Confirm stdin protection optional |
+| P3 | Bogus model error text vs documented exit-1; record if exit 0 still happens |
+| P4 | Confirm stdin not consumed (docs) |
 | P5 | Flagless read |
-| P6 | Flagless write + shell; then canonical flags (`--always-approve`) |
-| P7 | `--sandbox workspace` / `read-only` / outside-workspace writes |
-| P8 | `git commit` inside sandbox / without — controller-commits rationale |
-| P9 | Reasoning effort valid + invalid |
-| P10 | Document-shaped task + report-file path; set `report-transport` |
-| P11 | `-p` ordering, short flags, prompt-file; **`--cwd` landing path**; **`--output-format plain` streaming vs buffering under pipe** (decides stall-signal + template promotion) |
-| P12 | Only `grok-4.5` (or newly listed models) |
+| P6 | Flagless write + shell; then canonical `--always-approve` (+ optional workspace sandbox) |
+| P7 | Confirm documented profiles: `workspace` write bound; `read-only` blocks project writes; outside-cwd behavior |
+| P8 | `git commit` under workspace sandbox — controller-commits rationale |
+| P9 | Effort: valid level + invalid (silent-ignore vs error) |
+| P10 | Document-shaped task + report-file path; `report-transport` |
+| P11 | Footguns: `-s` vs `-r`; `--permission-mode acceptEdits` non-effect; json `.sessionId` capture |
+| P12 | Inventory from `grok models` |
 | P13 | Reviewer known-defect fixture if review lane is claimed |
 
-Also probe resume assembly once (not a numbered P-probe but required for the pack):
+Also probe resume assembly (docs-backed; still run once live):
 
-- Cold resume: `resume-argv` + skill-appended `-p "<continuation>"` continues the session.
-- Fork resume: insert `fork-flag` before `-p`; new session id appears in `sessions list`.
+- `grok -p "…" --output-format json` → capture `.sessionId`
+- Resume: `grok --resume <id> -p "<continuation>" --always-approve`
+- Fork: insert `--fork-session`; new id
+- Resume with **mismatched** `--sandbox` → expect refuse (user-guide 18)
 
 Append results to `providers/grok/verification-log.md`. If any probe is blocked,
 record **Incomplete** honestly (agy pattern) rather than inventing Confirmed.
@@ -266,12 +314,12 @@ record **Incomplete** honestly (agy pattern) rather than inventing Confirmed.
 ## Implementation outline (for writing-plans)
 
 1. Branch already: `feature/grok-provider` off `main`.
-2. Author `providers/grok/` three files from this design + smoke evidence
-   (Status=`experimental`; smoke-verified template only).
+2. Author `providers/grok/` three files from this design + **user-guide-backed**
+   template (Status=`experimental` until live P2/P6/implement evidence).
 3. `python3 scripts/validate-packs --root .` green.
-4. Run live P1–P13 + resume/fork smokes; append verification-log; update pack.md /
-   models.md fields that probes settle (`report-transport`, `sandbox`, stall-signal,
-   Status→`verified`, template promotion of `--cwd` / `--output-format` if Confirmed).
+4. Run live P1–P13 + resume/fork; append verification-log; promote Status /
+   `verified-version` / any field that live evidence revises (not re-litigate
+   documented flag existence).
 5. Surface version + naming updates.
 6. `./scripts/codex-smoke` + `uv run --with pytest pytest tests/ -q`.
 7. Commit; open PR to `main`.
@@ -280,22 +328,26 @@ record **Incomplete** honestly (agy pattern) rather than inventing Confirmed.
 
 - `validate-packs` accepts `providers/grok/`.
 - `via grok` is a valid provider directive when `grok` is on PATH (detection by `cli`).
-- Canonical template is copy-pasteable from pack.md and matches **verified** flags only.
-- Verification log has a 2026-07-23 entry with real probe evidence.
+- Canonical template matches **user-guide headless automation** (`-p`, `-m`, `--cwd`,
+  `--always-approve`, lane sandbox, output format) and is copy-pasteable from pack.md.
+- Verification log has a 2026-07-23/24 entry with real probe evidence.
 - Version triad is 1.6.0 and in sync.
 - No purity violations (no model ids / invocation strings in `core/` or skills body
   beyond existing provider-name lists in descriptions).
 - Model Status cells are single valid enums (never transition strings).
+- Pack prose cites `~/.grok/docs/user-guide/` for re-verify on CLI bumps.
 
-## Design-review disposition (GLM 5.2, 2026-07-23)
+## Design-review disposition (GLM 5.2, 2026-07-23) + rev 3 docs correction
 
 | Finding | Disposition |
 | --- | --- |
 | Important: Status `experimental → verified` invalid enum | **Fixed** — cells are single `experimental`; promote to `verified` only after evidence |
-| Important: `--cwd` / `--output-format` unverified in template | **Fixed** — removed from canonical template; P11 gate for promotion |
+| Important: `--cwd` / `--output-format` unverified in template | **Rev 3 supersedes** — both are documented first-class headless flags (14-headless-mode); restored to canonical template. GLM was right to reject *unverified invention*; the fix is **cite the user guide**, not demote the flags. |
 | Important: `resume-argv` embeds `-p` (≠ agy) | **Fixed** — `["grok","--resume","{session_id}"]`; skill appends `-p` |
 | Minor: version rationale vs CLAUDE.md patch rule | **Fixed** — new provider ⇒ minor; in-pack facts ⇒ patch |
 | Minor: gotcha #7 readiness mislabel | **Fixed** — dispatch-time channel failure |
+| (self) Sandbox treated as unknown | **Rev 3** — `sandbox: enforced` with documented profiles |
+| (self) Session id via list only | **Rev 3** — prefer json `.sessionId` (`session-source: exec-output`) |
 
 ## Open items resolved in design
 
@@ -307,5 +359,6 @@ record **Incomplete** honestly (agy pattern) rather than inventing Confirmed.
 | Quota | SuperGrok subscribed; full suite proceeds |
 | Models | All tiers → `grok-4.5` until inventory grows |
 | Controller harness | Out of scope |
-| Resume argv shape | Match agy — no prompt flag in manifest |
-| Template completeness | Smoke-verified only; provisional flags gated by P11 |
+| Resume argv shape | Match agy — no prompt flag in manifest; id from json `.sessionId` |
+| Template completeness | User-guide headless pattern (`--cwd`, `--always-approve`/`--yolo`, sandbox per lane) |
+| Docs authority | `~/.grok/docs/user-guide/` + `~/.grok/README.md` |

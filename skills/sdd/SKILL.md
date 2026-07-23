@@ -5,7 +5,11 @@ description: Execute an implementation plan via subagent-driven development with
 
 # SDD with Provider Packs
 
-**Harness**: identify your controlling harness and read `harnesses/<harness>.md` (claude-code, codex) before Step 0 — it maps skill-loading, native subagent dispatch, task tracking, background jobs, and asset-root resolution. All paths below are relative to the plugin tree root `<root>` (the directory containing `skills/`, `core/`, `providers/`).
+**Harness**: identify your controlling harness and read `harnesses/<harness>.md`
+(claude-code, codex, grok) before Step 0 — it maps skill-loading, native subagent
+dispatch, task tracking, background jobs, and asset-root resolution. All paths below
+are relative to the plugin tree root `<root>` (the directory containing `skills/`,
+`core/`, `providers/`).
 
 This skill wraps **superpowers:subagent-driven-development**. Its process governs the
 per-task loop, task briefs and review packages, statuses, two-verdict reviews, fix loops,
@@ -40,7 +44,7 @@ Read these plugin documents when their policy is needed:
    lever in effect: silent means “floor it”, “play it safe” moves implementers one tier up,
    and a provider or lane directive steers eligible work. The `native-subagents` lever
    uses the harness-native subagent mechanism; under Claude Code, “all Claude” is its
-   alias.
+   alias; under Grok, “all Grok” is its alias.
 4b. **Trust gate**: run `python3 <root>/scripts/validate-packs --root <root>` — refuse
    to proceed past a non-zero exit. THEN check `git -C <root> status --porcelain
    providers/` — any untracked or modified provider directory requires explicit user

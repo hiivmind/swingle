@@ -141,3 +141,46 @@ which is the one that matters for the read-lane question (can a "reader" mutate 
 yes, under both flags). `--sandbox` is documented as *terminal* restrictions, so it may
 well constrain shell command execution; that was not measured here and remains unverified.
 Neither flag should be treated as containment for any purpose without its own probe.
+
+## 2026-07-23 — ROOT CAUSE of the read-lane abort: the artifact tool rejects workspace report paths
+
+The earlier entry this same day attributed a read-lane abort to a denied shell command and
+prescribed a "shell is denied, use file tools" dispatch clause. **That diagnosis was
+incomplete.** Re-running the identical clause-free dispatch after the maintainer's baseline
+gained `command(git)` reproduced the abort exactly, proving git was never the blocker.
+`~/.gemini/antigravity-cli/cli.log` and the conversation transcript give the real chain:
+
+```
+step 28 ERROR: invalid tool call (invalid_args)
+  /…/.sdd-dispatch/delegate/002-report.md is not a valid artifact path;
+  artifacts must be in /home/…/.gemini/antigravity-cli/brain/<conversation-id>/
+step 30 tool_confirmation_manager: Print mode: soft-denying tool confirmation "Bash"
+```
+
+**The chain:** the contract says "write your full report to `<workspace path>`" → the model
+reaches for the **artifact tool** → agy rejects any path outside the conversation's brain
+directory → the model falls back to **Bash** to write the file → print mode soft-denies the
+Bash confirmation → the run aborts with exit 0, banner only, no report.
+
+**The tool choice is nondeterministic.** Identical contracts produced reports in the
+workspace on most dispatches this session (implementer reports for 3 of 4 plan tasks, and
+all four smoke-repo jobs) and hit the artifact path on others — so this fails
+intermittently, which is worse than failing always.
+
+**Verified fix — steer the tool, not the shell.** One line added to the dispatch, with NO
+shell clause, produced a clean 7.5 KB report and `STATUS: DONE`:
+
+> Write your full report to `<path>` using your ordinary workspace FILE-WRITE tool. That
+> path is a normal workspace file, NOT an artifact — do not use the artifact tool for it,
+> and do not shell out to write it.
+
+**Operating rule for every agy dispatch that names a report path:** carry that steering
+sentence. The blanket "shell is denied" clause worked only incidentally (it pushed the
+model toward file tools) and is not the right mitigation — it also suppresses legitimate
+shell use that the permission baseline now allows. This sharpens the pack's existing
+"document-shaped tasks divert output to brain files" gotcha: the diversion is not merely
+cosmetic, it can hard-fail the report protocol.
+
+**Alternative, equally valid:** use the delegate skill's enforced-read-only output
+protocol (the FULL report IS the captured final message; the controller saves it), which
+sidesteps agent-side file writing entirely and is immune to this failure mode.

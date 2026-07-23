@@ -70,6 +70,20 @@ agy --model gemini-3.6-flash --effort <low|medium|high> \
        -not -path '*/.system_generated/*' | xargs ls -t | head -1
      ```
      Use `-mmin`, **not** `-newermt '-10 minutes'` — that form silently matches nothing.
+- **The artifact tool CANNOT write to the workspace — steer report writes explicitly**
+  (verified 2026-07-23). agy's artifact tool rejects any path outside
+  `~/.gemini/antigravity-cli/brain/<conversation-id>/`
+  (`is not a valid artifact path`). When a dispatch says "write your report to
+  `<workspace path>`" and the model reaches for the artifact tool, it errors, falls back to
+  **Bash** to write the file, print mode soft-denies that confirmation, and the run
+  **aborts with exit 0 and no report**. The tool choice is nondeterministic, so this fails
+  intermittently. **Every agy dispatch naming a report path must carry:**
+  *"Write your full report to `<path>` using your ordinary workspace FILE-WRITE tool. That
+  path is a normal workspace file, NOT an artifact — do not use the artifact tool for it,
+  and do not shell out to write it."*
+  Verified to fix it with no shell clause. Equally valid: skip agent-side file writing and
+  take the FULL report as the captured final message (the enforced-read-only output
+  protocol), which is immune to this failure mode.
 - Exit codes normal on ≥1.1.4 (0 success, 1 error). Bogus model → clean error listing all
   available models.
 - **Model naming**: display label verbatim (`"Gemini 3.6 Flash (Low)"`) or slug

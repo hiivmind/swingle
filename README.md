@@ -39,6 +39,7 @@ Manual alternative
 
 ```
 skills/sdd/                       # plan-execution skill and harness adapters
+skills/delegate/                  # direct one-off dispatch skill (no plan machinery)
 skills/sdd-dispatch-verify/       # CLI re-verification skill
 core/                             # shared doctrine, playbook, roles, and logs
 providers/<id>/                    # self-contained provider packs
@@ -55,7 +56,22 @@ scripts/codex-smoke                # Codex layout and validator smoke test
 | Skill | Purpose |
 | --- | --- |
 | `sdd` | Execute an implementation plan through the active harness and provider packs |
+| `delegate` | Directly dispatch an explicitly requested one-off job or homogeneous batch through the provider packs — no plan required |
 | `sdd-dispatch-verify` | Re-run the CLI probe suite when versions bump or models release |
+
+## Direct delegation
+
+`delegate <task>` dispatches a self-contained job (or homogeneous batch) to an external
+CLI with the full pack doctrine — role inference from `core/roles.md`, model tiering,
+liveness, hardened evidence gates (staged + untracked + HEAD-unchanged), controller
+commits, and session resume — but none of the SDD plan-execution ceremony. Levers:
+`via <provider>`, `floor it` / `play it safe` / explicit model, `with review`,
+`read-only`, `supervised` / `unsupervised`. Jobs implying ≥3 planned dispatch cycles
+run supervised automatically (announced). Artifacts and the lifecycle ledger live in
+`.sdd-dispatch/delegate/` (ignored via `.git/info/exclude`). The boundary is semantic:
+multi-task implementation plans go to the `sdd` skill regardless of how they arrived;
+tasks below the triviality floor stay inline unless delegation was explicitly
+requested.
 
 ## Adding a provider
 

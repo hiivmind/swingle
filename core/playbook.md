@@ -49,7 +49,7 @@ active pack's models.md; apply [core/liveness.md](liveness.md).
 
 ## Dispatch flavours & economics — say which one you mean
 
-“Dispatch” is ambiguous. Four execution modes, three currencies. The currencies, in order
+“Dispatch” is ambiguous. Five execution modes, three currencies. The currencies, in order
 of scarcity: **main-thread context** (multiplicative — resident tokens are re-sent every
 turn and degrade the controller's judgment as they accumulate), **harness token budget**
 (our spend; disposable subagent contexts are one-shot), **provider cost** (largely fixed by
@@ -61,6 +61,7 @@ the task, with cold-start overhead per execution).
 | **Sub-dispatch** (native subagent) | 1–3k (prompt + report) | full task, isolated context | 0 | judgment-heavy isolated work; the `native-subagents` lever |
 | **Pack dispatch** | ~2k + **6–8 controller turns** | orchestration only | task cost | the SDD default for typical plans (≤ ~6–8 tasks) |
 | **Supervised pack dispatch** (cheap native subagent runs the pack cycle) | ~0.5k — one consolidated report | supervisor turns | task cost | long plans where the controller's orchestration turns are the binding cost |
+| **Delegate** (one-off pack dispatch, no plan — the `delegate` skill) | ~1–2k/job | orchestration only | task cost | explicitly requested self-contained jobs or homogeneous batches arriving outside a plan; auto-supervised at ≥3 planned cycles |
 
 Rules that fall out:
 

@@ -3,18 +3,18 @@
 ![sdd-dispatch hero banner](docs/images/hero-banner.jpg)
 
 Standalone harness-neutral plugin for subagent-driven development via external
-CLIs (codex / opencode / agy): token-efficient plan execution plus the verified
+CLIs (codex / opencode / agy / grok): token-efficient plan execution plus the verified
 knowledge base that makes dispatch safe.
 
 Everything is self-contained. The `sdd` skill and provider packs are discovered
 from this repository; no machine-specific paths are required.
 
-**Version:** 1.5.0
+**Version:** 1.6.0
 
 ## Install with Claude Code
 
 Requires the `superpowers` plugin and whichever dispatch CLIs you use on PATH
-(`codex`, `opencode`, `agy`), each authenticated once interactively.
+(`codex`, `opencode`, `agy`, `grok`), each authenticated once interactively.
 
 ```text
 /plugin marketplace add discreteds/sdd-dispatch-plugin
@@ -101,7 +101,7 @@ workspace path. The skills then ask for **no file** and take the full report as 
 captured final message, saving it themselves. Getting this wrong is not cosmetic: on such
 a provider a report-file request fails *intermittently* while the exit code stays 0, so
 the report is silently missing and any reviewer downstream loses an input. `agy` is
-`captured-output`; `codex` and `opencode` are `report-file`.
+`captured-output`; `codex`, `opencode`, and `grok` are `report-file`.
 
 Every value is validator-enforced, and `*-argv` arrays are data — `argv[0]` must equal
 `cli`, and shell metacharacters are rejected, so a manifest can never smuggle in a

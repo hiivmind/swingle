@@ -1,6 +1,6 @@
 # CLAUDE.md — sdd-dispatch plugin
 
-Harness-neutral plugin for SDD execution via external CLIs (codex / opencode / agy).
+Harness-neutral plugin for SDD execution via external CLIs (codex / opencode / agy / grok).
 This repository is simultaneously a **Claude Code plugin** (`.claude-plugin/`), a
 **Codex plugin** (`.codex-plugin/` + `.agents/plugins/marketplace.json`), and a plain
 skills tree — treat all three distribution surfaces as first-class.

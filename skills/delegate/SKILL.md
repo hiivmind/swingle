@@ -1,14 +1,14 @@
 ---
 name: delegate
-description: Directly delegate an explicitly requested, self-contained job or homogeneous batch to an external CLI (codex/opencode/agy) through validated provider packs — role inference, model tiering, liveness, evidence gates, and session resume — without a written implementation plan. Use the sdd skill for multi-task implementation plans; keep sub-triviality-floor tasks inline unless delegation was explicitly requested.
+description: Directly delegate an explicitly requested, self-contained job or homogeneous batch to an external CLI (codex/opencode/agy/grok) through validated provider packs — role inference, model tiering, liveness, evidence gates, and session resume — without a written implementation plan. Use the sdd skill for multi-task implementation plans; keep sub-triviality-floor tasks inline unless delegation was explicitly requested.
 ---
 
 # Delegate — Direct One-Off Dispatch
 
 **Harness**: identify your controlling harness and read
-`<root>/skills/sdd/harnesses/<harness>.md` (claude-code, codex) before setup — it maps
-skill-loading, native subagent dispatch, background jobs, completion observation, and
-asset-root resolution. `<root>` is this skill directory's grandparent (the directory
+`<root>/skills/sdd/harnesses/<harness>.md` (claude-code, codex, grok) before setup — it
+maps skill-loading, native subagent dispatch, background jobs, completion observation,
+and asset-root resolution. `<root>` is this skill directory's grandparent (the directory
 containing `skills/`, `core/`, `providers/`, `contracts/`).
 
 **Never dispatch from memory.** Before the first dispatch of a session, read

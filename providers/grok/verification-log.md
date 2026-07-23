@@ -60,3 +60,22 @@ read-only re-probe). Kernel 6.17.0-35-generic, Landlock enforced.
 
 **Promotions:** models.md Status → `verified` for all three tier rows; pack facts above
 recorded; `verified-version` remains `0.2.111`.
+
+## 2026-07-24 — grok 0.2.111 (trigger: effort matrix re-check)
+
+`--reasoning-effort` / `--effort` against `grok-4.5` (trivial `-p Reply:OK`, `--always-approve`):
+
+| Level | Exit | Notes |
+| --- | --- | --- |
+| (omit) | 0 | default menu value `high` |
+| `low` | 0 | accepted |
+| `medium` | 0 | accepted; `--effort` alias also 0 |
+| `high` | 0 | accepted |
+| `none` | 1 | rejected; CLI lists `high, medium, low` |
+| `minimal` | 1 | rejected |
+| `xhigh` | 1 | rejected |
+| `max` | 1 | rejected |
+| `deep` | 1 | rejected |
+| unknown | 1 | rejected |
+
+Matches `models_cache.json` `reasoning_efforts` menu for `grok-4.5`. Product docs list a wider canonical set; only the model menu is dispatchable.

@@ -24,7 +24,7 @@ readiness-argv: ["grok", "models"]
 | Permission flags | **`--always-approve`** ≡ `--yolo` ≡ `bypassPermissions`. Do not use `--permission-mode acceptEdits` headless (flag does not enable that policy) |
 | Exit codes | Docs: 0/1/130/143; live: bogus model exit **1** (2026-07-24) |
 | Model validation | Error text (`unknown model id`); exit 1 |
-| Reasoning-effort control | `--reasoning-effort` / `--effort`: none…max (P9 for invalid) |
+| Reasoning-effort control | `--reasoning-effort` / `--effort`; `grok-4.5` accepts `low\|medium\|high` (default `high`) |
 | Output contract | `plain` (default), `json` (`.sessionId` + `.text`), `streaming-json` |
 | Auth | grok.com OAuth / `XAI_API_KEY`; SuperGrok for higher limits |
 | Docs | `~/.grok/docs/user-guide/` — read 14/17/18/22 on every version bump |
@@ -72,11 +72,12 @@ Authority: `~/.grok/docs/user-guide/14-headless-mode.md`, `17-sessions.md`,
 - **Git commit succeeds under `workspace`** (P8, with `--no-gpg-sign` if gnupg blocked) —
   controller-commits is **not** structural via sandbox. Optional
   `--deny 'Bash(git commit*)'` / `'Bash(git push*)'`.
-- **Effort** for `grok-4.5`: `low|medium|high` only (bogus → exit 1 with that list).
-- **Session id**: `--output-format json` → `.sessionId`. Resume + fork verified;
-  mismatched sandbox on resume refused (exit 1).
-- **P3 bogus model**: exit **1** with `unknown model id` (2026-07-24; earlier smoke had
-  seen exit 0 — prefer current).
+- **Effort** for `grok-4.5`: `--reasoning-effort` / `--effort` with `low|medium|high`
+  (default `high` when omitted). Product-canonical levels outside that menu
+  (`none`, `minimal`, `xhigh`, `max`, and aliases like `deep`) are rejected by the CLI.
+  Tiering: cheapest → `low`, standard → `medium`, most-capable → `high` (see models.md).
+- **Session id**: `--output-format json` → `.sessionId`. Resume + fork work;
+  mismatched sandbox on resume is refused.
 
 ### Canonical dispatch template
 

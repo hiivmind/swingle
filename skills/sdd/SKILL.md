@@ -1,6 +1,6 @@
 ---
 name: sdd
-description: Execute an implementation plan via subagent-driven development with external-CLI dispatch (codex/opencode/agy). Use whenever executing a written plan with SDD — wraps superpowers:subagent-driven-development and applies the external-dispatch optimizations mechanically. Triggers: "run this plan with SDD", "/sdd", "execute the plan via subagents", the Standard Delivery Flow reaching its execute step.
+description: Execute an implementation plan via subagent-driven development with external-CLI dispatch (codex/opencode/agy/grok). Use whenever executing a written plan with SDD — wraps superpowers:subagent-driven-development and applies the external-dispatch optimizations mechanically. Triggers: "run this plan with SDD", "/sdd", "execute the plan via subagents", the Standard Delivery Flow reaching its execute step.
 ---
 
 # SDD with Provider Packs

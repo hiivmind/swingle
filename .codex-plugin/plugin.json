@@ -1,20 +1,30 @@
 {
   "name": "sdd-dispatch",
-  "version": "1.5.0",
-  "description": "Subagent-driven development via external CLIs (codex/opencode/agy): token-efficient plan execution plus the verified provider-pack knowledge base that makes dispatch safe.",
+  "version": "1.6.0",
+  "description": "Subagent-driven development via external CLIs (codex/opencode/agy/grok): token-efficient plan execution plus the verified provider-pack knowledge base that makes dispatch safe.",
   "author": {
     "name": "Nathaniel Ramm"
   },
   "repository": "https://github.com/discreteds/sdd-dispatch-plugin",
-  "keywords": ["sdd", "subagent", "dispatch", "code-review", "orchestration"],
+  "keywords": [
+    "sdd",
+    "subagent",
+    "dispatch",
+    "code-review",
+    "orchestration",
+    "grok"
+  ],
   "skills": "./skills/",
   "interface": {
     "displayName": "SDD Dispatch",
     "shortDescription": "Execute implementation plans through external-CLI subagents with validated provider packs",
-    "longDescription": "Wraps subagent-driven development with provider packs for codex, opencode, and agy: manifest-driven routing, model tiering, liveness protocol, controller hard gates, and an append-only verification knowledge base.",
+    "longDescription": "Wraps subagent-driven development with provider packs for codex, opencode, agy, and grok: manifest-driven routing, model tiering, liveness protocol, controller hard gates, and an append-only verification knowledge base.",
     "developerName": "Nathaniel Ramm",
     "category": "Developer Tools",
-    "capabilities": ["Read", "Write"],
+    "capabilities": [
+      "Read",
+      "Write"
+    ],
     "websiteURL": "https://github.com/discreteds/sdd-dispatch-plugin"
   }
 }

@@ -41,6 +41,20 @@ Knowledge base (all paths are relative to the plugin tree root `<root>`):
    The probes may READ the installed copy's manifests to identify what a user is running,
    but every write — pack facts, logs, version bumps — targets the source tree only.
 
+   **No writable source? Raise a GitHub issue instead of dropping the finding.** When no
+   source checkout exists on the machine, or the user lacks push rights to the source
+   repository, file each finding as an issue on the upstream project
+   (`gh issue create --repo discreteds/sdd-dispatch-plugin --label verification ...`,
+   or the web form — the repo ships a "Verification finding" issue template at
+   `.github/ISSUE_TEMPLATE/verification-finding.md`). One issue per independent finding,
+   with the probe-grade fields filled: CLI version, plugin version, copy type, trigger,
+   assertion under test, verdict, verbatim evidence (secrets redacted), impact. A finding
+   recorded only in an installed cache is a finding lost.
+
+   Recording ladder, in order: (1) writable source checkout → edit + commit there;
+   (2) source clone possible but no push rights → commit locally AND open an issue (or a
+   PR) carrying the log entry; (3) no source tree at all → issue only.
+
 1. **Validate before probing.** Run `scripts/validate-packs --root <root>` and proceed only
    when it passes. The validator and repository fixtures are the portable gate.
 

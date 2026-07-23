@@ -114,6 +114,13 @@ If the running skill's root is an installed copy, resolve the git source checkou
 (sdd-dispatch-verify Procedure step 0), write and commit there, then refresh installs.
 This applies equally to mid-run incident notes appended by the `sdd` skill.
 
+When no writable source exists (no checkout on the machine, or no push rights), **raise a
+GitHub issue on the upstream project instead of dropping the finding** — one issue per
+independent finding using the repository's "Verification finding" template
+(`gh issue create --repo discreteds/sdd-dispatch-plugin --label verification`). The
+recording ladder is: writable source → commit; clone-but-no-push → local commit + issue
+or PR; no source tree → issue only.
+
 Append to the appropriate verification log:
 
 ```markdown

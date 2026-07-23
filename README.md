@@ -68,3 +68,23 @@ python3 scripts/validate-packs --root .
 ```
 
 Adding a provider requires zero edits to `core/`; routing is manifest-driven.
+
+## Reporting verification findings
+
+The packs are living documents: CLIs flip behavior between patch releases, models come
+and go, and every live dispatch is evidence. Where a finding gets recorded depends on
+what you can write to (the **recording ladder** — full rules in
+`core/verification-protocol.md` §Recording and the `sdd-dispatch-verify` skill, step 0):
+
+1. **Writable source checkout** — append to the pack's `verification-log.md`, update the
+   pack facts, and commit. Never record into an installed plugin cache (Claude Code
+   `~/.claude/plugins/cache/...`, Codex `~/.codex/plugins/cache/...`) — caches are
+   clobbered on the next upgrade.
+2. **Clone but no push rights** — commit locally and open an issue or PR carrying the
+   log entry.
+3. **No source tree** (installed copy only) — [open an issue](https://github.com/discreteds/sdd-dispatch-plugin/issues/new?template=verification-finding.md)
+   using the **Verification finding** template (`verification` label), one issue per
+   independent finding: CLI + plugin version, trigger, the pack assertion under test,
+   verdict, verbatim evidence, impact.
+
+A finding recorded only in an installed cache is a finding lost.

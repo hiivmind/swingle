@@ -1,6 +1,6 @@
 # Delegate Skill Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Add a `delegate` skill to the sdd-dispatch plugin: direct one-off dispatch of a self-contained job (or homogeneous batch) to an external CLI through the provider packs, without the SDD plan-execution machinery.
 
@@ -35,7 +35,7 @@
 - Consumes: the status vocabulary and report-file protocol established by `contracts/implementer-contract.md`.
 - Produces: the contract file Task 2's SKILL.md references by name for explore/research/synthesis roles.
 
-- [ ] **Step 1: Create `contracts/reader-contract.md`**
+- [x] **Step 1: Create `contracts/reader-contract.md`**
 
 Exact content:
 
@@ -93,12 +93,12 @@ your final message is the full addition itself, and the controller appends it to
 saved report.
 ````
 
-- [ ] **Step 2: Run the gates**
+- [x] **Step 2: Run the gates**
 
 Run: `python3 scripts/validate-packs --root . && ./scripts/codex-smoke`
 Expected: exit 0 (the contract is new content; no validator rule covers it yet).
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add contracts/reader-contract.md
@@ -118,7 +118,7 @@ git commit -m "feat: reader operating contract for explore/research delegation"
 - Consumes: `contracts/reader-contract.md` (Task 1), `core/roles.md`, `core/playbook.md`, `core/liveness.md`, `core/safety-doctrine.md`, `providers/<id>/pack.md` + `models.md`, `contracts/implementer-contract.md`, `contracts/task-reviewer-contract.md`, `skills/sdd/harnesses/<harness>.md`.
 - Produces: the `delegate` skill (referenced by Task 3's README/playbook edits and Task 4's tests).
 
-- [ ] **Step 1: Add the failing codex-smoke checks**
+- [x] **Step 1: Add the failing codex-smoke checks**
 
 In `scripts/codex-smoke`, insert after the existing `skills/sdd/harnesses/codex.md` check block (after its `fi`):
 
@@ -142,12 +142,12 @@ else
 fi
 ```
 
-- [ ] **Step 2: Run codex-smoke to verify it fails**
+- [x] **Step 2: Run codex-smoke to verify it fails**
 
 Run: `./scripts/codex-smoke`
 Expected: `FAIL: skills/delegate/SKILL.md exists`, `FAIL: skills/delegate/agents/openai.yaml exists`, PASS for the reader contract (Task 1 created it); exit code 1.
 
-- [ ] **Step 3: Create `skills/delegate/SKILL.md`**
+- [x] **Step 3: Create `skills/delegate/SKILL.md`**
 
 Exact content:
 
@@ -467,7 +467,7 @@ routing records `NNN dispatched: route=native` and, where the harness provides o
 `NNN native-ref: <harness ref>`. Never re-dispatch work the ledger records as complete.
 ````
 
-- [ ] **Step 4: Create `skills/delegate/agents/openai.yaml`**
+- [x] **Step 4: Create `skills/delegate/agents/openai.yaml`**
 
 Exact content:
 
@@ -481,12 +481,12 @@ policy:
   allow_implicit_invocation: false
 ```
 
-- [ ] **Step 5: Run the gates to verify they pass**
+- [x] **Step 5: Run the gates to verify they pass**
 
 Run: `./scripts/codex-smoke && python3 scripts/validate-packs --root .`
 Expected: all PASS lines including the three new checks; exit 0.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add skills/delegate/ scripts/codex-smoke
@@ -505,7 +505,7 @@ git commit -m "feat: delegate skill — direct one-off pack dispatch, no plan ma
 - Consumes: the `delegate` skill name and behavior from Task 2.
 - Produces: nothing downstream (docs only; Task 4 bumps versions).
 
-- [ ] **Step 1: Update `core/playbook.md`**
+- [x] **Step 1: Update `core/playbook.md`**
 
 Change the sentence `“Dispatch” is ambiguous. Four execution modes, three currencies.` to:
 
@@ -519,7 +519,7 @@ In the "Dispatch flavours & economics" table, insert after the **Supervised pack
 | **Delegate** (one-off pack dispatch, no plan — the `delegate` skill) | ~1–2k/job | orchestration only | task cost | explicitly requested self-contained jobs or homogeneous batches arriving outside a plan; auto-supervised at ≥3 planned cycles |
 ```
 
-- [ ] **Step 2: Update the README Layout block and Skills table**
+- [x] **Step 2: Update the README Layout block and Skills table**
 
 In the `## Layout` code block, insert after the `skills/sdd/` line:
 
@@ -533,7 +533,7 @@ In the `## Skills` table, insert after the `sdd` row:
 | `delegate` | Directly dispatch an explicitly requested one-off job or homogeneous batch through the provider packs — no plan required |
 ```
 
-- [ ] **Step 3: Add the README `delegate` section**
+- [x] **Step 3: Add the README `delegate` section**
 
 Insert after the `## Skills` table:
 
@@ -553,12 +553,12 @@ tasks below the triviality floor stay inline unless delegation was explicitly
 requested.
 ```
 
-- [ ] **Step 4: Run the gates**
+- [x] **Step 4: Run the gates**
 
 Run: `python3 scripts/validate-packs --root . && ./scripts/codex-smoke`
 Expected: exit 0. (README `**Version:**` unchanged in this task.)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add core/playbook.md README.md
@@ -579,7 +579,7 @@ git commit -m "docs: delegate flavour row, five execution modes, README section"
 - Consumes: Tasks 1–3 complete (files exist with the specified content).
 - Produces: release-ready branch state.
 
-- [ ] **Step 1: Write the failing structural tests**
+- [x] **Step 1: Write the failing structural tests**
 
 Create `tests/test_delegate_skill.py`:
 
@@ -667,21 +667,21 @@ def test_reader_contract_protocol():
 ```
 
 
-- [ ] **Step 2: Run the new tests**
+- [x] **Step 2: Run the new tests**
 
 Run: `uv run --with pytest pytest tests/test_delegate_skill.py -q`
 Expected: all pass if Tasks 1–2 landed as specified (these tests gate content, not order — if any fail, the skill content drifted from this plan; fix the content, not the test).
 
-- [ ] **Step 3: Bump all three version references**
+- [x] **Step 3: Bump all three version references**
 
 Set the version to `1.3.0` in `.claude-plugin/plugin.json`, `.codex-plugin/plugin.json`, and the README `**Version:**` line. No other fields change.
 
-- [ ] **Step 4: Verify sync and run everything**
+- [x] **Step 4: Verify sync and run everything**
 
 Run: `grep -n '"version"' .claude-plugin/plugin.json .codex-plugin/plugin.json && grep -n '\*\*Version:\*\*' README.md && python3 scripts/validate-packs --root . && ./scripts/codex-smoke && uv run --with pytest pytest tests/ -q`
 Expected: `1.3.0` in all three lines; gates exit 0; full suite passes (37+ cases).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add tests/test_delegate_skill.py .claude-plugin/plugin.json .codex-plugin/plugin.json README.md
@@ -711,3 +711,52 @@ exercise real CLIs and cannot be delegated as plan tasks):
 
 Findings that surface pack facts append to the usual verification logs. Merge to `main`
 and tag only on the owner's explicit instruction.
+
+---
+
+## Completion record (added 2026-07-23, after the fact)
+
+**Status: COMPLETE and shipped.** All four tasks landed on `feature/delegate-skill` and
+merged to `main` as **PR #1** (`ecb8ee6`). The step checkboxes above were never ticked
+during execution — they were ticked in this update, from git and log evidence, not from
+memory. Treat the commits and verification-log entries as the authority; the boxes are a
+convenience index.
+
+### What shipped, per task
+
+| Task | Commit |
+| --- | --- |
+| 1 — `contracts/reader-contract.md` | `2ca9e3e` |
+| 2 — `skills/delegate/SKILL.md` + `agents/openai.yaml` + codex-smoke checks | `4827d86` |
+| 3 — playbook flavour row, mode-count prose, README | `1486e48` |
+| 4 — structural pytest tests + version bump to 1.3.0 | `24dda7d` |
+
+### Post-plan smokes — all three run, all passed
+
+Recorded in [providers/agy/verification-log.md](../../../providers/agy/verification-log.md)
+("delegate-skill post-plan smokes (v1.3.0, agy lane)"): Smoke A (read lane), Smoke B
+(write lane with review), Smoke C (supervised batch) on agy 1.1.5, cheapest-tier
+worker/reader with a standard-tier reviewer. Four behavioral findings came out of them —
+notably that a denied shell command can abort a run at exit 0 with no report (the
+read-lane evidence gate caught it), and that the cheapest tier does not reliably emit the
+mandated status block.
+
+### Divergences from the plan as written — read these before trusting the plan text
+
+1. **The round did not stop at v1.3.0.** The plan's scope ends at the version bump; work
+   continued past it to **v1.4.0** (the `report-transport` manifest capability — a
+   structural fix for reports lost at exit 0 — plus agy permission findings and a purity
+   fix) and later to **v1.5.0** (doctrine absorbed from a controller's global
+   instructions, PR #5). The plan is therefore a historical record of the first leg only.
+2. **A global constraint was violated during execution.** "Never commit to `main`" did not
+   hold: a purity violation reached `main` because a commit chained its gate with `;`
+   instead of `&&`, so a failing gate did not block the commit. Fixed in `f0f81f5`; the
+   `&&` rule is now written into the repo's CLAUDE.md as a precondition, not a preceding
+   step.
+3. **Supervised-delegate rules shipped as untested prose and were exercised afterwards.**
+   The append-only-ledger rule and the status-escalation rule were verified behaviorally
+   only in the v1.4.0 round — the first supervised smoke had found a native supervisor
+   *rewriting* the ledger instead of appending to it.
+4. **Smoke findings changed doctrine that the plan did not anticipate**, most consequentially
+   the cheapest-tier status-block failure, which became the safety doctrine's
+   "a missing status block is unknown, never success" and (in v1.5.0) playbook rule E1a.

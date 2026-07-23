@@ -1,0 +1,7 @@
+interface:
+  display_name: "SDD with Provider Packs"
+  short_description: "Execute an implementation plan via subagent-driven development, dispatching implementers and reviewers to external CLIs (codex/opencode/agy) through validated provider packs."
+  default_prompt: "Execute this implementation plan with the sdd skill."
+
+policy:
+  allow_implicit_invocation: true

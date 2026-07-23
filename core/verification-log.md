@@ -180,7 +180,7 @@ gate result.**
 
 The two rules added earlier this day (append-only ledger; missing status block = UNKNOWN)
 were prose that nothing had exercised. Both are now tested against live supervised cycles
-with cheap native supervisors and `gemini-3.6-flash-low` workers.
+with cheap native supervisors and cheapest-tier workers.
 
 **RULE 1 — append-only ledger: PASSES.** A 3-job supervised batch was launched over a
 ledger the controller had pre-seeded with a header, a `SENTINEL-…-DO-NOT-REMOVE` line, and
@@ -201,7 +201,7 @@ reported the invented token `status=COMPLETED` for prose-only output.
 
 **Incidental finding worth acting on — inline beats by-reference for cheap models.** In
 the 3-job batch the status-block instruction sat *inline in the dispatch prompt* and got
-3/3 conformance from `gemini-3.6-flash-low`. In the earlier pre-rule batch the same
+3/3 conformance from the cheapest-tier model. In the earlier pre-rule batch the same
 requirement reached the same model only *by reference to the contract file* and got 0/3.
 One line in the prompt appears to be worth more than a contract citation at the cheapest
 tier. This is n=3 vs n=3 and not statistically established — recorded as a lead, not a

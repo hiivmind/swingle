@@ -56,6 +56,13 @@ Dispatch without permission flags: `Create a file named writetest.txt containing
 HELLO.` Verify **on disk**. If denied, repeat with the pack's permission settings and record
 the minimum setting that permits writes.
 
+**P6 must also probe shell-command execution, not only file tools**: dispatch `Run the
+shell command 'echo P6CMD > cmdtest.txt' and report its output.` and verify on disk.
+File-tool and command permissions are separately gated on some providers (agy ≥1.1.4
+allows file read/write under default persisted policy but auto-denies the `command`
+permission headless — a gap the file-only probe missed for two verification rounds).
+Record the file-tool and command verdicts separately.
+
 ### P7 — Sandbox escape (only if a sandbox is claimed)
 
 Ask the agent to write **inside** the workspace, to a temporary location, and to a location

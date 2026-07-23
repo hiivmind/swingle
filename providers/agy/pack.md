@@ -2,7 +2,7 @@
 schema-version: 1
 id: agy
 cli: agy
-verified-version: "1.1.4"
+verified-version: "1.1.5"
 version-argv: ["agy", "--version"]
 resume-argv: ["agy", "--conversation", "{session_id}"]
 session-source: conversation-id
@@ -16,8 +16,9 @@ sandbox: none
 | --- | --- |
 | Prompt argument | `-p "<PROMPT>"` — **must be last arg** |
 | `< /dev/null` needed | **Yes** — hangs |
-| Sandbox | None — headless reads/writes freely, no flags |
-| Permission flags | `--dangerously-skip-permissions` no longer needed (≥1.1.4) |
+| Sandbox | None — no isolation; file tools pass under default policy, shell commands gated by the permission baseline below |
+| Permission flags | **Headless honors persisted `settings.json` policies since 1.1.4** (per vendor changelog): file read/write passes under default policy, but shell `command` use is auto-denied (exit 0, zero work) unless `permissions.allow` has a `command(<target>)` rule or `--dangerously-skip-permissions` is passed — see 2026-07-23 verification-log entry |
+| Changelog | https://antigravity.google/changelog?tab=cli — read on every version bump before probing |
 | Exit codes | Normal 0/1 (≥1.1.4; earlier versions reportedly returned 1 on success) |
 | Model validation | Errors cleanly, lists available models |
 | Reasoning-effort control | Effort-in-name (`-low/-medium/-high` slug or `(Low)` label) **or** base slug + `--effort` — mixing both **errors** |
@@ -53,10 +54,12 @@ agy --model gemini-3.6-flash --effort <low|medium|high> \
 - **`-p` eats the next argument as the prompt.** A flag placed after `-p` becomes the prompt
   *and the real task and model selection are silently dropped* (verified: fell back to the
   default model, Claude Opus, and answered the flag text). Always put `-p "<PROMPT>"` last.
-- **No permission gate on ≥1.1.4**: headless runs read **and write** freely with no flags.
-  `--dangerously-skip-permissions` and `--mode accept-edits` are no longer required, and no
-  read-only tier exists. (On ≤1.1.1 headless auto-denied every tool — a total behavior flip
-  between patch releases; re-verify on every version bump.)
+- ~~**No permission gate on ≥1.1.4**: headless runs read **and write** freely with no
+  flags.~~ **Superseded 2026-07-23**: this held only for FILE tools — 1.1.4 made headless
+  honor persisted `settings.json` policies and shell `command` use is auto-denied without
+  an allow-rule (see "Headless permission baseline" below). No read-only tier exists.
+  (On ≤1.1.1 headless auto-denied every tool — permission behavior has now shifted at
+  every patch release; re-verify on every version bump.)
 - **Document-shaped tasks divert output**: "produce a document" prompts write the answer to
   `~/.gemini/antigravity-cli/brain/<conversation-id>/*.md` and print only a banner to stdout.
   Mitigations, in order:
@@ -77,6 +80,50 @@ agy --model gemini-3.6-flash --effort <low|medium|high> \
   *silently* when signed out.
 - `< /dev/null>` mandatory (hang, as codex).
 - One prompt per turn — no conversation batching in print mode; `--print-timeout` bounds the wait.
+
+## Headless permission baseline (required since 1.1.4)
+
+Headless agy honors the persisted permission policy in
+`~/.gemini/antigravity-cli/settings.json`; unconfigured actions default to Ask, which
+headless auto-denies (exit 0, zero work, banner on stdout). **The canonical operating mode
+is an allow/deny baseline in that file** — rule grammar is `action(target)`, one
+whitespace-separated anchored-regex token each, precedence Deny > Ask > Allow, `command(*)`
+wildcards a whole namespace:
+
+```json
+"permissions": {
+  "allow": [
+    "command(uv)", "command(python3)", "command(python)", "command(pytest)",
+    "command(git (status|diff|log|show|rev-parse|ls-files|branch))",
+    "command(ls)", "command(cat)", "command(echo)", "command(mkdir)", "command(touch)",
+    "command(cp)", "command(mv)", "command(sed)", "command(grep)", "command(rg)",
+    "command(find)", "command(head)", "command(tail)", "command(wc)", "command(diff)",
+    "command(chmod \\+x)", "command(make)", "command(npm (test|run))", "command(node)"
+  ],
+  "deny": [
+    "command(sudo)", "command(rm -rf? /)", "command(git push)", "command(git commit)",
+    "command(curl)", "command(wget)", "command(ssh)"
+  ]
+}
+```
+
+Portability facts every installer must know:
+
+- **This file is machine-local and user-global** — the plugin cannot ship it. Without the
+  baseline, the first dispatch on a fresh machine silently no-ops; only the controller's
+  diff-after/report-exists gate catches it.
+- **Readiness probe (before the FIRST agy dispatch of a session)**: verify the baseline
+  exists — `grep -q 'permissions' ~/.gemini/antigravity-cli/settings.json` — and on a miss
+  STOP and hand the user this section instead of dispatching.
+- **The rules apply to the user's interactive agy sessions too**: `allow` auto-approves
+  there as well, and the `git commit`/`git push` denies (deliberate — they mechanically
+  enforce the controller-commits doctrine) will also block interactive commits. A user who
+  wants agy to commit interactively must scope their own baseline accordingly.
+- **Zero-setup alternative**: `--dangerously-skip-permissions` per dispatch — no config
+  touch, but auto-approves *everything* and forfeits the deny-list containment; treat it
+  as the fallback, not the mode.
+- A denied command surfaces as the silent-no-op signature above; if a legitimately needed
+  command is missing from the baseline, extend the allow list and record it here.
 
 ## Canonical dispatch template
 

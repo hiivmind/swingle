@@ -23,6 +23,7 @@ sandbox: enforced
 | Reasoning-effort control | `-c model_reasoning_effort=<low…max>` — **validated** (bogus → 400) |
 | Output contract | stdout + `-o <file>` = **last message only** |
 | Auth | ChatGPT account |
+| Changelog | https://github.com/openai/codex/releases — read on every version bump before probing |
 
 ## codex (verified v0.144.3, 2026-07-22) (from archive/v1.1)
 

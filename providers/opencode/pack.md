@@ -26,6 +26,7 @@ readiness-argv: ["opencode", "session", "list"]
 | Reasoning-effort control | `--variant <high\|max\|minimal…>` — **silently ignored if unsupported** |
 | Output contract | Clean stdout (small `build · model` banner) |
 | Auth | Zen (pay-as-you-go) |
+| Changelog | https://github.com/sst/opencode/releases — read on every version bump before probing |
 
 ### Resume — a kill is a checkpoint, not a restart (from archive/v1.1)
 

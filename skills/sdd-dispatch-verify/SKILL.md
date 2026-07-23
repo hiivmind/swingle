@@ -30,6 +30,15 @@ Knowledge base (all paths are relative to the plugin tree root `<root>`):
    `models.md`, and verification log. Compare the manifest's `version-argv` output with
    `verified-version`, and identify the affected models and trigger.
 
+2b. **Read the vendor changelog before probing.** Every pack carries a `Changelog` row
+   (agy: https://antigravity.google/changelog?tab=cli; codex and opencode: their GitHub
+   releases pages). Read the entries between `verified-version` and the installed version
+   FIRST — they tell you which probes to weight and what new surface exists, and they
+   date behavior changes precisely (e.g. agy 1.1.4's "headless honors persisted
+   settings.json policies" explained a permission regression the probe suite initially
+   misattributed to 1.1.5). Quote the relevant changelog lines in the verification-log
+   entry alongside the observed evidence.
+
 3. **Run live smoke probes where the CLI exists.** P1–P12 are environment smoke tests, not
    portable assertions: run them only in an environment with the selected provider CLI.
    Work in a session scratchpad and follow the pack's canonical dispatch template. Never

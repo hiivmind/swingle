@@ -5,8 +5,8 @@
 | Tier | Lane | Priority | Model id | Status | Pricing | Rationale |
 | --- | --- | --- | --- | --- | --- | --- |
 | cheapest | any | 1 | gemini-3.6-flash-low | verified | — | current Flash workhorse; cheapest dispatch lane |
-| standard | any | 1 | gemini-3.6-flash-medium | experimental | — | dispatch-verified at low only |
-| most-capable | any | 1 | gemini-3.1-pro-high | experimental | — | agy's only Pro — long-context + hardest architecture only |
+| standard | any | 1 | gemini-3.6-flash-medium | verified | — | verified 2026-07-23: implement + 2 task reviews + resume, all clean gates |
+| most-capable | any | 1 | gemini-3.1-pro-high | verified | — | agy's only Pro; verified 2026-07-23 final whole-branch review |
 
 Effort is baked into the model id, or use a base slug with `--effort`; combining both
 errors.
@@ -36,3 +36,6 @@ errors.
 - **2026-07-21 — Google**: Gemini **3.6 Flash** (new workhorse), **3.5 Flash-Lite**
   (cheap/fast; *3.5-class — there is no "3.6 Lite"*), **3.5 Flash Cyber** (restricted).
   Source: blog.google announcement. Table moved all agy Flash rows 3.5 → 3.6 same week. (from archive/v1.1)
+- **2026-07-21 — agy 1.1.5**: stable, user-facing model slugs in the `/model` picker and a
+  launch-time `--effort` flag for effort variants (per vendor changelog) — the Resolvable
+  slug column is now vendor-stable, not scraped convention.

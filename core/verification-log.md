@@ -116,3 +116,21 @@ watch the marker from a separate lightweight watcher. Doctrine added to core/liv
 ("the wrapper must survive its supervisor"); harness mechanism noted in the claude-code
 adapter. Also verified this run: the provider resume surface accepts only config-override
 flags (recorded in the codex pack, 2026-07-23).
+
+---
+
+## 2026-07-23 — v1.2.0 smoke: Claude install/load + first agy-lane run
+
+- The deferred Claude Code install/load smoke is COMPLETE: after user plugin reload, the
+  v1.2.0 sdd skill loaded from the new tree and drove Step 0 end-to-end — trust gate
+  passed live (validate-packs exit 0; `git status --porcelain providers/` clean),
+  detection/config/compat/routing/resolution all ran from the packs, and
+  `validate-packs --resolve` matched the documented walks.
+- Compatibility step earned its keep on its first outing: it caught agy 1.1.5 (pack
+  stamp 1.1.4) before dispatch, and the mismatch was real — 1.1.5 flips the headless
+  permission model again (provider details in providers/agy/verification-log.md).
+- Controller-gate doctrine validated against a silent no-op: a permission-starved run
+  exited 0 with no work; diff-after + report-exists caught it (exit codes are not
+  evidence of work).
+- Detached-wrapper doctrine (liveness.md) held on its first deliberate use: wrapper
+  survived, marker file fired, no supervisor kill.

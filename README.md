@@ -1,5 +1,7 @@
 # sdd-dispatch
 
+![sdd-dispatch hero banner](docs/images/hero-banner.jpg)
+
 Standalone harness-neutral plugin for subagent-driven development via external
 CLIs (codex / opencode / agy): token-efficient plan execution plus the verified
 knowledge base that makes dispatch safe.

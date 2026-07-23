@@ -2,13 +2,13 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add a `delegate` skill to the sdd-dispatch plugin: direct one-off dispatch of a task (or small batch) to an external CLI through the provider packs, without the SDD plan-execution machinery.
+**Goal:** Add a `delegate` skill to the sdd-dispatch plugin: direct one-off dispatch of a self-contained job (or homogeneous batch) to an external CLI through the provider packs, without the SDD plan-execution machinery.
 
-**Architecture:** One new skill directory (`skills/delegate/`) that reuses the existing engine untouched — `core/` doctrine, `providers/` packs, `contracts/`, and the shared harness adapters at `skills/sdd/harnesses/`. Plus a playbook flavour-table row, README updates, and a version bump to 1.3.0.
+**Architecture:** One new skill directory (`skills/delegate/`) plus one new operating contract (`contracts/reader-contract.md`), reusing the engine untouched — `core/` doctrine, `providers/` packs, existing contracts, and the shared harness adapters at `skills/sdd/harnesses/`. Plus a playbook flavour row, README updates, structural pytest tests, and a version bump to 1.3.0.
 
-**Tech Stack:** Markdown skill files; bash/python3 gates (`scripts/validate-packs`, `scripts/codex-smoke`); pytest for the validator suite.
+**Tech Stack:** Markdown skill files; bash/python3 gates (`scripts/validate-packs`, `scripts/codex-smoke`); pytest for structural tests.
 
-**Spec:** `docs/superpowers/specs/2026-07-23-delegate-skill-design.md` — the authority for all behavior described below.
+**Spec:** `docs/superpowers/specs/2026-07-23-delegate-skill-design.md` (revised after external design review) — the authority for all behavior described below.
 
 ## Global Constraints
 
@@ -18,22 +18,98 @@
 - Version 1.3.0 must appear in exactly three places, in sync: `.claude-plugin/plugin.json`, `.codex-plugin/plugin.json`, README `**Version:**` line.
 - `skills/delegate/agents/openai.yaml` sets `allow_implicit_invocation: false` (the skill writes).
 - No superpowers dependency anywhere in the delegate skill: it must not invoke superpowers skills, run `scripts/sdd-workspace`, or reference `.superpowers/sdd/`.
-- Delegate workspace path is exactly `.sdd-dispatch/delegate/` at the repo root, git-ignored.
+- Delegate workspace path is exactly `.sdd-dispatch/delegate/` at the repo root, ignored via `.git/info/exclude` — NEVER by implicitly editing a tracked `.gitignore`.
 - Statuses are exactly: DONE / DONE_WITH_CONCERNS / NEEDS_CONTEXT / BLOCKED.
-- Supervision trigger: automatic at ≥3 implied dispatch cycles; announced; overridable with explicit "supervised"/"unsupervised".
+- Supervision trigger formula: `cycles = planned initial worker dispatches + planned initial reviewer dispatches`, computed after batching; retries/resumes/fix rounds excluded; supervised iff cycles ≥ 3; explicit "supervised"/"unsupervised" overrides.
+- Write-lane evidence gate must cover staged, unstaged, AND untracked changes, and must verify HEAD is unchanged (`git status --porcelain=v1 --untracked-files=all` + `git diff HEAD`).
 
 ---
 
-### Task 1: `skills/delegate/SKILL.md` + Codex metadata + codex-smoke check
+### Task 1: `contracts/reader-contract.md`
+
+**Files:**
+- Create: `contracts/reader-contract.md`
+
+**Interfaces:**
+- Consumes: the status vocabulary and report-file protocol established by `contracts/implementer-contract.md`.
+- Produces: the contract file Task 2's SKILL.md references by name for explore/research/synthesis roles.
+
+- [ ] **Step 1: Create `contracts/reader-contract.md`**
+
+Exact content:
+
+````markdown
+# Reader Operating Contract (external-CLI edition)
+
+You are answering one self-contained read task — codebase exploration ("where/how is X
+done"), external research, or synthesis/summarisation. Your dispatch message names the
+task, the report file, and any source materials. This contract is how you operate.
+
+## Ground rules
+
+- **Read-only.** Do not mutate the working tree, index, or any git state, and do not
+  write any file except your report file. (On providers with an enforced read-only
+  sandbox this is enforced; elsewhere it is your contract.)
+- If the task is unclear or a source named in your dispatch is missing, **stop and
+  ask**: status NEEDS_CONTEXT with your questions in the final message. Do not guess.
+- Evidence discipline: every claim in your report carries its source — file:line for
+  code, URL or document name for research. Distinguish what you verified from what you
+  infer.
+- Stay in scope: answer the question asked; note adjacent discoveries in one line each
+  rather than pursuing them.
+
+## Report
+
+Write the FULL answer to the report file named in your dispatch:
+- The direct answer to the task, first
+- Evidence: file:line references / sources for each claim
+- What you searched or read, and any dead ends that shape confidence
+- Open questions or caveats
+
+Then your **final message** is ONLY this status block (≤15 lines — detail lives in the
+report file):
+
+```
+STATUS: DONE | DONE_WITH_CONCERNS | BLOCKED | NEEDS_CONTEXT
+ANSWER: <one-line version of the answer>
+SOURCES: <one line, e.g. "6 files cited" or "4 documents">
+CONCERNS: <one line each, or "none">
+REPORT: <report file path>
+```
+
+If BLOCKED or NEEDS_CONTEXT, put the specifics in the final message itself — the
+controller acts on it directly.
+
+## Resumed session
+
+If the controller resumes this session with follow-up questions: answer them, APPEND
+the additions to the same report file, and reply with a fresh status block.
+````
+
+- [ ] **Step 2: Run the gates**
+
+Run: `python3 scripts/validate-packs --root . && ./scripts/codex-smoke`
+Expected: exit 0 (the contract is new content; no validator rule covers it yet).
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add contracts/reader-contract.md
+git commit -m "feat: reader operating contract for explore/research delegation"
+```
+
+---
+
+### Task 2: `skills/delegate/SKILL.md` + Codex metadata + codex-smoke checks
 
 **Files:**
 - Create: `skills/delegate/SKILL.md`
 - Create: `skills/delegate/agents/openai.yaml`
-- Modify: `scripts/codex-smoke` (add existence checks for the two new files)
+- Modify: `scripts/codex-smoke` (add existence checks)
 
 **Interfaces:**
-- Consumes: `core/roles.md` role table, `core/playbook.md`, `core/liveness.md`, `core/safety-doctrine.md`, `providers/<id>/pack.md` + `models.md`, `contracts/implementer-contract.md`, `contracts/task-reviewer-contract.md`, `skills/sdd/harnesses/<harness>.md`, `scripts/validate-packs`.
-- Produces: the `delegate` skill (referenced by name in Task 2's README and playbook edits).
+- Consumes: `contracts/reader-contract.md` (Task 1), `core/roles.md`, `core/playbook.md`, `core/liveness.md`, `core/safety-doctrine.md`, `providers/<id>/pack.md` + `models.md`, `contracts/implementer-contract.md`, `contracts/task-reviewer-contract.md`, `skills/sdd/harnesses/<harness>.md`.
+- Produces: the `delegate` skill (referenced by Task 3's README/playbook edits and Task 4's tests).
 
 - [ ] **Step 1: Add the failing codex-smoke checks**
 
@@ -51,12 +127,18 @@ if [ -f skills/delegate/agents/openai.yaml ]; then
 else
   fail "skills/delegate/agents/openai.yaml exists"
 fi
+
+if [ -f contracts/reader-contract.md ]; then
+  pass "contracts/reader-contract.md exists"
+else
+  fail "contracts/reader-contract.md exists"
+fi
 ```
 
 - [ ] **Step 2: Run codex-smoke to verify it fails**
 
 Run: `./scripts/codex-smoke`
-Expected: `FAIL: skills/delegate/SKILL.md exists`, `FAIL: skills/delegate/agents/openai.yaml exists`, exit code 1.
+Expected: `FAIL: skills/delegate/SKILL.md exists`, `FAIL: skills/delegate/agents/openai.yaml exists`, PASS for the reader contract (Task 1 created it); exit code 1.
 
 - [ ] **Step 3: Create `skills/delegate/SKILL.md`**
 
@@ -65,21 +147,31 @@ Exact content:
 ````markdown
 ---
 name: delegate
-description: Directly delegate a one-off task or small batch to an external CLI (codex/opencode/agy) through validated provider packs — role inference, model tiering, liveness, safety gates, and session resume — without a written implementation plan. Use for ad-hoc implement/explore/research/review requests; use the sdd skill when work arrives as a plan file with numbered tasks.
+description: Directly delegate an explicitly requested, self-contained job or homogeneous batch to an external CLI (codex/opencode/agy) through validated provider packs — role inference, model tiering, liveness, evidence gates, and session resume — without a written implementation plan. Use the sdd skill for multi-task implementation plans; keep sub-triviality-floor tasks inline unless delegation was explicitly requested.
 ---
 
 # Delegate — Direct One-Off Dispatch
 
 **Harness**: identify your controlling harness and read
 `<root>/skills/sdd/harnesses/<harness>.md` (claude-code, codex) before setup — it maps
-skill-loading, native subagent dispatch, background jobs, and asset-root resolution.
-`<root>` is this skill directory's grandparent (the directory containing `skills/`,
-`core/`, `providers/`, `contracts/`).
+skill-loading, native subagent dispatch, background jobs, completion observation, and
+asset-root resolution. `<root>` is this skill directory's grandparent (the directory
+containing `skills/`, `core/`, `providers/`, `contracts/`).
 
-**Boundary**: work arriving as a plan file with numbered tasks → use the `sdd` skill.
-Work arriving as a conversational request → this skill. This skill has **no superpowers
-dependency**: it never invokes superpowers skills, never runs `scripts/sdd-workspace`,
-and never reads or writes `.superpowers/sdd/`.
+**Boundary (semantic, not transport-based)**: `sdd` = dependency-aware execution of a
+multi-task implementation plan (task reviews, plan ledger, final review) — use it
+whenever the work is a plan, whether it arrived as a file, a pasted numbered checklist,
+or a structured message. `delegate` = an **explicitly requested**, self-contained job or
+homogeneous batch, wherever its text originated. The playbook's triviality floor still
+applies: work the controller can finish inline for less than the orchestration cycle
+stays inline unless the caller explicitly asked for external delegation. This skill has
+**no superpowers dependency**: it never invokes superpowers skills, never runs
+`scripts/sdd-workspace`, and never reads or writes `.superpowers/sdd/`.
+
+**v1 scope: git repositories.** In a non-repo working directory accept only read-only
+research/synthesis: artifacts go to the harness's temporary/job directory, no durable
+ledger exists, and no resume promise is made — say so in the reply. Refuse write-lane
+work outside a git repository.
 
 Read these plugin documents when their policy is needed:
 
@@ -88,22 +180,26 @@ Read these plugin documents when their policy is needed:
 - `<root>/core/liveness.md` — required background and stall protocol
 - `<root>/core/safety-doctrine.md` — containment and controller-gate doctrine
 - `<root>/providers/<id>/pack.md` and `models.md` — validated provider behavior,
-  canonical dispatch, and model candidates
+  canonical dispatch, session source, recovery rules, and model candidates
 
 ## Levers (parsed from anywhere in the request)
 
 - **Provider**: "via agy" / "via codex" / "via opencode".
 - **Tier**: "floor it" (default when silent) = cheapest model clearing the role's bar;
-  "play it safe" = one tier up; an explicit model id must still resolve inside the
-  routed provider's models.md.
-- **Review**: "with review" — adds the opt-in reviewer dispatch (see Gate).
-- **Lane pin**: "read-only" — forces the review/read lane regardless of task wording;
-  the dispatched prompt carries the read-only instruction and ANY resulting diff is a
-  doctrine violation to surface.
+  "play it safe" = one tier up (at most-capable that is already the ceiling — say so
+  and proceed); an explicit model id must appear in the resolved role's eligible
+  resolution sequence (the tier/lane candidate walk in the routed pack's models.md) —
+  otherwise ask, never silently accept or substitute.
+- **Review**: "with review" — write lane: one reviewer dispatch before commit (see
+  Gate). Read lane: a second independent reader; the controller compares reports.
+- **Lane pin**: "read-only" — forces the read lane. If the task text simultaneously
+  demands writes ("fix this, read-only"), ask which governs — never silently convert
+  requested write work into analysis.
 - **Supervision**: "supervised" / "unsupervised" — overrides the automatic trigger.
 - **Native**: the `native-subagents` lever ("all Claude" under Claude Code) bypasses
-  external dispatch entirely per the harness adapter; provider routing and model
-  resolution do not apply, and supervision is moot (the native subagent IS the worker).
+  external dispatch per the harness adapter; provider routing, model resolution, and
+  supervision do not apply. Explicitly requested but unavailable → stop and ask;
+  auto-selected (supervision) but unavailable → controller orchestrates, announced.
 
 ## Setup (once per session) — Step-0-lite
 
@@ -132,98 +228,155 @@ Read these plugin documents when their policy is needed:
 7. **Readiness**: before the FIRST dispatch to a chosen provider, run its bounded
    preflight per its pack (version + auth/session probe; agy: the headless permission
    baseline check — on miss, STOP and hand the user the pack's baseline section).
-8. **Workspace**: create `.sdd-dispatch/delegate/` at the repo root; if the repo's
-   .gitignore lacks an entry, add `.sdd-dispatch/` and tell the user. Copy
-   `<root>/contracts/implementer-contract.md` and
-   `<root>/contracts/task-reviewer-contract.md` into it once per session. In a non-repo
-   working directory, fall back to the harness session scratchpad and note in the reply
-   that no durable ledger exists.
+8. **Workspace**: create `.sdd-dispatch/delegate/` at the repo root. Check
+   `git check-ignore -q .sdd-dispatch`; if not ignored, append `.sdd-dispatch/` to
+   `.git/info/exclude` (repo-local, never tracked) and tell the user — NEVER edit a
+   tracked `.gitignore` implicitly (it dirties the tree right before a gate that
+   requires it clean; a tracked entry is the user's separate commit). Copy
+   `implementer-contract.md`, `task-reviewer-contract.md`, and `reader-contract.md`
+   from `<root>/contracts/` into the workspace once per session.
 
 ## Role inference and the announcement line
 
-Classify the task against the `core/roles.md` table — transcription implement,
-adaptation implement, read-only explore, research/synthesis, review. Then announce, in
+Classify the task against the **full seven-row table in `core/roles.md`** —
+transcription implementer, adaptation implementer, large-codebase / long-context
+implementer, read-only explore, external research/synthesis, per-task reviewer,
+final/design reviewer. The table is the authority — never work from a shortened
+paraphrase (that under-tiers design reviews and long-context work). Then announce, in
 ONE line before dispatching:
 
 ```
-delegate: role=<role> tier=<tier> lane=<lane> provider=<id> model=<model> supervised=<yes: N cycles|no>[ review=yes]
+delegate: job=NNN role=<roles.md row> tier=<tier> lane=<lane> provider=<id> model=<model> supervised=<yes: N cycles|no>[ review=yes]
 ```
+
+Native routing announces
+`delegate: job=NNN role=<role> tier=<tier> lane=<lane> route=native supervised=no`
+instead (no provider/model fields).
 
 The announcement is the caller's override point. When a task genuinely straddles lanes
 ("look into X and fix it"), ask ONE question (investigate-only vs investigate-and-fix)
 before dispatching — never guess a write when a read was plausible.
 
-**Batching**: several near-identical mechanical tasks go into ONE dispatch (the
-playbook's triviality-floor doctrine). Heterogeneous tasks run as sequential dispatches.
-Never parallel write-lane dispatches; parallel read-lane dispatches are permitted.
+**Contract by role class**: implement roles → implementer contract; explore /
+research / synthesis → reader contract; a primary review job ("review this diff/PR/
+document") → task-reviewer contract, with the controller generating the inputs that
+contract expects: the artifact under review as a package file (for a diff: commit list
++ stat + `-U10`) plus whatever requirements text the caller supplied in place of a
+brief.
+
+**Batching**: a homogeneous batch (near-identical mechanical items) is ONE job = one
+dispatch. Heterogeneous tasks are separate jobs, run sequentially. Never parallel
+write-lane dispatches. Parallel read-lane dispatches ONLY when all hold: the routed
+provider has an ENFORCED read-only lane (read-only is intent, not enforcement, on
+unsandboxed packs — concurrent "readers" there can both write and conflict), output
+paths are distinct, and the pack's `session-source` attributes sessions
+deterministically under concurrency (a newest-first session list races — serialize
+those providers).
 
 ## Dispatch cycle
 
-Each dispatch gets the next number `NNN` (001, 002, …) from the workspace ledger.
+Each **job** gets the next number `NNN` (001, 002, …), allocated durably in the ledger
+BEFORE launch — a crash or compaction never loses the number→task mapping.
 
-1. Write the prompt to `.sdd-dispatch/delegate/NNN-prompt.md`: contract path (implementer
-   or task-reviewer contract, matching the lane), the task text verbatim, scene (one
-   line: repo, branch, relevant paths), the report-file path (`NNN-report.md`), and the
-   report contract — status ≤15 lines back (DONE / DONE_WITH_CONCERNS / NEEDS_CONTEXT /
-   BLOCKED), detail in the report file.
-2. Write lane only: record BASE (= current HEAD) and require a clean tree (or explicit
-   user acknowledgement of the dirty state) before dispatching.
+1. Write the prompt to `.sdd-dispatch/delegate/NNN-prompt.md`: contract path (per role
+   class), the task text verbatim, scene (one line: repo, branch, relevant paths), the
+   report-file path (`NNN-report.md`), and the report contract — status ≤15 lines back
+   (DONE / DONE_WITH_CONCERNS / NEEDS_CONTEXT / BLOCKED), detail in the report file.
+2. Write lane: the tree must be CLEAN — `git status --porcelain=v1
+   --untracked-files=all` empty, no exceptions on any pack. Record BASE (= HEAD) and
+   the current branch.
 3. Dispatch with the active pack's canonical template inside the self-reaping wrapper
-   (`core/liveness.md`), stdout to `NNN-dispatch.log`, observed per the harness adapter
-   (marker file — never foreground stdout). Record the provider session id (pack
-   `session-source`) in the ledger at dispatch time.
-4. Read back ONLY the status block and (write lane) `git diff --stat`. **Exit codes are
-   never evidence of work**: the gate is diff-after (write lane) or
-   report-file-exists-with-responsive-content (read lane).
+   (`core/liveness.md`), stdout to `NNN-dispatch.log`. Observe completion via the
+   harness adapter's declared mechanism (background-task notification, polling, or the
+   detached marker-file form — whichever the adapter specifies for the mode in use);
+   never foreground stdout. Session capture is asynchronous and provider-specific:
+   obtain the session id per the pack's `session-source` and append it to the ledger
+   the moment it is observed.
+4. **Evidence gate** (exit codes are never evidence of work):
+   - Write lane: HEAD must be UNCHANGED (an agent-created commit is a doctrine
+     violation to surface, not absorb); then `git status --porcelain=v1
+     --untracked-files=all` + `git diff HEAD --stat` — together covering unstaged,
+     staged, AND untracked changes. Agent-created untracked files are part of the
+     change: list them; include their content in any review package.
+   - Read lane: porcelain must be EMPTY (any mutation is a violation to surface, not
+     silently reset); the report file must exist, postdate the dispatch, and answer
+     the task.
 5. **NEEDS_CONTEXT, follow-ups, and fixes ride the resume channel** — the pack's
    validated continuation mechanism against the recorded session id. Cold re-dispatch
    only when the resume channel fails, with the prior report attached.
-6. **Failure classes**: channel failures (auth, model-not-found, startup stall) advance
-   to the next candidate in the resolution order (same provider, max 3 attempts total
-   per dispatch); cross-provider moves are always a user question. Quality failures
-   never auto-fallback — escalate tier or adjudicate. Every attempt appends:
-   `model-attempt: dispatch=NNN role=<role> provider=<id> model=<id> class=<channel|quality> outcome=<failed|ok>`.
+6. **Failure handling — classify by scope; apply the pack's own recovery FIRST**:
+   - Provider-wide (auth, misconfiguration, missing permission baseline) → STOP; fix
+     the environment or ask. Never advance the model candidate.
+   - Candidate-specific rejection (model-not-found, model-level 4xx) → next candidate
+     in the resolution order (same provider, max 3 attempts per job); cross-provider
+     moves are always a user question.
+   - Transient transport/startup → the pack's documented recovery first (e.g. a
+     retry-once rule); only then treat as candidate-specific.
+   - Stall/kill with partial progress → RESUME the session (a kill is a checkpoint,
+     not a restart); check `git diff HEAD` for landed work before resuming.
+   - Task/context blocker (BLOCKED, NEEDS_CONTEXT) → controller adjudication; nothing
+     automatic.
+   - Quality failure → never auto-fallback; escalate tier or adjudicate with the user.
+   - Every attempt appends:
+     `model-attempt: job=NNN role=<role> provider=<id> model=<id> class=<scope> outcome=<failed|ok>`.
 
-## Gate and opt-in review
+## Gate, results, and opt-in review
 
-**Controller hard gate — always, both lanes:**
+**Controller hard gate — always, both lanes** (on-disk checks per the cycle above):
 
-- Verify on disk, never from prose: diff-after for the write lane; report existence and
-  responsiveness for the read lane.
-- Read-intent dispatches: clean tree before, `git status --porcelain` after — any diff
-  is a doctrine violation to surface, not silently reset.
+- Write lane, no review requested: the controller inspects the ACTUAL diff
+  (`git diff HEAD` plus untracked-file content), not just the stat — unreviewed change
+  contents must pass controller eyes before tests/commit. With review requested, the
+  reviewer reads the full package and the controller may gate on stat + verdicts.
 - Write lane: the controller re-runs the covering tests named in the task (or the
   project's default gate) itself, never trusting the agent's claimed results.
 - **The controller commits** — and only when the user asked for a commit; otherwise
-  leave the working tree for the user with a `git diff --stat` summary. External agents
-  never commit.
+  leave the working tree for the user with a `git diff --stat` summary. External
+  agents never commit.
+- **Read lane — the report IS the deliverable**: the controller reads the report,
+  checks freshness (postdates the dispatch) and that it actually answers the task,
+  then returns the substantive answer (or a faithful summary plus the report path) to
+  the user. Report-exists is the floor, not the gate.
 
-**Opt-in review ("with review")**: one external reviewer dispatch before any commit —
-review role, standard tier (scaled up for large/risky diffs), review lane, task-reviewer
-contract, given the task text, the report, and a diff file (BASE→current, commit list +
-stat + `-U10`, generated by the controller into `NNN-review-package.md`; reviewer output
-to `NNN-review.md`). Critical/Important findings ride the implementer's resume channel;
-the re-review resumes the ORIGINAL reviewer's thread with the fix summary. One
-fix/re-review round by default; further rounds are a user decision.
+**Opt-in review ("with review", write lane)**: one reviewer dispatch before any
+commit — review role, standard tier (scaled up for large/risky diffs), review lane,
+task-reviewer contract, given the task text, the report, and a review package
+(BASE→current: commit list + stat + `-U10` diff of tracked changes + full content of
+agent-created untracked files) written to `NNN-review-package.md`; reviewer output to
+`NNN-review.md`. Critical/Important findings ride the implementer's resume channel; the
+re-review resumes the ORIGINAL reviewer's thread with the fix summary and a fresh
+versioned package (`NNN-review-package-2.md`). One fix/re-review round by default.
+
+**"with review" on a read-lane job**: a second independent reader (same contract and
+inputs, different session — a different model or provider when eligible); the
+controller compares the two reports and reconciles disagreements before answering.
 
 ## Supervised delegate (auto by cost, announced)
 
 One cheap harness-native subagent (per the harness adapter) runs the mechanical cycle —
-prompt files, pack dispatch inside the liveness wrapper, marker watching, mechanical
-gate reads (status block, `git diff --stat`, report existence), reviewer dispatch when
-"with review", verdict collection — and returns ONE concise report with evidence paths
-plus the ledger lines it appended.
+prompt files, pack dispatch inside the liveness wrapper, completion watching, the
+mechanical gate reads (status block, porcelain/diff checks, report existence), reviewer
+dispatch when "with review", verdict collection — and returns ONE concise report with
+evidence paths plus the ledger lines it appended.
 
-**Trigger**: 1–2 implied dispatch cycles → the controller orchestrates directly.
-≥3 cycles (a heterogeneous batch, or a batch "with review" — each item's review doubles
-its cycles) → supervised, announced in the pre-dispatch line. An explicit "supervised" /
-"unsupervised" lever always overrides.
+**Trigger — computed AFTER batching:**
+
+```
+cycles = (planned initial worker dispatches) + (planned initial reviewer dispatches)
+```
+
+A homogeneous batch is one job = 1 cycle (2 "with review"). Retries, resumes, fix
+rounds, and re-reviews are NOT counted — they are unplanned. cycles ≤ 2 → controller
+orchestrates directly. cycles ≥ 3 → supervised, announced in the pre-dispatch line. An
+explicit "supervised" / "unsupervised" lever always overrides. Native subagents
+unavailable → controller orchestrates, announced.
 
 **Doctrine (non-negotiable)**: adjudication and commits stay in the main thread. The
 supervisor's "all green" is evidence to check — the controller re-reads the verdict
-lines, spot-checks `git diff --stat` against the report, re-runs covering tests for
-write-lane work, and performs any commit itself. The supervisor writes ledger and
-`model-attempt:` lines as it goes, so a killed supervisor loses no state.
+lines, spot-checks the porcelain/diff evidence against the report, re-runs covering
+tests for write-lane work, and performs any commit itself. The supervisor appends
+ledger and `model-attempt:` lines as it goes (job numbers allocated before launch), so
+a killed supervisor loses no state.
 
 **Escalation**: NEEDS_CONTEXT, BLOCKED, quality failures, and lane-straddle ambiguity
 are returned in the supervisor's report, never resolved by it. The controller answers
@@ -236,23 +389,35 @@ or hands the answer to a fresh supervisor cycle for the remaining batch.
 .sdd-dispatch/delegate/
   implementer-contract.md      # copied once per session from <root>/contracts/
   task-reviewer-contract.md
-  ledger.md                    # append-only: dispatch lines + model-attempt lines
+  reader-contract.md
+  ledger.md                    # append-only lifecycle events (below)
   NNN-prompt.md
   NNN-dispatch.log
   NNN-report.md
-  NNN-review-package.md        # only when "with review"
+  NNN-review-package.md        # only when "with review" (write lane)
   NNN-review.md                # only when "with review"
+  NNN-review-package-2.md      # re-review rounds: versioned, never overwritten
 ```
 
-Ledger line per completed dispatch:
+**Ledger = append-only lifecycle events**, one line each, written the moment each event
+happens (never only at completion):
 
 ```
-NNN: <role> provider=<id> model=<id> session=<session-id> status=<DONE|...> outcome=<committed <sha7>|diff-left|report|blocked>
+NNN allocated: role=<role> task="<summary, ≤10 words>" prompt=NNN-prompt.md
+NNN dispatched: provider=<id> model=<id> attempt=<n>
+NNN session: <session-id>                      # appended when observed (async)
+NNN review-dispatched: provider=<id> model=<id>
+NNN review-session: <session-id>               # reviewer's own resume thread
+NNN resumed: <needs-context|fix|follow-up>
+NNN complete: status=<DONE|...> outcome=<committed <sha7>|diff-left|answer-returned|blocked>
+model-attempt: job=NNN role=<role> provider=<id> model=<id> class=<scope> outcome=<failed|ok>
 ```
 
-The ledger is the compaction-proof resume map: after compaction — or days later, if the
-CLI retains sessions — a follow-up to a prior dispatch resolves through its recorded
-session id. Never re-dispatch work the ledger records as complete.
+Worker and reviewer session ids are BOTH recorded — fix rounds resume the worker's
+thread, re-reviews resume the reviewer's. The `task=` summary plus the prompt path make
+"ask that agent a follow-up" unambiguous after compaction or across a batch. Native
+routing records `NNN dispatched: route=native` and, where the harness provides one,
+`NNN native-ref: <harness ref>`. Never re-dispatch work the ledger records as complete.
 ````
 
 - [ ] **Step 4: Create `skills/delegate/agents/openai.yaml`**
@@ -262,7 +427,7 @@ Exact content:
 ```yaml
 interface:
   display_name: "Delegate to External CLI"
-  short_description: "Directly delegate a one-off task or small batch to an external CLI (codex/opencode/agy) through validated provider packs, without a written implementation plan."
+  short_description: "Directly delegate an explicitly requested, self-contained job or homogeneous batch to an external CLI (codex/opencode/agy) through validated provider packs, without a written implementation plan."
   default_prompt: "Delegate this task with the delegate skill."
 
 policy:
@@ -272,14 +437,9 @@ policy:
 - [ ] **Step 5: Run the gates to verify they pass**
 
 Run: `./scripts/codex-smoke && python3 scripts/validate-packs --root .`
-Expected: all PASS lines including the two new checks; exit 0.
+Expected: all PASS lines including the three new checks; exit 0.
 
-- [ ] **Step 6: Purity check**
-
-Run: `grep -nE 'gemini|gpt-5|--model|--print-timeout|-p "' skills/delegate/SKILL.md; echo "exit=$?"`
-Expected: no matches, `exit=1` (no model ids or invocation strings in the skill).
-
-- [ ] **Step 7: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
 git add skills/delegate/ scripts/codex-smoke
@@ -288,22 +448,28 @@ git commit -m "feat: delegate skill — direct one-off pack dispatch, no plan ma
 
 ---
 
-### Task 2: Playbook flavour row + README
+### Task 3: Playbook flavour row + mode-count prose + README
 
 **Files:**
-- Modify: `core/playbook.md` (flavour table, ~line 58–64)
+- Modify: `core/playbook.md` (flavour table + "Four execution modes" prose, ~lines 50–64)
 - Modify: `README.md` (Layout block, Skills table, new section)
 
 **Interfaces:**
-- Consumes: the `delegate` skill name and behavior from Task 1.
-- Produces: nothing downstream (docs only; Task 3 bumps versions).
+- Consumes: the `delegate` skill name and behavior from Task 2.
+- Produces: nothing downstream (docs only; Task 4 bumps versions).
 
-- [ ] **Step 1: Add the flavour-table row to `core/playbook.md`**
+- [ ] **Step 1: Update `core/playbook.md`**
+
+Change the sentence `“Dispatch” is ambiguous. Four execution modes, three currencies.` to:
+
+```markdown
+“Dispatch” is ambiguous. Five execution modes, three currencies.
+```
 
 In the "Dispatch flavours & economics" table, insert after the **Supervised pack dispatch** row:
 
 ```markdown
-| **Delegate** (one-off pack dispatch, no plan — the `delegate` skill) | ~1–2k/dispatch | orchestration only | task cost | ad-hoc tasks or small batches arriving in conversation, not as a plan; auto-supervised at ≥3 cycles |
+| **Delegate** (one-off pack dispatch, no plan — the `delegate` skill) | ~1–2k/job | orchestration only | task cost | explicitly requested self-contained jobs or homogeneous batches arriving outside a plan; auto-supervised at ≥3 planned cycles |
 ```
 
 - [ ] **Step 2: Update the README Layout block and Skills table**
@@ -317,7 +483,7 @@ skills/delegate/                  # direct one-off dispatch skill (no plan machi
 In the `## Skills` table, insert after the `sdd` row:
 
 ```markdown
-| `delegate` | Directly dispatch a one-off task or small batch through the provider packs — no plan required |
+| `delegate` | Directly dispatch an explicitly requested one-off job or homogeneous batch through the provider packs — no plan required |
 ```
 
 - [ ] **Step 3: Add the README `delegate` section**
@@ -327,60 +493,126 @@ Insert after the `## Skills` table:
 ```markdown
 ## Direct delegation
 
-`delegate <task>` dispatches a single task (or small batch) to an external CLI with the
-full pack doctrine — role inference from `core/roles.md`, model tiering, liveness,
-diff-after gates, controller commits, and session resume — but none of the SDD
-plan-execution ceremony. Levers: `via <provider>`, `floor it` / `play it safe` /
-explicit model, `with review`, `read-only`, `supervised` / `unsupervised`. Batches
-implying ≥3 dispatch cycles run supervised automatically (announced). Artifacts and the
-resume ledger live in `.sdd-dispatch/delegate/` (git-ignored). If the work arrives as a
-plan file with numbered tasks, use the `sdd` skill instead.
+`delegate <task>` dispatches a self-contained job (or homogeneous batch) to an external
+CLI with the full pack doctrine — role inference from `core/roles.md`, model tiering,
+liveness, hardened evidence gates (staged + untracked + HEAD-unchanged), controller
+commits, and session resume — but none of the SDD plan-execution ceremony. Levers:
+`via <provider>`, `floor it` / `play it safe` / explicit model, `with review`,
+`read-only`, `supervised` / `unsupervised`. Jobs implying ≥3 planned dispatch cycles
+run supervised automatically (announced). Artifacts and the lifecycle ledger live in
+`.sdd-dispatch/delegate/` (ignored via `.git/info/exclude`). The boundary is semantic:
+multi-task implementation plans go to the `sdd` skill regardless of how they arrived;
+tasks below the triviality floor stay inline unless delegation was explicitly
+requested.
 ```
 
 - [ ] **Step 4: Run the gates**
 
 Run: `python3 scripts/validate-packs --root . && ./scripts/codex-smoke`
-Expected: exit 0. (Version check still passes — README `**Version:**` unchanged in this task.)
+Expected: exit 0. (README `**Version:**` unchanged in this task.)
 
 - [ ] **Step 5: Commit**
 
 ```bash
 git add core/playbook.md README.md
-git commit -m "docs: delegate flavour row + README section"
+git commit -m "docs: delegate flavour row, five execution modes, README section"
 ```
 
 ---
 
-### Task 3: Version bump to 1.3.0 + full test suite
+### Task 4: Structural pytest tests + version bump to 1.3.0
 
 **Files:**
+- Create: `tests/test_delegate_skill.py`
 - Modify: `.claude-plugin/plugin.json` (`"version": "1.2.5"` → `"1.3.0"`)
 - Modify: `.codex-plugin/plugin.json` (`"version": "1.2.5"` → `"1.3.0"`)
 - Modify: `README.md` (`**Version:** 1.2.5` → `**Version:** 1.3.0`)
 
 **Interfaces:**
-- Consumes: Tasks 1–2 complete.
+- Consumes: Tasks 1–3 complete (files exist with the specified content).
 - Produces: release-ready branch state.
 
-- [ ] **Step 1: Bump all three version references**
+- [ ] **Step 1: Write the failing structural tests**
+
+Create `tests/test_delegate_skill.py`:
+
+```python
+import re
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+SKILL = ROOT / "skills" / "delegate" / "SKILL.md"
+YAML = ROOT / "skills" / "delegate" / "agents" / "openai.yaml"
+READER = ROOT / "contracts" / "reader-contract.md"
+
+def _model_ids():
+    """Every model id declared in any provider's models.md Resolvable table."""
+    ids = set()
+    for models in (ROOT / "providers").glob("*/models.md"):
+        for line in models.read_text().splitlines():
+            cells = [c.strip() for c in line.strip().strip("|").split("|")]
+            # Tier | Lane | Priority | Model id | Status | ...
+            if len(cells) >= 5 and cells[2].isdigit():
+                ids.add(cells[3].strip("`"))
+    return ids
+
+def test_skill_exists_with_frontmatter():
+    text = SKILL.read_text()
+    assert text.startswith("---\n")
+    front = text.split("---", 2)[1]
+    assert re.search(r"^name: delegate$", front, re.M)
+    assert re.search(r"^description: .{40,}", front, re.M)
+
+def test_purity_no_model_ids_in_any_skill():
+    ids = _model_ids()
+    assert ids, "expected provider model tables to parse"
+    for skill in (ROOT / "skills").glob("*/SKILL.md"):
+        text = skill.read_text()
+        leaked = {m for m in ids if m in text}
+        assert not leaked, f"{skill}: model ids leaked: {leaked}"
+
+def test_superpowers_independence_disclaimer():
+    # The skill legitimately NAMES superpowers in its boundary prose; the testable
+    # invariant is that the no-dependency disclaimer is present and the skill never
+    # references the sdd-workspace script it must not run outside that disclaimer.
+    text = SKILL.read_text()
+    assert "no superpowers dependency" in text.lower()
+    assert text.count("scripts/sdd-workspace") <= 1  # only the disclaimer mention
+
+def test_status_vocabulary_present():
+    text = SKILL.read_text()
+    for status in ("DONE", "DONE_WITH_CONCERNS", "NEEDS_CONTEXT", "BLOCKED"):
+        assert status in text
+
+def test_openai_yaml_disables_implicit_invocation():
+    assert "allow_implicit_invocation: false" in YAML.read_text()
+
+def test_reader_contract_status_block():
+    text = READER.read_text()
+    for token in ("STATUS:", "ANSWER:", "REPORT:", "NEEDS_CONTEXT", "Read-only"):
+        assert token in text
+```
+
+
+- [ ] **Step 2: Run the new tests**
+
+Run: `uv run --with pytest pytest tests/test_delegate_skill.py -q`
+Expected: all pass if Tasks 1–2 landed as specified (these tests gate content, not order — if any fail, the skill content drifted from this plan; fix the content, not the test).
+
+- [ ] **Step 3: Bump all three version references**
 
 Set the version to `1.3.0` in `.claude-plugin/plugin.json`, `.codex-plugin/plugin.json`, and the README `**Version:**` line. No other fields change.
 
-- [ ] **Step 2: Verify sync**
+- [ ] **Step 4: Verify sync and run everything**
 
-Run: `grep -n '"version"' .claude-plugin/plugin.json .codex-plugin/plugin.json && grep -n '\*\*Version:\*\*' README.md`
-Expected: `1.3.0` in all three lines.
+Run: `grep -n '"version"' .claude-plugin/plugin.json .codex-plugin/plugin.json && grep -n '\*\*Version:\*\*' README.md && python3 scripts/validate-packs --root . && ./scripts/codex-smoke && uv run --with pytest pytest tests/ -q`
+Expected: `1.3.0` in all three lines; gates exit 0; full suite passes (37+ cases).
 
-- [ ] **Step 3: Run the full gate + test suite**
-
-Run: `python3 scripts/validate-packs --root . && ./scripts/codex-smoke && uv run --with pytest pytest tests/ -q`
-Expected: gates exit 0; all pytest cases pass (31+).
-
-- [ ] **Step 4: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
-git add .claude-plugin/plugin.json .codex-plugin/plugin.json README.md
-git commit -m "chore: bump to v1.3.0 — delegate skill"
+git add tests/test_delegate_skill.py .claude-plugin/plugin.json .codex-plugin/plugin.json README.md
+git commit -m "chore: delegate structural tests + bump to v1.3.0"
 ```
 
 ---
@@ -391,14 +623,18 @@ Live smokes per spec §8, run by the controller after the branch is complete (th
 exercise real CLIs and cannot be delegated as plan tasks):
 
 - **Smoke A (read lane)**: one explore-question delegate against this repo, cheapest
-  tier — verifies inference → announcement → dispatch → report gate → ledger, and
-  clean-tree/diff-after.
+  tier — verifies inference → announcement → dispatch → report gate (freshness +
+  answers-the-task) → answer returned → lifecycle ledger events, and the
+  clean-tree/porcelain doctrine.
 - **Smoke B (write lane)**: one small write task "with review" in a throwaway repo —
-  verifies BASE recording, diff gate, reviewer dispatch, resume-channel fix loop,
-  controller commit.
+  verifies clean-tree requirement, BASE/branch snapshot, the strengthened evidence
+  gate (staged + untracked + HEAD-unchanged), reviewer dispatch with untracked content
+  in the package, resume-channel fix loop, versioned re-review package, controller
+  commit.
 - **Smoke C (supervised)**: a batch of ≥3 small mechanical tasks in a throwaway repo —
-  verifies the automatic trigger, supervisor cycle management, supervisor-written
-  ledger lines, and the controller's independent re-check before commit.
+  verifies the cycle formula and announcement, supervisor cycle management,
+  supervisor-written lifecycle ledger lines (allocated-before-launch), and the
+  controller's independent re-check before commit.
 
 Findings that surface pack facts append to the usual verification logs. Merge to `main`
 and tag only on the owner's explicit instruction.

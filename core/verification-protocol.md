@@ -107,6 +107,13 @@ the candidate for review lanes.
 
 ## Recording
 
+**Record into the writable SOURCE tree only — never an installed plugin copy.** Installed
+caches (Claude Code `~/.claude/plugins/cache/...`, Codex `~/.codex/plugins/cache/...` /
+`~/.codex/.tmp/marketplaces/...`) are throwaway snapshots clobbered by the next upgrade.
+If the running skill's root is an installed copy, resolve the git source checkout first
+(sdd-dispatch-verify Procedure step 0), write and commit there, then refresh installs.
+This applies equally to mid-run incident notes appended by the `sdd` skill.
+
 Append to the appropriate verification log:
 
 ```markdown

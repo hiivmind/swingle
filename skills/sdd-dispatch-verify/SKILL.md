@@ -23,6 +23,24 @@ Knowledge base (all paths are relative to the plugin tree root `<root>`):
 
 ## Procedure
 
+0. **Resolve the WRITABLE SOURCE tree before touching anything.** The `<root>` this skill
+   loaded from may be an installed plugin cache (Claude Code:
+   `~/.claude/plugins/cache/...`; Codex: `~/.codex/plugins/cache/...` or
+   `~/.codex/.tmp/marketplaces/...`) — a throwaway snapshot that the next
+   upgrade/reinstall silently clobbers. **Never record verification results into an
+   installed copy.** Distinguish them:
+   - SOURCE: `git -C <root> rev-parse --is-inside-work-tree` succeeds AND the path is not
+     under a plugin cache; edits there are committable.
+   - INSTALLED: cache path, or no git work tree. Locate the source checkout instead
+     (the repo for `https://github.com/discreteds/sdd-dispatch-plugin` on this machine;
+     ask the user for its path if unknown — clone it if absent). Run the round against
+     the source tree's `<root>`, commit per the repo's CLAUDE.md, then refresh the
+     installed copies (Claude Code: reinstall/reload the plugin; Codex:
+     `codex plugin marketplace upgrade sdd-dispatch-marketplace` +
+     `codex plugin add sdd-dispatch@sdd-dispatch-marketplace`).
+   The probes may READ the installed copy's manifests to identify what a user is running,
+   but every write — pack facts, logs, version bumps — targets the source tree only.
+
 1. **Validate before probing.** Run `scripts/validate-packs --root <root>` and proceed only
    when it passes. The validator and repository fixtures are the portable gate.
 

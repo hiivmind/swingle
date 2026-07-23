@@ -55,6 +55,19 @@ Knowledge base (all paths are relative to the plugin tree root `<root>`):
    (2) source clone possible but no push rights → commit locally AND open an issue (or a
    PR) carrying the log entry; (3) no source tree at all → issue only.
 
+   **Deduplicate before filing.** Search existing issues first —
+   `gh issue list --repo discreteds/sdd-dispatch-plugin --label verification --state all
+   --search "<cli> <key terms of the finding>"` — and choose by what your evidence adds:
+   - **Same finding already open** → add a 👍 reaction to weight its prioritisation
+     (`gh api repos/discreteds/sdd-dispatch-plugin/issues/<n>/reactions -f content='+1'`)
+     and file nothing.
+   - **Same finding, new angle or wrinkle** (different CLI version, different failure
+     signature, a workaround, a narrower repro) → comment on the existing issue with just
+     the new evidence; do not open a duplicate.
+   - **Closed issue, finding recurs** on a version at or above the fix → comment on the
+     closed issue asking for reopen, with the fresh evidence.
+   - **Genuinely distinct** → new issue from the template.
+
 1. **Validate before probing.** Run `scripts/validate-packs --root <root>` and proceed only
    when it passes. The validator and repository fixtures are the portable gate.
 

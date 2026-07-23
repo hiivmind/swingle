@@ -85,6 +85,8 @@ what you can write to (the **recording ladder** — full rules in
 3. **No source tree** (installed copy only) — [open an issue](https://github.com/discreteds/sdd-dispatch-plugin/issues/new?template=verification-finding.md)
    using the **Verification finding** template (`verification` label), one issue per
    independent finding: CLI + plugin version, trigger, the pack assertion under test,
-   verdict, verbatim evidence, impact.
+   verdict, verbatim evidence, impact. **Search first**: if an equivalent issue exists,
+   a 👍 reaction adds weight to its prioritisation; comment only when you bring a new
+   angle or wrinkle not already covered.
 
 A finding recorded only in an installed cache is a finding lost.

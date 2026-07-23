@@ -119,7 +119,10 @@ GitHub issue on the upstream project instead of dropping the finding** — one i
 independent finding using the repository's "Verification finding" template
 (`gh issue create --repo discreteds/sdd-dispatch-plugin --label verification`). The
 recording ladder is: writable source → commit; clone-but-no-push → local commit + issue
-or PR; no source tree → issue only.
+or PR; no source tree → issue only. **Deduplicate before filing**: search existing
+`verification` issues (open and closed) first — an equivalent open issue gets a 👍
+reaction, not a duplicate; a new angle or wrinkle on an existing finding gets a comment
+with only the new evidence; only a genuinely distinct finding gets a new issue.
 
 Append to the appropriate verification log:
 

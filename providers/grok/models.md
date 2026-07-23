@@ -8,7 +8,8 @@
 | standard | any | 1 | grok-4.5 | verified | seat / SuperGrok | sole inventory row; default implement/review |
 | most-capable | any | 1 | grok-4.5 | verified | seat / SuperGrok | sole inventory row; final/design review until inventory grows |
 
-Effort: `--reasoning-effort` / `--effort` with `low|medium|high` for `grok-4.5` (CLI-validated).
+Effort: `--reasoning-effort` / `--effort` — for `grok-4.5`: `low|medium|high` (default `high`).
+Tiering: cheapest → `low`, standard → `medium`, most-capable → `high`.
 
 ## Documentary
 

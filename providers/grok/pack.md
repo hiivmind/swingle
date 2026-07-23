@@ -22,8 +22,8 @@ readiness-argv: ["grok", "models"]
 | `< /dev/null>` needed | **No** — headless does not read piped stdin as prompt |
 | Sandbox | **Enforced** profiles: `off`, `workspace`, `read-only`, `strict`, `devbox` (Landlock/Seatbelt) |
 | Permission flags | **`--always-approve`** ≡ `--yolo` ≡ `bypassPermissions`. Do not use `--permission-mode acceptEdits` headless (flag does not enable that policy) |
-| Exit codes | Docs: 0/1/130/143; smoke: bogus model may still exit 0 — gate on disk/stdout |
-| Model validation | Error text (`unknown model id`); re-check exit code on verify |
+| Exit codes | Docs: 0/1/130/143; live: bogus model exit **1** (2026-07-24) |
+| Model validation | Error text (`unknown model id`); exit 1 |
 | Reasoning-effort control | `--reasoning-effort` / `--effort`: none…max (P9 for invalid) |
 | Output contract | `plain` (default), `json` (`.sessionId` + `.text`), `streaming-json` |
 | Auth | grok.com OAuth / `XAI_API_KEY`; SuperGrok for higher limits |
@@ -64,6 +64,19 @@ Authority: `~/.grok/docs/user-guide/14-headless-mode.md`, `17-sessions.md`,
 - **Sandbox** is real OS isolation. Unknown custom profile fails closed.
 - **`-s` / `--session-id` creates only** (must be UUID); resume with `-r` / `-c`.
 - Fallback if always-approve is admin-locked: document and STOP (requirements.toml).
+- **`--sandbox workspace`** (2026-07-24): write CWD + `/tmp` + `~/.grok/`; home escape
+  blocked (`FsViolation`). **`--sandbox read-only`**: project-tree writes blocked when
+  CWD is outside the profile write set (`~/.grok`, `/tmp`, `/var/tmp`; this host also
+  allows `~/.cache/claude-tmp`). Probing under `/tmp` is a false positive for "blocks
+  project writes" — `/tmp` is writable by design under read-only.
+- **Git commit succeeds under `workspace`** (P8, with `--no-gpg-sign` if gnupg blocked) —
+  controller-commits is **not** structural via sandbox. Optional
+  `--deny 'Bash(git commit*)'` / `'Bash(git push*)'`.
+- **Effort** for `grok-4.5`: `low|medium|high` only (bogus → exit 1 with that list).
+- **Session id**: `--output-format json` → `.sessionId`. Resume + fork verified;
+  mismatched sandbox on resume refused (exit 1).
+- **P3 bogus model**: exit **1** with `unknown model id` (2026-07-24; earlier smoke had
+  seen exit 0 — prefer current).
 
 ### Canonical dispatch template
 
@@ -90,13 +103,15 @@ tracking. Record `BASE=$(git rev-parse HEAD)` before starting the wrapper.
 
 ### Gotchas
 
-1. Do not use `--permission-mode acceptEdits` headless — use `--always-approve` / `--yolo`.
-2. Gate on stdout + on-disk effects (bogus model may still exit 0 despite docs 0/1).
+1. Do not use `--permission-mode acceptEdits` headless — use `--always-approve` / `--yolo`
+   (acceptEdits via CLI flag does not enable that policy; shell silent no-op).
+2. Prefer on-disk + stdout gates; exit codes are usually trustworthy (0/1) but re-check
+   on version bumps.
 3. `-p` = one user turn with multi-tool agency; stdin is not the prompt.
 4. `-s` creates only (UUID); resume with `-r` / `-c`.
-5. Sandbox profiles are real; resume cannot change profile.
+5. Sandbox profiles are real and resume-fixed; do not probe read-only under `/tmp`.
 6. Model inventory may be thin — check `grok models` each session.
 7. Quota exhaustion is a **dispatch-time channel failure** (upsell on the dispatch).
-   `readiness-argv` (`grok models`) proves the CLI answers, not remaining quota.
-8. Re-read `~/.grok/docs/user-guide/{14,17,18,22}-*.md` on every CLI version bump before
-   probing — never assume permission/sandbox survived a patch.
+8. Re-read `~/.grok/docs/user-guide/{14,17,18,22}-*.md` on every CLI version bump.
+9. Agents can `git commit` under workspace sandbox — controller-commits is doctrine, not
+   kernel-enforced.

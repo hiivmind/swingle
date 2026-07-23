@@ -25,5 +25,38 @@ implementation (write-first, verify-after).
 | P6 (partial) | shell under `--always-approve` | **Confirmed** | `shell.txt` = `SHELL_OK` on disk |
 | P6 (partial) | shell under acceptEdits+always-approve | **Confirmed** (failure mode) | silent no-op, exit 0, empty tree; matches user-guide 22 flag caveat |
 
-Incomplete: full numbered suite, P7–P13, resume/fork live, json `.sessionId` capture,
-review-lane P13.
+Incomplete at pack authoring: full numbered suite (filled by next entry).
+
+---
+
+## 2026-07-24 — grok 0.2.111 (trigger: new provider; full suite after pack write)
+
+Scratch: `/home/nathanielramm/.cache/claude-tmp/sdd-grok-verify.iKqDwY` (+ home-dir
+read-only re-probe). Kernel 6.17.0-35-generic, Landlock enforced.
+
+| Probe | Assertion under test | Verdict | Evidence |
+| --- | --- | --- | --- |
+| P1 | version + models | **Confirmed** | `0.2.111 (94172f2aa4) [stable]`; inventory only `grok-4.5` |
+| P2 | trivial success | **Confirmed** | stdout `PONG`, exit 0 |
+| P3 | bogus model | **Confirmed** | stderr `unknown model id`; **exit 1** (docs-aligned) |
+| P4 | stdin not required | **Confirmed** | piped stdin → `P4OK`, exit 0 |
+| P5 | flagless read | **Confirmed** | `XYZZY42` from `readtest.txt` |
+| P6 | flagless write | **Confirmed** | `writetest.txt` = `HELLO` |
+| P6 | file+shell under `--always-approve` | **Confirmed** | `ftool.txt`=`FTOOL_OK`, `shell.txt`=`SHELL_OK` |
+| P6 | write under `--sandbox workspace` | **Confirmed** | `ws.txt`=`WS_OK` |
+| P7 | workspace blocks home escape | **Confirmed** | cwd+`/tmp` ok; home `Permission denied`; `FsViolation` in sandbox-events |
+| P7 | read-only blocks project writes | **Confirmed** (after correct CWD) | under `$HOME/grok-ro-probe-*`: write blocked, `FsViolation`; under `/tmp` write **allowed by design** (profile write set includes `/tmp`) |
+| P8 | git commit under workspace | **Confirmed** | commit landed (`test commit`); first attempt failed on `~/.gnupg` GPG write, retry `--no-gpg-sign` ok — **not** controller-commits structural |
+| P9 | effort valid | **Confirmed** | `--reasoning-effort low` → `OK` |
+| P9 | effort invalid | **Confirmed** | exit 1; accepted list `high, medium, low` for this model |
+| P10 | report-file | **Confirmed** | `p10-report.md` 548 bytes; stdout short summary — `report-transport: report-file` |
+| P11 | json `.sessionId` | **Confirmed** | `sessionId` UUID in json object |
+| P11 | acceptEdits footgun | **Confirmed** | `--permission-mode acceptEdits` shell → exit 0, `ae.txt` MISSING |
+| P11 | resume sandbox mismatch | **Confirmed** | exit 1: cannot resume under `read-only` if created with `off` |
+| Resume | codeword continue | **Confirmed** | `ZEBRA42` after `--resume` |
+| Fork | `--fork-session` | **Confirmed** | new `sessionId` + `FORKED_OK` |
+| P12 | inventory | **Confirmed** | only `grok-4.5` |
+| P13 | known-defect reviewer | **Confirmed** | Important finding on `path.exists()` insufficient guard matches `expected-findings.md` |
+
+**Promotions:** models.md Status → `verified` for all three tier rows; pack facts above
+recorded; `verified-version` remains `0.2.111`.

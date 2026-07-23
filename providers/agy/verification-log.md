@@ -109,3 +109,35 @@ Also confirmed this run: pre-commit reviewer containment (artifact-only scratch 
 outside the target repo) held — the target tree after the review carried exactly the
 worker's two modified files and nothing else; and the write-lane evidence gate
 (HEAD-unchanged + porcelain + stat) held across all five delegate jobs.
+
+## 2026-07-23 — `--mode plan` and `--sandbox` do NOT gate file writes (1.1.5); `sandbox: none` confirmed
+
+agy 1.1.5 exposes two per-invocation execution-mode flags absent from this pack:
+`--sandbox` ("Run in a sandbox with terminal restrictions enabled") and
+`--mode <accept-edits|plan>`. The 1.1.4 changelog also states headless runs honor
+persisted `settings.json` policies "including permissions, file access, sandbox mode,
+auto-execution, and artifact review". Together these raised a real question: does agy in
+fact have an enforced read-only lane, which every pack document currently denies?
+
+**Probed directly. It does not.** Three headless dispatches (`gemini-3.6-flash-low`), each
+in its own throwaway git repo, each asked to (1) read a file and (2) create
+`probe-write.txt`:
+
+| Variant | Flags | Exit | Read | File written |
+| --- | --- | --- | --- | --- |
+| plan | `--mode plan` | 0 | yes | **YES** |
+| sandbox | `--sandbox` | 0 | yes | **YES** |
+| baseline | none | 0 | yes | YES |
+
+All three flags were accepted without error and all three wrote the file. **Conclusion:
+`sandbox: none` in the manifest is CORRECT and stays.** agy has no enforced read-only lane,
+so for every read-intent role the existing doctrine is unchanged and mandatory: read-only
+is intent, clean-tree-before and diff-after are the only protection, pre-commit reviewers
+run in an artifact-only scratch directory, and parallel read-lane dispatch on agy remains
+forbidden.
+
+**Scope caveat — what this probe did and did not test.** It tested the FILE-WRITE tool,
+which is the one that matters for the read-lane question (can a "reader" mutate the tree?
+yes, under both flags). `--sandbox` is documented as *terminal* restrictions, so it may
+well constrain shell command execution; that was not measured here and remains unverified.
+Neither flag should be treated as containment for any purpose without its own probe.

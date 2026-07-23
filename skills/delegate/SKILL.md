@@ -268,6 +268,16 @@ tests for write-lane work, and performs any commit itself. The supervisor append
 ledger and `model-attempt:` lines as it goes (job numbers allocated before launch), so
 a killed supervisor loses no state.
 
+**Ledger writes are append-only — say it explicitly, then verify it.** A supervisor told
+merely to "append" has been observed recreating `ledger.md` with its own header,
+destroying the controller's pre-launch `NNN allocated:` lines — the exact state the
+pre-allocation exists to protect (2026-07-23). The supervisor's brief must say: append
+with `>>` only; never create, truncate, reorder, or rewrite the ledger; never remove a
+line you did not write. And because a brief is not enforcement, **the controller re-reads
+the ledger when the supervisor returns and confirms its own pre-launch lines survived** —
+if they did not, the ledger is reconstructed from the controller's job allocation before
+anything is committed.
+
 **Escalation**: NEEDS_CONTEXT, BLOCKED, quality failures, and lane-straddle ambiguity
 are returned in the supervisor's report, never resolved by it. The controller answers
 NEEDS_CONTEXT through the pack's resume channel directly (session id is in the ledger)

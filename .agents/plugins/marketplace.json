@@ -1,0 +1,21 @@
+{
+  "name": "sdd-dispatch-marketplace",
+  "interface": {
+    "displayName": "SDD Dispatch Marketplace"
+  },
+  "plugins": [
+    {
+      "name": "sdd-dispatch",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/discreteds/sdd-dispatch-plugin.git",
+        "path": "./",
+        "ref": "main"
+      },
+      "policy": {
+        "installation": "AVAILABLE"
+      },
+      "category": "Developer Tools"
+    }
+  ]
+}

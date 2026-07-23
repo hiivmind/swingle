@@ -7,7 +7,7 @@ knowledge base that makes dispatch safe.
 Everything is self-contained. The `sdd` skill and provider packs are discovered
 from this repository; no machine-specific paths are required.
 
-**Version:** 1.2.2
+**Version:** 1.2.3
 
 ## Install with Claude Code
 
@@ -23,10 +23,16 @@ Requires the `superpowers` plugin and whichever dispatch CLIs you use on PATH
 
 ## Install with Codex
 
-Clone from GitHub and symlink the skill directories into a Codex scan location
-(user-level `$HOME/.agents/skills/`, or a repo's `.agents/skills/`) — full steps in
-[codex/INSTALL.md](codex/INSTALL.md). Each skill carries a Codex metadata manifest at
-`agents/openai.yaml`. The Codex entry point is `skills/sdd/SKILL.md`.
+This repository is also a Codex plugin (`.codex-plugin/plugin.json`) with a self-hosted
+marketplace:
+
+```bash
+codex plugin marketplace add discreteds/sdd-dispatch-plugin
+```
+
+then `/plugins` in a Codex session to install **SDD Dispatch**. Manual alternative
+(clone + symlink into `$HOME/.agents/skills/`) and full details:
+[codex/INSTALL.md](codex/INSTALL.md). The Codex entry point is `skills/sdd/SKILL.md`.
 
 ## Layout
 

@@ -1,21 +1,36 @@
 # Codex installation
 
-Codex discovers agent skills by scanning (official: learn.chatgpt.com/docs/build-skills,
-verified 2026-07-23):
+Two supported routes. The plugin route is canonical on Codex ≥0.117 (plugins became a
+first-class primitive 2026-03); the symlink route works everywhere skills are scanned.
+Official references, verified 2026-07-23: learn.chatgpt.com/docs/build-plugins and
+learn.chatgpt.com/docs/build-skills.
 
-- `$CWD/.agents/skills`, parent folders' `.agents/skills`, and `$REPO_ROOT/.agents/skills` (repo-level)
-- `$HOME/.agents/skills` (user-level)
-- `/etc/codex/skills` (machine/admin level)
+## Route A — Plugin install (recommended)
 
-Symlinked skill folders are supported and followed, and there is no git-URL or registry
-installer — so GitHub deployment is a clone plus symlinks.
+This repository is a Codex plugin (`.codex-plugin/plugin.json`, skills at `./skills/`)
+and hosts its own marketplace (`.agents/plugins/marketplace.json`). Add the marketplace,
+then install from the plugin browser:
 
-## Install from GitHub (user-level)
+```bash
+codex plugin marketplace add discreteds/sdd-dispatch-plugin
+```
 
-The `sdd` skill requires its sibling directories `core/`, `providers/`, and `contracts/`;
-copying only `SKILL.md` is unsupported. Clone the repository and symlink the skill
-directories — the followed symlink preserves the physical sibling layout the skill uses to
-resolve its root:
+Then in a Codex session enter `/plugins`, install **SDD Dispatch**, and start a new
+session before using the bundled skills. Refresh later with:
+
+```bash
+codex plugin marketplace upgrade sdd-dispatch-marketplace
+```
+
+The plugin bundles the whole repository, so the `sdd` skill's sibling directories
+(`core/`, `providers/`, `contracts/`) ship with it and root resolution works unchanged.
+
+## Route B — Manual skills symlink
+
+Codex scans skills from `.agents/skills` (working dir, parents, repo root),
+`$HOME/.agents/skills` (user), and `/etc/codex/skills` (admin), following symlinks.
+The `sdd` skill requires its sibling directories; copying only `SKILL.md` is unsupported.
+Clone and symlink — the followed symlink preserves the physical sibling layout:
 
 ```bash
 git clone https://github.com/discreteds/sdd-dispatch-plugin "$HOME/src/sdd-dispatch-plugin"
@@ -25,22 +40,21 @@ ln -s "$HOME/src/sdd-dispatch-plugin/skills/sdd-dispatch-verify" "$HOME/.agents/
 ```
 
 If a target link already exists, inspect it first; replace it only when it is an obsolete
-registration for this skill. Restart Codex; it should discover `sdd` and
-`sdd-dispatch-verify`. Update with `git -C "$HOME/src/sdd-dispatch-plugin" pull`.
+registration for this skill. Restart Codex. Update with
+`git -C "$HOME/src/sdd-dispatch-plugin" pull`. For project scoping, symlink under a
+repository's `.agents/skills/` instead.
 
 > Older drafts of these instructions referenced `${CODEX_HOME:-$HOME/.codex}/skills`; the
 > officially documented scan locations are the `.agents/skills` paths above.
 
-## Repo-level alternative
+## Manifests in this repository
 
-To scope the skills to one project instead of the user, create the symlinks under that
-repository's `.agents/skills/` directory (same commands with the target path changed).
-
-## Manifest
-
-Each skill ships a Codex metadata manifest at `agents/openai.yaml` (display name,
-description, implicit-invocation policy). No action is required; Codex reads it from the
-skill folder.
+| File | Purpose |
+| --- | --- |
+| `.codex-plugin/plugin.json` | Codex plugin manifest (identity, `skills` pointer, install-surface UI) |
+| `.agents/plugins/marketplace.json` | Self-hosted Codex marketplace (git-subdir source at repo root) |
+| `skills/*/agents/openai.yaml` | Per-skill metadata (display name, implicit-invocation policy) |
+| `.claude-plugin/plugin.json` + `marketplace.json` | Claude Code plugin + marketplace equivalents |
 
 ## Prerequisites and verification
 
@@ -49,9 +63,8 @@ authenticated once interactively; provider-specific setup (for example agy's hea
 permission baseline) lives in `providers/<id>/pack.md`. On first use, read the Codex
 harness adapter: `skills/sdd/harnesses/codex.md`.
 
-From the clone, verify the repository layout and release gate:
+From a clone, verify the repository layout and release gate:
 
 ```bash
-cd "$HOME/src/sdd-dispatch-plugin"
 ./scripts/codex-smoke
 ```

@@ -12,7 +12,7 @@ description: >-
 # SDD with Provider Packs
 
 **Harness**: identify your controlling harness and read `harnesses/<harness>.md`
-(claude-code, codex, grok, opencode) before Step 0 — it maps skill-loading, native subagent
+(claude-code, codex, grok, opencode, pi) before Step 0 — it maps skill-loading, native subagent
 dispatch, task tracking, background jobs, and asset-root resolution. All paths below
 are relative to the plugin tree root `<root>` (the directory containing `skills/`,
 `core/`, `providers/`).

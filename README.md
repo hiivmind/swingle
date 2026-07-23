@@ -9,7 +9,7 @@ knowledge base that makes dispatch safe.
 Everything is self-contained. The `sdd` skill and provider packs are discovered
 from this repository; no machine-specific paths are required.
 
-**Version:** 1.4.0
+**Version:** 1.5.0
 
 ## Install with Claude Code
 
@@ -45,7 +45,7 @@ skills/delegate/                  # direct one-off dispatch skill (no plan machi
 skills/sdd-dispatch-verify/       # CLI re-verification skill
 core/                             # shared doctrine, playbook, roles, and logs
 providers/<id>/                    # self-contained provider packs
-contracts/                         # implementer, reviewer, and reader contracts
+contracts/                         # implementer, task-reviewer, design-reviewer, and reader contracts
 codex/INSTALL.md                   # Codex installation instructions
 archive/v1.1/                      # verbatim legacy references
 references/                        # v1.1 tombstones with migration links

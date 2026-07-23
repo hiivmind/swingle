@@ -11,6 +11,15 @@ skill-loading, native subagent dispatch, background jobs, completion observation
 asset-root resolution. `<root>` is this skill directory's grandparent (the directory
 containing `skills/`, `core/`, `providers/`, `contracts/`).
 
+**Never dispatch from memory.** Before the first dispatch of a session, read
+`<root>/core/roles.md`, `<root>/core/playbook.md`, `<root>/core/safety-doctrine.md`,
+`<root>/core/liveness.md`, and the active `<root>/providers/<id>/pack.md`. Recalled
+doctrine is a paraphrase of whatever was true when it was learned, and these documents
+change under you — packs are re-verified on every CLI version bump, and tiering, roles,
+and dispatch templates move with them. A dispatch built from memory looks identical to a
+correct one and fails silently: a stale flag, a superseded model id, a tier that no longer
+matches the role. Read the files; they are short by design.
+
 **Boundary (semantic, not transport-based)**: `sdd` = dependency-aware execution of a
 multi-task implementation plan (task reviews, plan ledger, final review) — use it
 whenever the work is a plan, whether it arrived as a file, a pasted numbered checklist,
@@ -97,8 +106,8 @@ Read these plugin documents when their policy is needed:
    worktrees) and tell the user — NEVER edit a tracked `.gitignore` implicitly (it
    dirties the tree right before a gate that requires it clean; a tracked entry is the
    user's separate commit). Copy
-   `implementer-contract.md`, `task-reviewer-contract.md`, and `reader-contract.md`
-   from `<root>/contracts/` into the workspace once per session.
+   `implementer-contract.md`, `task-reviewer-contract.md`, `design-reviewer-contract.md`,
+   and `reader-contract.md` from `<root>/contracts/` into the workspace once per session.
 
 ## Role inference and the announcement line
 
@@ -106,8 +115,19 @@ Classify the task against the **full seven-row table in `core/roles.md`** —
 transcription implementer, adaptation implementer, large-codebase / long-context
 implementer, read-only explore, external research/synthesis, per-task reviewer,
 final/design reviewer. The table is the authority — never work from a shortened
-paraphrase (that under-tiers design reviews and long-context work). Then announce, in
-ONE line before dispatching:
+paraphrase (that under-tiers design reviews and long-context work).
+
+**Review of an unimplemented artifact routes to the design-reviewer contract.** When the
+target is a spec, design document, or implementation plan rather than a diff — a
+`specs/*-design.md`, a `plans/*.md`, or any artifact the caller describes as not yet
+built — dispatch it as the final/design reviewer row with
+`design-reviewer-contract.md`, never the task-reviewer contract. The path shape is a
+prompt to check, not the test: the test is whether the subject exists in code yet. Ask
+when it is genuinely ambiguous. Sending an unimplemented design to the task reviewer
+produces a review that reports the design's own absence as findings — the artifact is
+judged on whether it would work if built, not on whether it has been.
+
+Then announce, in ONE line before dispatching:
 
 ```
 delegate: job=NNN role=<roles.md row> tier=<tier> lane=<lane> provider=<id> model=<model> supervised=<yes: N cycles|no>[ review=yes]
@@ -179,7 +199,12 @@ BEFORE launch — a crash or compaction never loses the number→task mapping.
    final message; review roles → the reviewer verdict protocol (controller saves it
    to `NNN-review.md`); enforced read-only lanes **or** a `report-transport:
    captured-output` pack → full report as captured final output (controller saves to
-   `NNN-report.md`), on initial AND resumed turns.
+   `NNN-report.md`), on initial AND resumed turns. Whatever the transport, state the
+   status vocabulary **inline in the prompt** — the contract path carries each token's
+   semantics, the prompt carries the tokens (playbook E1a): “End with a status block whose
+   first line is exactly one of: STATUS: DONE | DONE_WITH_CONCERNS | NEEDS_CONTEXT |
+   BLOCKED.” Cheapest-tier conformance was 3/3 with the line inline and 0/3 by contract
+   reference alone; a missing block is still UNKNOWN, never DONE.
 2. EVERY repository dispatch, both lanes: the tree must be CLEAN — `git status
    --porcelain=v1 --untracked-files=all` empty, no exceptions on any pack (pre-existing
    dirt is indistinguishable from agent mutation). Record BASE (= HEAD) and the current

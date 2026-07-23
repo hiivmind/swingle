@@ -210,3 +210,24 @@ law.
 **Controller adjudication still earned its keep**: the escalation-case worker also added an
 unrequested docstring to the pre-existing `inc()`, visible only by reading the diff. Both
 runs left HEAD unchanged and the controller's own test runs were green (4/4 and 2/2).
+
+## 2026-07-23 — inline status instruction promoted from lead to playbook rule (E1a)
+
+No new evidence. The 3/3-vs-0/3 lead recorded in the entry above was acted on as written:
+the playbook gains **E1a**, carving the four-token status line out of E1's
+contracts-move-by-path rule so it is stated inline in every dispatch prompt, and both
+skills state it at their prompt-composition step.
+
+The evidential status is unchanged and is stated as such in E1a — n=3 vs n=3, a lead, not
+an established law. The decision to act is a cost argument rather than a statistical one:
+one line of prompt against a failure mode whose downside is a reader forced to UNKNOWN and
+a full controller evidence sweep. If a later trial contradicts the lead, E1a is what should
+be revisited; the safety doctrine's treatment of a missing block is independent of it and
+does not move.
+
+Also promoted in the same round, from advice that had accumulated outside the plugin: the
+explicit-model rule and A/B tier calibration ([core/roles.md](roles.md)), the
+design-reviewer contract for unimplemented artifacts
+([contracts/design-reviewer-contract.md](../contracts/design-reviewer-contract.md)), and a
+never-dispatch-from-memory precondition in both skills. None of these carry live-probe
+evidence; they are doctrine, and are not stamped as verified behavior.

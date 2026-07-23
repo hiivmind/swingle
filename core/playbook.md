@@ -93,6 +93,24 @@ reference: *“Read <workspace>/implementer-contract.md — your operating contr
 'none'>. Report to <report-file>. Begin.”* The contract text never transits the controller
 again.
 
+**E1a — the status vocabulary is the one exception: state it inline in every dispatch
+prompt.** E1 moves contract text out of the prompt; the four-token status line stays in it.
+The cheapest tiers have been observed honoring the vocabulary 3/3 when the requirement sat
+inline in the dispatch prompt and 0/3 when the identical requirement reached the same model
+only as a reference to the contract file (2026-07-23, recorded in
+[core/verification-log.md](verification-log.md)). That is n=3 vs n=3 — a lead, not an
+established law — but the cost of acting on it is one line against a failure that forces
+the reader into UNKNOWN and costs the controller a full evidence sweep. Append to the
+dispatch prompt verbatim:
+
+> *“End with a status block whose first line is exactly one of: STATUS: DONE |
+> DONE_WITH_CONCERNS | NEEDS_CONTEXT | BLOCKED.”*
+
+The contract file keeps the full semantics of each token; the prompt carries only the four
+words and where to put them. This changes what a *missing* block means not at all — see the
+safety doctrine: absent or non-conforming is UNKNOWN, and on-disk evidence, never a raised
+tier, is what settles whether the work is sound.
+
 **E2 — Dispatch stdout never enters controller context.** Always background and redirect to
 the per-task log. The controller reads back only the ≤15-line status block, the report when
 adjudication needs it, and `git diff --stat`. Never read a full log or diff into context —

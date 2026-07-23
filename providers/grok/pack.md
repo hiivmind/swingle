@@ -73,8 +73,7 @@ Authority: `~/.grok/docs/user-guide/14-headless-mode.md`, `17-sessions.md`,
   controller-commits is **not** structural via sandbox. Optional
   `--deny 'Bash(git commit*)'` / `'Bash(git push*)'`.
 - **Effort** for `grok-4.5`: `--reasoning-effort` / `--effort` with `low|medium|high`
-  (default `high` when omitted). Product-canonical levels outside that menu
-  (`none`, `minimal`, `xhigh`, `max`, and aliases like `deep`) are rejected by the CLI.
+  (default `high` when omitted). Levels outside that model menu are rejected.
   Tiering: cheapest → `low`, standard → `medium`, most-capable → `high` (see models.md).
 - **Session id**: `--output-format json` → `.sessionId`. Resume + fork work;
   mismatched sandbox on resume is refused.

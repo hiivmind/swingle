@@ -151,3 +151,62 @@ Verified end-to-end on codex 0.144.3 against the public GitHub repo:
 Note: `codex plugin add` works headlessly — the docs' /plugins-browser flow is optional.
 Skills-only fallback (`.agents/skills` symlinks) documented as Route B; the previously
 documented `~/.codex/skills` location is NOT in the official scan list.
+
+## 2026-07-23 — supervised delegate: a native supervisor truncated the append-only ledger (v1.3.0)
+
+Smoke C exercised the supervised delegate flavour (3 mechanical jobs = 3 planned cycles,
+at the ≥3 auto-supervision trigger) with a cheap harness-native subagent running the
+mechanical cycle. The cycle itself worked — three sequential agy dispatches, HEAD unchanged
+throughout, all work left uncommitted for the controller, correct evidence reads returned
+with paths.
+
+**Finding: the supervisor REWROTE `ledger.md` instead of appending to it**, destroying the
+`NNN allocated:` lines the controller had written before launch — precisely the durable
+job-number→task mapping that exists so a killed supervisor loses no state. The dispatch
+instruction said "append", which was not enough; the subagent recreated the file with its
+own header. **Rule for supervised dispatch: instruct the supervisor to append with `>>`
+only, never to create, truncate, or rewrite the ledger, and have the controller re-read the
+ledger after the supervisor returns to confirm its pre-launch allocations survived.**
+
+**Second, smaller finding: the supervisor's summary paraphrased worker statuses.** It
+reported `status=COMPLETED` for all three jobs — a token outside the four-status vocabulary
+— because the cheapest-tier workers never emitted a real status block (see the agy log,
+same date). The controller's independent re-check (HEAD, porcelain, stat, full diff, and
+its own test run: 7/7) is what established the work was actually sound. This is the
+doctrine working as designed: **the supervisor's "all green" is evidence to check, not a
+gate result.**
+
+## 2026-07-23 — supervised-delegate rules verified behaviorally (v1.4.0)
+
+The two rules added earlier this day (append-only ledger; missing status block = UNKNOWN)
+were prose that nothing had exercised. Both are now tested against live supervised cycles
+with cheap native supervisors and cheapest-tier workers.
+
+**RULE 1 — append-only ledger: PASSES.** A 3-job supervised batch was launched over a
+ledger the controller had pre-seeded with a header, a `SENTINEL-…-DO-NOT-REMOVE` line, and
+three `NNN allocated:` lines. After the run the original five lines survived as an exact
+byte-for-byte prefix (diffed, sentinel count 1) with six appended lines beneath. Repeated
+on a second single-job cycle — prefix intact again. The earlier truncation is not
+reproducible once the brief explicitly forbids `>`, heredoc overwrite, reorder, and
+"tidying" instead of merely saying "append".
+
+**RULE 2 — missing status block: PASSES, escalation path included.** The first batch did
+NOT exercise it: all three workers emitted literal `STATUS: DONE`, so the supervisor was
+never tempted to infer. A second cycle forced the failing case with a worker prompt that
+deliberately omitted any status instruction. Ground truth: zero occurrences of any of the
+four tokens anywhere in the dispatch log. The supervisor reported `status=UNKNOWN`, quoted
+the agent's prose verbatim, stated it was escalating, and wrote
+`006 worker-finished: status=UNKNOWN` to the ledger. Contrast the pre-rule run, which
+reported the invented token `status=COMPLETED` for prose-only output.
+
+**Incidental finding worth acting on — inline beats by-reference for cheap models.** In
+the 3-job batch the status-block instruction sat *inline in the dispatch prompt* and got
+3/3 conformance from the cheapest-tier model. In the earlier pre-rule batch the same
+requirement reached the same model only *by reference to the contract file* and got 0/3.
+One line in the prompt appears to be worth more than a contract citation at the cheapest
+tier. This is n=3 vs n=3 and not statistically established — recorded as a lead, not a
+law.
+
+**Controller adjudication still earned its keep**: the escalation-case worker also added an
+unrequested docstring to the pre-existing `inc()`, visible only by reading the diff. Both
+runs left HEAD unchanged and the controller's own test runs were green (4/4 and 2/2).

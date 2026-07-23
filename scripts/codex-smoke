@@ -20,6 +20,24 @@ else
   fail "skills/sdd/harnesses/codex.md exists"
 fi
 
+if [ -f skills/delegate/SKILL.md ]; then
+  pass "skills/delegate/SKILL.md exists"
+else
+  fail "skills/delegate/SKILL.md exists"
+fi
+
+if [ -f skills/delegate/agents/openai.yaml ]; then
+  pass "skills/delegate/agents/openai.yaml exists"
+else
+  fail "skills/delegate/agents/openai.yaml exists"
+fi
+
+if [ -f contracts/reader-contract.md ]; then
+  pass "contracts/reader-contract.md exists"
+else
+  fail "contracts/reader-contract.md exists"
+fi
+
 if [ -f skills/sdd/SKILL.md ]; then
   ROOT=$(cd "$(dirname skills/sdd/SKILL.md)/../.." && pwd) || ROOT=""
 else

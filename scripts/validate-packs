@@ -4,8 +4,8 @@ import argparse, json, os, re, subprocess, sys
 from pathlib import Path
 
 REQ = ["schema-version", "id", "cli", "verified-version", "version-argv", "resume-argv", "session-source", "stall-signal", "sandbox"]
-OPTIONAL = {"fork-flag", "session-list-argv", "readiness-argv", "readiness-timeout-seconds"}
-ENUMS = {"session-source": {"session-list", "exec-output", "conversation-id"}, "stall-signal": {"log-age", "process+print-timeout"}, "sandbox": {"enforced", "none"}}
+OPTIONAL = {"fork-flag", "session-list-argv", "readiness-argv", "readiness-timeout-seconds", "report-transport"}
+ENUMS = {"session-source": {"session-list", "exec-output", "conversation-id"}, "stall-signal": {"log-age", "process+print-timeout"}, "sandbox": {"enforced", "none"}, "report-transport": {"report-file", "captured-output"}}
 INTERPRETERS = {"sh", "bash", "dash", "zsh", "ksh", "env", "python", "python3", "perl", "ruby", "node", "deno", "bun", "npx", "uv", "uvx", "xargs", "nice", "timeout", "sudo", "doas"}
 TIERS, LANES = {"cheapest", "standard", "most-capable"}, {"implement", "review", "any"}
 STATUSES, ELIGIBLE = {"verified", "experimental", "unavailable", "superseded", "rejected"}, {"verified", "experimental"}
@@ -149,7 +149,10 @@ def check_repo_docs(root):
     link_re = re.compile(r"\]\(([^)]+)\)")
     for path in sorted(root.rglob("*.md")):
         relative = path.relative_to(root)
-        if "archive/" in str(relative) or ".git" in path.parts or ".superpowers" in path.parts: continue
+        if "archive/" in str(relative) or ".git" in path.parts: continue
+        # Git-ignored agent scratch: sdd workspace and delegate workspace. Their reports
+        # are agent-authored artifacts full of illustrative links — never repo content.
+        if ".superpowers" in path.parts or ".sdd-dispatch" in path.parts: continue
         if relative.parent == Path("docs") and relative.match("sol-*.md"): continue
         if str(relative).startswith("docs/superpowers/"): continue  # specs/plans: planning artifacts, illustrative links
         for n, line in enumerate(path.read_text().splitlines(), 1):

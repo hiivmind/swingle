@@ -16,3 +16,21 @@ Read-only is an intent unless `sandbox: enforced` supplies a review lane. In an 
 environment, a role can read, write, or execute freely regardless of a request to review
 only, so clean-tree-before and diff-after are mandatory. Prefer a verified contained lane
 for write work and structured reviews; use other packs for perspective diversity and price.
+
+## A missing status block is unknown, never success
+
+The four-status vocabulary (DONE / DONE_WITH_CONCERNS / NEEDS_CONTEXT / BLOCKED) is a
+contract the agent may simply not honor: cheapest-tier models have been observed ignoring
+it and returning a prose "## Status" section instead, while the same provider's standard
+tier emitted the exact block every time (2026-07-23, agy). Whatever reads that block —
+controller or supervisor — **must treat an absent or non-conforming block as UNKNOWN and
+escalate to the controller's own evidence**, never infer DONE from prose that sounds
+finished, and never paraphrase it into a status token that was not emitted. A supervisor
+reporting a status word outside the four is reporting its own inference, not the agent's
+result.
+
+This costs nothing when the gate is doing its job: the gate is on-disk evidence — HEAD,
+porcelain, diff, report existence, and the controller's own test run — and that evidence
+is what establishes the work is sound. The status block routes the workflow; it never
+substitutes for the gate. Escalate rather than raising the tier for status fidelity alone,
+unless something downstream actually parses the block by keyword.

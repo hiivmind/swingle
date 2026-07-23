@@ -4,7 +4,10 @@
 > most-capable review tier): round 1 NEEDS_CHANGES — all 15 findings folded in (one
 > partial: flat workspace layout retained over per-attempt directories); round 2
 > (resumed reviewer thread) NEEDS_CHANGES — 7 residual gaps + 4 new findings folded
-> in, incl. pre-commit review containment and read-lane HEAD/clean-before gates.
+> in, incl. pre-commit review containment and read-lane HEAD/clean-before gates;
+> round 3 (verification pass) — 3 residual contradictions closed: output protocol
+> branches by role/lane incl. resumed turns, review/reader2 ledger events carry
+> attempt=, pre-commit review is unconditionally artifact-only.
 > Direct one-off delegation to external CLIs through the provider packs — dispatch,
 > liveness, safety gates, and resume — WITHOUT the SDD plan/brief/two-verdict
 > machinery. The sibling of the `sdd` skill: same engine, no plan.
@@ -165,16 +168,24 @@ lane forbids:**
   report/answer is the captured final output instead, saved by the controller (or the
   pack's host-side output mechanism) to the workspace path. The reader contract states
   this switch: "if your dispatch says you cannot write files, your final message is
-  the full report, not the short status block." Unsandboxed read-intent lanes keep the
-  report-file + short-status protocol.
+  the full report, not the short status block" — and the switch governs resumed turns
+  too (a resumed reader on an enforced lane returns the full addition as its final
+  output; the controller appends it to the saved report). Unsandboxed read-intent
+  lanes keep the report-file + short-status protocol.
 
 **Cycle:**
 
 1. Write the prompt to `.sdd-dispatch/delegate/NNN-prompt.md`: contract path (per role
    class above), the task text verbatim, scene (one line: repo, branch, relevant
-   paths), the report-file path (`NNN-report.md`), and the report contract — status
-   ≤15 lines back (DONE / DONE_WITH_CONCERNS / NEEDS_CONTEXT / BLOCKED), detail in the
-   report file.
+   paths), and the role's output protocol — **branch by role and lane, per the
+   output-capture rules above**:
+   - implement roles and unsandboxed read roles → report-file path (`NNN-report.md`)
+     plus the four-status block (DONE / DONE_WITH_CONCERNS / NEEDS_CONTEXT / BLOCKED)
+     as the final message;
+   - review roles → the reviewer contract's verdict protocol (final message IS the
+     report); the controller saves it to `NNN-review.md`;
+   - enforced read-only lanes → full report as the captured final output (controller
+     saves to `NNN-report.md`) — on the initial turn AND every resumed turn.
 2. **Pre-dispatch snapshot — EVERY repository dispatch, both lanes**: the tree must be
    CLEAN — `git status --porcelain=v1 --untracked-files=all` empty, no exceptions on
    any pack (a dirty tree makes pre-existing dirt indistinguishable from agent
@@ -222,7 +233,7 @@ lane forbids:**
      recovery; **any tier escalation requires user approval** (liveness doctrine —
      tier moves are never the controller's unilateral call).
    - Every attempt appends:
-     `model-attempt: job=NNN role=<role> provider=<id> model=<id> class=<scope> outcome=<failed|ok>`.
+     `model-attempt: job=NNN phase=<worker|review|reader2> attempt=<n> role=<role> provider=<id> model=<id> class=<scope> outcome=<failed|ok>`.
 
 ## 4. Gate, results, and opt-in review
 
@@ -250,13 +261,14 @@ any commit — review role, standard tier (scaled up for large/risky diffs), rev
 task-reviewer contract, given the task text, the report, and a review package
 (BASE→current: commit list + stat + `-U10` diff of tracked changes + full content of
 agent-created untracked files) written to `NNN-review-package.md`; reviewer output to
-`NNN-review.md`. **Pre-commit review containment**: the target tree holds uncommitted
-worker changes, so an unsandboxed reviewer must NEVER run in it — a reviewer mutation
-would be indistinguishable from worker work. Either (a) the review lane's provider
-enforces read-only (repo access allowed), or (b) dispatch the reviewer in an
-artifact-only scratch directory containing just the review package and task text — the
-package is self-contained by construction. (b) is the default whenever the review lane
-is not enforced. Critical/Important findings ride the implementer's resume channel; the
+`NNN-review.md`. **Pre-commit review containment — always artifact-only**: the target
+tree holds uncommitted worker changes, so pre-commit reviewers run in an artifact-only
+scratch directory containing just the review package and task text, on EVERY provider
+— the package is self-contained by construction (commit list + stat + `-U10` context +
+untracked content). This keeps the every-repository-dispatch clean-tree rule
+exception-free: a pre-commit reviewer never enters the target repository at all, so an
+unsandboxed reviewer mutation can never masquerade as worker work and an enforced one
+needs no carve-out. Critical/Important findings ride the implementer's resume channel; the
 re-review resumes the ORIGINAL reviewer's thread with the fix summary and a fresh
 versioned package (`NNN-review-package-2.md`). One fix/re-review round by default;
 further rounds are a user decision.
@@ -341,13 +353,13 @@ NNN allocated: role=<role> task="<summary, ≤10 words>" prompt=NNN-prompt.md
 NNN dispatched: provider=<id> model=<id> attempt=<n>
 NNN session: attempt=<n> <session-id>          # appended when observed (async, §3.3);
                                                # attempt= disambiguates late arrivals
-NNN review-dispatched: provider=<id> model=<id> round=<n>
-NNN review-session: round=<n> <session-id>     # reviewer's own resume thread
-NNN reader2-dispatched: provider=<id> model=<id>
-NNN reader2-session: <session-id>
+NNN review-dispatched: provider=<id> model=<id> round=<n> attempt=<n>
+NNN review-session: round=<n> attempt=<n> <session-id>   # reviewer's own resume thread
+NNN reader2-dispatched: provider=<id> model=<id> attempt=<n>
+NNN reader2-session: attempt=<n> <session-id>
 NNN resumed: target=<worker|review> session=<id> reason=<needs-context|fix|follow-up>
 NNN complete: status=<DONE|...> outcome=<committed <sha7>|diff-left|answer-returned|blocked>
-model-attempt: job=NNN role=<role> provider=<id> model=<id> class=<scope> outcome=<failed|ok>
+model-attempt: job=NNN phase=<worker|review|reader2> attempt=<n> role=<role> provider=<id> model=<id> class=<scope> outcome=<failed|ok>
 ```
 
 Worker and reviewer session ids are BOTH recorded (playbook E3/E7: fix rounds resume
@@ -391,8 +403,9 @@ model ids or invocation strings — those stay in the packs.
   workspace in its negative disclaimer, and nowhere else. Tests: (a) purity by
   provider-data comparison — collect every model id from `providers/*/models.md`
   tables and assert none appears in any `skills/*/SKILL.md`; (b) purity of invocation
-  strings — no fenced code line in the delegate SKILL.md invokes a pack's `cli` binary
-  (line starting with the cli name from any pack manifest); (c) delegate SKILL.md has
+  strings — no line ANYWHERE in the delegate SKILL.md (fenced or prose) is
+  command-shaped for a pack's `cli` binary (first token equals a cli name from a pack
+  manifest, followed by whitespace and an argument); (c) delegate SKILL.md has
   valid frontmatter (name, description); (d) the superpowers disclaimer is present and
   `scripts/sdd-workspace` / `.superpowers/sdd` each occur exactly once (the disclaimer
   mention); (e) the four status words all present; (f) root resolution stated (the

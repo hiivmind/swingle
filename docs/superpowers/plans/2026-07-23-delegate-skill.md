@@ -17,12 +17,12 @@
 - Purity boundary: `skills/delegate/SKILL.md` may name providers (codex/opencode/agy) but must contain NO model ids and NO invocation strings — those live only in `providers/<id>/`.
 - Version 1.3.0 must appear in exactly three places, in sync: `.claude-plugin/plugin.json`, `.codex-plugin/plugin.json`, README `**Version:**` line.
 - `skills/delegate/agents/openai.yaml` sets `allow_implicit_invocation: false` (the skill writes).
-- No superpowers dependency anywhere in the delegate skill: it must not invoke superpowers skills, run `scripts/sdd-workspace`, or reference `.superpowers/sdd/`.
+- No OPERATIONAL superpowers dependency in the delegate skill: it must not invoke superpowers skills or run `scripts/sdd-workspace`; exactly one negative-disclaimer mention each of `scripts/sdd-workspace` and `.superpowers/sdd` is required and allowed.
 - Delegate workspace path is exactly `.sdd-dispatch/delegate/` at the repo root, ignored via the file resolved by `git rev-parse --git-path info/exclude` — NEVER by implicitly editing a tracked `.gitignore`.
 - Statuses are exactly: DONE / DONE_WITH_CONCERNS / NEEDS_CONTEXT / BLOCKED.
 - Supervision trigger formula: `cycles = planned initial worker dispatches + planned initial reviewer dispatches`, computed after batching; retries/resumes/fix rounds excluded; supervised iff cycles ≥ 3; explicit "supervised"/"unsupervised" overrides.
 - Evidence gate: clean tree + recorded HEAD/branch before EVERY repository dispatch (both lanes); after — HEAD unchanged (both lanes), and for write lane staged+unstaged+untracked coverage (`git status --porcelain=v1 --untracked-files=all` + `git diff HEAD`).
-- Pre-commit review containment: an unsandboxed reviewer never runs in the dirty target repo — enforced read-only provider, or artifact-only scratch directory.
+- Pre-commit review containment: pre-commit reviewers ALWAYS run in an artifact-only scratch directory (review package + task text), never in the target repository, on every provider.
 
 ---
 
@@ -87,7 +87,10 @@ controller acts on it directly.
 ## Resumed session
 
 If the controller resumes this session with follow-up questions: answer them, APPEND
-the additions to the same report file, and reply with a fresh status block.
+the additions to the same report file, and reply with a fresh status block. If your
+dispatch said you cannot write files, the same switch applies on every resumed turn:
+your final message is the full addition itself, and the controller appends it to the
+saved report.
 ````
 
 - [ ] **Step 2: Run the gates**
@@ -300,9 +303,13 @@ Each **job** gets the next number `NNN` (001, 002, …), allocated durably in th
 BEFORE launch — a crash or compaction never loses the number→task mapping.
 
 1. Write the prompt to `.sdd-dispatch/delegate/NNN-prompt.md`: contract path (per role
-   class), the task text verbatim, scene (one line: repo, branch, relevant paths), the
-   report-file path (`NNN-report.md`), and the report contract — status ≤15 lines back
-   (DONE / DONE_WITH_CONCERNS / NEEDS_CONTEXT / BLOCKED), detail in the report file.
+   class), the task text verbatim, scene (one line: repo, branch, relevant paths), and
+   the role's output protocol — branch by role and lane per the output-capture rules:
+   implement and unsandboxed read roles → report-file path (`NNN-report.md`) + the
+   four-status block (DONE / DONE_WITH_CONCERNS / NEEDS_CONTEXT / BLOCKED) as the
+   final message; review roles → the reviewer verdict protocol (controller saves it
+   to `NNN-review.md`); enforced read-only lanes → full report as captured final
+   output (controller saves to `NNN-report.md`), on initial AND resumed turns.
 2. EVERY repository dispatch, both lanes: the tree must be CLEAN — `git status
    --porcelain=v1 --untracked-files=all` empty, no exceptions on any pack (pre-existing
    dirt is indistinguishable from agent mutation). Record BASE (= HEAD) and the current
@@ -342,7 +349,7 @@ BEFORE launch — a crash or compaction never loses the number→task mapping.
    - Quality failure → stops ALL automatic recovery; any tier escalation requires
      user approval (tier moves are never the controller's unilateral call).
    - Every attempt appends:
-     `model-attempt: job=NNN role=<role> provider=<id> model=<id> class=<scope> outcome=<failed|ok>`.
+     `model-attempt: job=NNN phase=<worker|review|reader2> attempt=<n> role=<role> provider=<id> model=<id> class=<scope> outcome=<failed|ok>`.
 
 ## Gate, results, and opt-in review
 
@@ -367,12 +374,12 @@ commit — review role, standard tier (scaled up for large/risky diffs), review 
 task-reviewer contract, given the task text, the report, and a review package
 (BASE→current: commit list + stat + `-U10` diff of tracked changes + full content of
 agent-created untracked files) written to `NNN-review-package.md`; reviewer output to
-`NNN-review.md`. **Pre-commit review containment**: the target tree holds uncommitted
-worker changes, so an unsandboxed reviewer must NEVER run in it — either the review
-lane's provider enforces read-only (repo access allowed), or dispatch the reviewer in
-an artifact-only scratch directory containing just the review package and task text
-(the default whenever the review lane is not enforced; the package is self-contained
-by construction). Critical/Important findings ride the implementer's resume channel;
+`NNN-review.md`. **Pre-commit review containment — always artifact-only**: the target
+tree holds uncommitted worker changes, so pre-commit reviewers run in an artifact-only
+scratch directory containing just the review package and task text, on EVERY provider
+(the package is self-contained by construction). A pre-commit reviewer never enters
+the target repository — the clean-tree rule stays exception-free and a reviewer
+mutation can never masquerade as worker work. Critical/Important findings ride the implementer's resume channel;
 the re-review resumes the ORIGINAL reviewer's thread with the fix summary and a fresh
 versioned package (`NNN-review-package-2.md`). One fix/re-review round by default.
 
@@ -444,13 +451,13 @@ NNN allocated: role=<role> task="<summary, ≤10 words>" prompt=NNN-prompt.md
 NNN dispatched: provider=<id> model=<id> attempt=<n>
 NNN session: attempt=<n> <session-id>          # appended when observed (async);
                                                # attempt= disambiguates late arrivals
-NNN review-dispatched: provider=<id> model=<id> round=<n>
-NNN review-session: round=<n> <session-id>     # reviewer's own resume thread
-NNN reader2-dispatched: provider=<id> model=<id>
-NNN reader2-session: <session-id>
+NNN review-dispatched: provider=<id> model=<id> round=<n> attempt=<n>
+NNN review-session: round=<n> attempt=<n> <session-id>   # reviewer's own resume thread
+NNN reader2-dispatched: provider=<id> model=<id> attempt=<n>
+NNN reader2-session: attempt=<n> <session-id>
 NNN resumed: target=<worker|review> session=<id> reason=<needs-context|fix|follow-up>
 NNN complete: status=<DONE|...> outcome=<committed <sha7>|diff-left|answer-returned|blocked>
-model-attempt: job=NNN role=<role> provider=<id> model=<id> class=<scope> outcome=<failed|ok>
+model-attempt: job=NNN phase=<worker|review|reader2> attempt=<n> role=<role> provider=<id> model=<id> class=<scope> outcome=<failed|ok>
 ```
 
 Worker and reviewer session ids are BOTH recorded — fix rounds resume the worker's
@@ -620,19 +627,18 @@ def test_purity_no_model_ids_in_any_skill():
         leaked = {m for m in ids if m in text}
         assert not leaked, f"{skill}: model ids leaked: {leaked}"
 
-def test_purity_no_cli_invocations_in_fenced_code():
-    # Invocation strings live in provider packs only. No fenced code line in the
-    # delegate skill may start with a pack's cli binary name.
+def test_purity_no_cli_invocations_anywhere():
+    # Invocation strings live in provider packs only. No line ANYWHERE in the skill
+    # (fenced or prose) may be command-shaped for a pack cli: first token equal to a
+    # cli name, followed by whitespace and an argument. Prose mentions like
+    # "(codex/opencode/agy)" or "via codex" do not match.
     clis = _pack_clis()
     assert clis, "expected pack manifests to declare cli names"
-    in_fence = False
     for line in SKILL.read_text().splitlines():
-        if line.strip().startswith("```"):
-            in_fence = not in_fence
-            continue
-        if in_fence and line.strip():
-            first = line.strip().split()[0]
-            assert first not in clis, f"cli invocation leaked into skill: {line.strip()}"
+        stripped = line.strip()
+        parts = stripped.split(None, 1)
+        if len(parts) == 2 and parts[0] in clis:
+            raise AssertionError(f"command-shaped cli line leaked into skill: {stripped}")
 
 def test_superpowers_operational_independence():
     # Normative rule: no operational dependency or invocation. The skill NAMES

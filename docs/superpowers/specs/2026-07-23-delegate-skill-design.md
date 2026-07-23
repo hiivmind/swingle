@@ -35,8 +35,8 @@ levers anywhere in the request:
 **Role inference (hybrid).** The controller classifies the task against the existing
 `core/roles.md` role table — transcription implement, adaptation implement, explore,
 research/synthesis, review — and **announces the resolved role → tier → lane →
-provider → model in one line before dispatching**. That announcement is the caller's
-override point. When a task genuinely straddles lanes (e.g. "look into X and fix it"),
+provider → model — plus the supervision decision (§5) — in one line before
+dispatching**. That announcement is the caller's override point. When a task genuinely straddles lanes (e.g. "look into X and fix it"),
 ask ONE question (investigate-only vs investigate-and-fix) before dispatching; never
 guess a write when a read was plausible. No new role vocabulary is introduced: the
 roles.md table is the authority, exactly as for `sdd`.
@@ -74,7 +74,7 @@ every superpowers-specific step:
 8. **Readiness**: the pack's bounded preflight before the FIRST dispatch to a provider
    (agy: the settings.json permission-baseline probe from its pack — on miss, STOP and
    hand the user the pack's baseline section).
-9. **Workspace**: create `.sdd-dispatch/delegate/` (§5) and copy the operating contracts
+9. **Workspace**: create `.sdd-dispatch/delegate/` (§6) and copy the operating contracts
    from `<root>/contracts/` into it once per session.
 
 Explicitly absent: superpowers:subagent-driven-development invocation,
@@ -131,10 +131,45 @@ Critical/Important findings ride the implementer's resume channel; the re-review
 the ORIGINAL reviewer's thread with the fix summary — the same rules as `sdd`. One
 fix/re-review round by default; further rounds are a user decision.
 
-## 5. Workspace and ledger-lite
+## 5. Supervised delegate (auto by cost, announced)
+
+The playbook's supervised-pack-dispatch flavour, applied to delegate: one cheap
+harness-native subagent (per the harness adapter) runs the mechanical dispatch cycle —
+prompt-file writing, pack dispatch inside the liveness wrapper, marker watching, the
+mechanical gate reads (status block, `git diff --stat`, report existence), reviewer
+dispatch when "with review", and verdict collection — and returns ONE concise report
+with evidence *paths* (prompt, log, report, review files) plus the ledger lines it
+appended.
+
+**Trigger — automatic by cycle count, always announced, lever-overridable:**
+
+- 1–2 dispatch cycles → controller orchestrates directly (a supervisor would cost more
+  than it saves).
+- ≥3 cycles implied by the invocation (a heterogeneous batch; or a batch "with review",
+  where each item's review doubles its cycles) → supervised, announced in the
+  pre-dispatch line (e.g. `supervised: yes — 4 cycles`).
+- Explicit "supervised" / "unsupervised" in the request always overrides the automatic
+  rule. `native-subagents` routing is orthogonal: it replaces the EXTERNAL dispatch, at
+  which point supervision is moot (the native subagent IS the worker).
+
+**Non-negotiable doctrine (unchanged from the playbook):** adjudication and commits stay
+in the main thread. The supervisor's "all green" is evidence to check, not a gate
+result — the controller re-reads the verdict lines, spot-checks `git diff --stat`
+against the report, re-runs the covering tests for write-lane work, and performs any
+commit itself. The supervisor writes ledger and `model-attempt:` lines as it goes, so a
+killed supervisor loses no state.
+
+**Escalation paths out of the supervisor:** NEEDS_CONTEXT, BLOCKED, quality failures,
+and lane-straddle ambiguity are returned in the supervisor's report, never resolved by
+it. The controller answers NEEDS_CONTEXT through the pack's resume channel directly
+(the session id is already in the ledger) or hands the answer to a fresh supervisor
+cycle for the remaining batch; quality failures follow §3's no-auto-fallback rule.
+
+## 6. Workspace and ledger-lite
 
 `.sdd-dispatch/delegate/` at the repo root, git-ignored (on first use, if the repo's
-.gitignore lacks an entry, add `.sdd-dispatch/` and tell the user). Contents:
+.gitignore lacks an entry, add `.sdd-dispatch/` and tell the user). Supervised runs use
+the same workspace and numbering — the supervisor appends to the same ledger. Contents:
 
 ```
 .sdd-dispatch/delegate/
@@ -159,7 +194,7 @@ id. Non-repo working directories (pure research questions with no repo): fall ba
 the harness session scratchpad for artifacts and note in the reply that no durable
 ledger exists.
 
-## 6. Deliverables
+## 7. Deliverables
 
 | Change | File(s) |
 | --- | --- |
@@ -177,7 +212,7 @@ location, both skills move together.
 Purity boundary holds: `skills/delegate/SKILL.md` may name providers but carries no
 model ids or invocation strings — those stay in the packs.
 
-## 7. Testing
+## 8. Testing
 
 - Static gates: `python3 scripts/validate-packs --root .` and `./scripts/codex-smoke`
   (extend codex-smoke's layout expectations to include `skills/delegate/` if it
@@ -188,12 +223,14 @@ model ids or invocation strings — those stay in the packs.
 - Live smoke B (write lane): one small write task "with review" in a throwaway repo —
   verifies BASE recording, diff gate, reviewer dispatch, resume-channel fix loop, and
   controller commit.
-- Both smokes run on an active pack lane (agy or codex) and their findings append to the
+- Live smoke C (supervised): a batch of ≥3 small mechanical tasks in a throwaway repo —
+  verifies the automatic trigger and announcement, supervisor cycle management, ledger
+  lines written by the supervisor, and the controller's independent re-check of the
+  supervisor's "all green" before commit.
+- All smokes run on an active pack lane (agy or codex) and their findings append to the
   usual verification logs if they surface pack facts.
 
 ## Out of scope (backlog)
 
-- Supervised delegate (cheap native subagent running the delegate cycle) — inherit from
-  the playbook's supervised pack dispatch when a real batch workload appears.
 - Cross-repo delegate (dispatching into a different repo than the CWD).
 - A shared `skills/_shared/harnesses/` promotion for the adapters.

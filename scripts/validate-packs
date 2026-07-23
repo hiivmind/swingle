@@ -4,8 +4,8 @@ import argparse, json, os, re, subprocess, sys
 from pathlib import Path
 
 REQ = ["schema-version", "id", "cli", "verified-version", "version-argv", "resume-argv", "session-source", "stall-signal", "sandbox"]
-OPTIONAL = {"fork-flag", "session-list-argv", "readiness-argv", "readiness-timeout-seconds"}
-ENUMS = {"session-source": {"session-list", "exec-output", "conversation-id"}, "stall-signal": {"log-age", "process+print-timeout"}, "sandbox": {"enforced", "none"}}
+OPTIONAL = {"fork-flag", "session-list-argv", "readiness-argv", "readiness-timeout-seconds", "report-transport"}
+ENUMS = {"session-source": {"session-list", "exec-output", "conversation-id"}, "stall-signal": {"log-age", "process+print-timeout"}, "sandbox": {"enforced", "none"}, "report-transport": {"report-file", "captured-output"}}
 INTERPRETERS = {"sh", "bash", "dash", "zsh", "ksh", "env", "python", "python3", "perl", "ruby", "node", "deno", "bun", "npx", "uv", "uvx", "xargs", "nice", "timeout", "sudo", "doas"}
 TIERS, LANES = {"cheapest", "standard", "most-capable"}, {"implement", "review", "any"}
 STATUSES, ELIGIBLE = {"verified", "experimental", "unavailable", "superseded", "rejected"}, {"verified", "experimental"}

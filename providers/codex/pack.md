@@ -7,6 +7,7 @@ version-argv: ["codex", "--version"]
 resume-argv: ["codex", "exec", "resume", "{session_id}"]
 session-source: exec-output
 stall-signal: log-age
+report-transport: report-file
 sandbox: enforced
 ---
 

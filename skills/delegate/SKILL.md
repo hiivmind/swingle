@@ -37,7 +37,8 @@ Read these plugin documents when their policy is needed:
 - `<root>/core/liveness.md` — required background and stall protocol
 - `<root>/core/safety-doctrine.md` — containment and controller-gate doctrine
 - `<root>/providers/<id>/pack.md` and `models.md` — validated provider behavior,
-  canonical dispatch, session source, recovery rules, and model candidates
+  canonical dispatch, session source, report transport, recovery rules, and
+  model candidates
 
 ## Levers (parsed from anywhere in the request)
 
@@ -129,13 +130,31 @@ brief. For whole-artifact scopes (a design doc, a whole branch) the dispatch pro
 overrides the contract's task-scoped framing explicitly — state the actual scope; the
 contract's method and calibration rules still apply.
 
-**Output capture is role- and lane-specific — never demand an in-sandbox file write
-the lane forbids**: review-role dispatches use the reviewer contract's own output
-protocol (final message IS the verdict report), not the four-status block. On an
-enforced read-only lane the agent cannot write `NNN-report.md` — the FULL
-report/answer is the captured final output, saved by the controller (or the pack's
-host-side output mechanism) to the workspace path; the reader contract carries this
-switch. Unsandboxed read-intent lanes keep the report-file + short-status protocol.
+**Output capture is role-, lane-, AND pack-specific — never demand a file write the
+lane forbids or the provider cannot reliably perform**: review-role dispatches use the
+reviewer contract's own output protocol (final message IS the verdict report), not the
+four-status block. Two independent conditions switch a report-producing role from the
+report-file protocol to **captured output** — the FULL report/answer is the captured
+final message, saved by the controller (or the pack's host-side output mechanism) to
+the workspace path, on initial AND resumed turns:
+
+1. **The lane forbids writing** — an enforced read-only lane; the agent simply cannot
+   write `NNN-report.md`.
+2. **The pack declares `report-transport: captured-output`** — the provider cannot
+   reliably write an agent-authored file to a workspace path at all. This is a pack
+   fact, not a per-task judgement: read it from the routed pack's manifest.
+
+Either condition alone is sufficient. The reader contract carries the switch, so no
+prompt surgery is needed — state which protocol applies and the contract does the rest.
+A pack whose manifest says `report-transport: report-file` (or omits the field —
+`report-file` is the default) keeps the report-file + short-status protocol on
+unsandboxed read-intent lanes.
+
+Why this is a manifest field rather than a workaround in the prompt: a provider whose
+file-writing tool refuses workspace paths will fail *intermittently*, producing a
+missing report on some fraction of dispatches while the exit code stays 0. Prompt-level
+steering can only lower that rate; routing the report through captured output removes
+the failure mode. Record the transport where the provider's other verified facts live.
 
 **Batching**: a homogeneous batch (near-identical mechanical items) is ONE job = one
 dispatch. Heterogeneous tasks are separate jobs, run sequentially. Never parallel
@@ -153,12 +172,14 @@ BEFORE launch — a crash or compaction never loses the number→task mapping.
 
 1. Write the prompt to `.sdd-dispatch/delegate/NNN-prompt.md`: contract path (per role
    class), the task text verbatim, scene (one line: repo, branch, relevant paths), and
-   the role's output protocol — branch by role and lane per the output-capture rules:
-   implement and unsandboxed read roles → report-file path (`NNN-report.md`) + the
+   the role's output protocol — branch by role, lane, AND the routed pack's
+   `report-transport` per the output-capture rules: implement and unsandboxed read roles
+   on a `report-transport: report-file` pack → report-file path (`NNN-report.md`) + the
    four-status block (DONE / DONE_WITH_CONCERNS / NEEDS_CONTEXT / BLOCKED) as the
    final message; review roles → the reviewer verdict protocol (controller saves it
-   to `NNN-review.md`); enforced read-only lanes → full report as captured final
-   output (controller saves to `NNN-report.md`), on initial AND resumed turns.
+   to `NNN-review.md`); enforced read-only lanes **or** a `report-transport:
+   captured-output` pack → full report as captured final output (controller saves to
+   `NNN-report.md`), on initial AND resumed turns.
 2. EVERY repository dispatch, both lanes: the tree must be CLEAN — `git status
    --porcelain=v1 --untracked-files=all` empty, no exceptions on any pack (pre-existing
    dirt is indistinguishable from agent mutation). Record BASE (= HEAD) and the current

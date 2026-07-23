@@ -214,3 +214,34 @@ trial was underpowered by design and is recorded as such rather than rounded up.
 3. **The structural fix is the one to rely on**: take the full report as the captured final
    message so no agent-side file write happens. This eliminates the failure mode rather
    than lowering its rate, and needs no statistics to justify.
+
+### Addendum 2 (same day) — captured-output transport removes the failure mode
+
+Following the inconclusive steering trial above, the report path was made a **pack
+capability** rather than a prompt workaround: new optional manifest field
+`report-transport: report-file | captured-output` (validator-enforced enum; default
+`report-file`). agy is declared `captured-output`; codex and opencode are `report-file`.
+
+**Trial** (8 runs, same task/model/repo, dispatch asks for NO file and takes the full
+report as the final message):
+
+| Runs | Report received on stdout | Files written to the workspace |
+| --- | --- | --- |
+| 8 | 8/8 | **0** |
+
+`stray_files=0` on every run is the load-bearing observation: no agent-side workspace file
+write is attempted at all, so the artifact-path rejection that starts the failure chain is
+**unreachable**, not merely less likely.
+
+**Honest statistics:** 8/8 captured vs 7/9 unsteered is Fisher one-tailed p = 0.265 — still
+underpowered, exactly like the steering trial. **The justification here is structural, not
+statistical**: the failure requires an agent-side file write; this transport performs none.
+That is a mechanism argument (the way removing a dereference fixes a null-deref), and it is
+why this — not the steering sentence — is the fix to rely on. The steering clause stays in
+the pack for dispatches that still name a report path, with its unproven status intact.
+
+Consumers wired: the `delegate` skill's output-capture rules and the `sdd` skill's
+implementer dispatch both branch on the manifest field. A `report-file` request against a
+`captured-output` provider is what silently lost `task-1-report.md` earlier in this same
+session — the reviewer ran without an implementer report and the gap went unnoticed until
+the transcript was read.

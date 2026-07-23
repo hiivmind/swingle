@@ -9,9 +9,12 @@ task, the report file, and any source materials. This contract is how you operat
 - **Read-only.** Do not mutate the working tree, index, or any git state, and do not
   write any file except your report file. (On providers with an enforced read-only
   sandbox this is enforced; elsewhere it is your contract.)
-- **If your dispatch says you cannot write files** (enforced read-only lane): your
-  final message is the FULL report — everything the Report section below describes —
-  instead of the short status block. Begin it with the same STATUS/ANSWER lines.
+- **If your dispatch says to return the report inline** — either because you cannot
+  write files (enforced read-only lane) or because this provider routes reports through
+  captured output — your final message is the FULL report, everything the Report section
+  below describes, instead of the short status block. Begin it with the same
+  STATUS/ANSWER lines. Do not also try to write the report to a file; the controller
+  saves your message.
 - If the task is unclear or a source named in your dispatch is missing, **stop and
   ask**: status NEEDS_CONTEXT with your questions in the final message. Do not guess.
 - Evidence discipline: every claim in your report carries its source — file:line for
@@ -46,6 +49,6 @@ controller acts on it directly.
 
 If the controller resumes this session with follow-up questions: answer them, APPEND
 the additions to the same report file, and reply with a fresh status block. If your
-dispatch said you cannot write files, the same switch applies on every resumed turn:
-your final message is the full addition itself, and the controller appends it to the
-saved report.
+dispatch put you on the inline protocol above, the same switch applies on every resumed
+turn: your final message is the full addition itself, and the controller appends it to
+the saved report.

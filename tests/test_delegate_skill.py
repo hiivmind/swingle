@@ -117,10 +117,15 @@ def test_openai_yaml_disables_implicit_invocation():
     assert "allow_implicit_invocation: false" in YAML.read_text()
 
 def test_reader_contract_protocol():
-    text = READER.read_text()
+    # The contract is hard-wrapped prose, so a phrase can straddle a line break —
+    # normalize whitespace before asserting, or the test breaks on a rewrap alone.
+    text = " ".join(READER.read_text().split())
+    # "cannot write files" was the original phrasing of the inline switch, back when it
+    # fired only on an enforced read-only lane. The switch now also fires on a pack
+    # declaring report-transport: captured-output, so the assertion covers both triggers.
     for token in ("STATUS:", "ANSWER:", "REPORT:", "NEEDS_CONTEXT", "Read-only",
-                  "cannot write files"):
-        assert token in text
+                  "return the report inline", "cannot write files", "captured output"):
+        assert token in text, f"reader contract missing: {token!r}"
 
 def test_validator_ignores_delegate_workspace():
     # Regression: the delegate workspace is git-ignored agent scratch whose reports are
@@ -150,3 +155,37 @@ def test_validator_ignores_delegate_workspace():
         f"({before.returncode} -> {after.returncode}):\n{after.stdout}{after.stderr}")
     assert planted.name not in after.stdout + after.stderr, (
         "validator scanned a file inside the delegate workspace")
+
+def _manifest(pack):
+    front = pack.read_text().split("---", 2)[1]
+    out = {}
+    for line in front.splitlines():
+        if ":" in line:
+            k, _, v = line.partition(":")
+            out[k.strip()] = v.strip()
+    return out
+
+def test_every_pack_declares_a_valid_report_transport():
+    # report-transport tells the skill whether an agent can be trusted to write its own
+    # report file. Optional in the schema (default report-file), but every shipped pack
+    # states it explicitly so routing never depends on an implicit default.
+    packs = list((ROOT / "providers").glob("*/pack.md"))
+    assert packs, "expected provider packs"
+    for pack in packs:
+        transport = _manifest(pack).get("report-transport")
+        assert transport in {"report-file", "captured-output"}, \
+            f"{pack}: report-transport must be report-file|captured-output, got {transport!r}"
+
+def test_skill_branches_output_capture_on_report_transport():
+    # The skill must route on the manifest field, not hardcode a provider name.
+    text = SKILL.read_text()
+    assert "report-transport" in text, "SKILL.md must consult the report-transport field"
+    assert "captured-output" in text and "report-file" in text, \
+        "SKILL.md must name both transports so the branch is unambiguous"
+
+def test_reader_contract_inline_switch_is_not_sandbox_only():
+    # The inline-report switch fires on EITHER an enforced read-only lane or a pack that
+    # routes reports through captured output — it must not read as sandbox-only.
+    text = READER.read_text()
+    assert "captured output" in text, \
+        "reader contract must cover the captured-output transport, not just read-only lanes"

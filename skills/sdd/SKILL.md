@@ -90,6 +90,15 @@ path; provider routing and model resolution do not apply.
 implementer contract and task brief by path, states the scene and prior interfaces, and
 requires the report path. Record BASE before dispatch; implementers do not commit.
 
+**Report transport:** honor the routed pack's `report-transport`. On `report-file` (the
+default when the field is absent) the agent writes `task-N-report.md` itself. On
+`captured-output` the provider cannot reliably write an agent-authored file to a workspace
+path, so ask for NO file: the FULL report is the captured final message and the controller
+saves it to the report path — on initial and resumed turns alike. Getting this wrong is
+not cosmetic: on a `captured-output` provider a report-file request fails intermittently
+while the exit code stays 0, so the report is simply missing and the reviewer silently
+loses an input (observed 2026-07-23).
+
 **Task reviewer:** use the review role and selected tier/lane. Provide the task reviewer
 contract, brief, report, review-package path, and global constraints verbatim. Say:
 “review only, change nothing in the repo; writing your review file is allowed.” Apply an

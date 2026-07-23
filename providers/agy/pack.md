@@ -7,6 +7,7 @@ version-argv: ["agy", "--version"]
 resume-argv: ["agy", "--conversation", "{session_id}"]
 session-source: conversation-id
 stall-signal: process+print-timeout
+report-transport: captured-output
 sandbox: none
 ---
 

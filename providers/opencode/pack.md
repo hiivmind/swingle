@@ -9,6 +9,7 @@ fork-flag: "--fork"
 session-source: session-list
 session-list-argv: ["opencode", "session", "list"]
 stall-signal: log-age
+report-transport: report-file
 sandbox: none
 readiness-argv: ["opencode", "session", "list"]
 ---

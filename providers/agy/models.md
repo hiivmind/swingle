@@ -1,12 +1,8 @@
 # agy models (Antigravity) — verified dispatching 2026-07-22
 
-## Resolvable
-
-| Tier | Lane | Priority | Model id | Status | Pricing | Rationale |
-| --- | --- | --- | --- | --- | --- | --- |
-| cheapest | any | 1 | gemini-3.6-flash-low | verified | — | current Flash workhorse; cheapest dispatch lane |
-| standard | any | 1 | gemini-3.6-flash-medium | verified | — | verified 2026-07-23: implement + 2 task reviews + resume, all clean gates |
-| most-capable | any | 1 | gemini-3.1-pro-high | verified | — | agy's only Pro; verified 2026-07-23 final whole-branch review |
+> The table of record is [models.yaml](models.yaml) (layered overrides: see README
+> "Model tables and overrides"). This file carries the documentary layer only —
+> verification narrative, watch lists, and corrections.
 
 Effort is baked into the model id, or use a base slug with `--effort`; combining both
 errors.

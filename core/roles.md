@@ -43,4 +43,4 @@ clean tree before, diff after (see safety doctrine).
   in the ledger; a tier that loses an A/B on one class of work is not thereby disqualified
   for others.
 
-Tier→model mapping lives in each pack's models.md — resolution algorithm and status eligibility in the spec §Resolution algorithm; priority 1 = default, ascending = fallback, only Status verified/experimental resolve.
+Tier→model mapping lives in each pack's models.yaml — the table of record, resolved through the layered override walk (env → project → user → pack default; whole-file precedence) — resolution algorithm and status eligibility in the spec §Resolution algorithm; priority 1 = default, ascending = fallback, only Status verified/experimental resolve. models.md carries the narrative.

@@ -2,7 +2,7 @@
 
 > How the SDD skill actually operates, and the token-efficient way to run its subagent roles
 > through provider packs instead of the harness's native subagent mechanism (see harness adapter).
-> Companion to [core/roles.md](roles.md) and the active pack's models.md.
+> Companion to [core/roles.md](roles.md) and the active provider's resolved models.yaml.
 > Skill source: superpowers 6.1.1 `skills/subagent-driven-development/`.
 
 ## How the skill operates (compressed)
@@ -45,7 +45,7 @@ templates, the dispatch stdout) out of controller context too.
 | Pre-flight scan, adjudication, ledger, gates | **controller — never dispatched** | n/a |
 
 Role tiers and lanes are in [core/roles.md](roles.md). Resolve the selected tier against the
-active pack's models.md; apply [core/liveness.md](liveness.md).
+provider's layered models.yaml; apply [core/liveness.md](liveness.md).
 
 ## Dispatch flavours & economics — say which one you mean
 

@@ -9,6 +9,7 @@ fork-flag: "--fork"
 session-source: conversation-id
 stall-signal: log-age
 report-transport: report-file
+list-models-argv: ["pi", "--list-models"]
 sandbox: none
 ---
 

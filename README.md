@@ -9,7 +9,7 @@ knowledge base that makes dispatch safe.
 Everything is self-contained. The `sdd` skill and provider packs are discovered
 from this repository; no machine-specific paths are required.
 
-**Version:** 1.7.0
+**Version:** 1.8.0
 
 ## Install with Claude Code
 
@@ -140,7 +140,7 @@ commits, and session resume — but none of the SDD plan-execution ceremony. Lev
 `via <provider>`, `floor it` / `play it safe` / explicit model, `with review`,
 `read-only`, `supervised` / `unsupervised`. Jobs implying ≥3 planned dispatch cycles
 run supervised automatically (announced). Artifacts and the lifecycle ledger live in
-`.sdd-dispatch/delegate/` (ignored via `.git/info/exclude`). The boundary is semantic:
+`.sdd-dispatch/delegate/`, ignored via `.git/info/exclude` (`.sdd-dispatch/models/` is committable project config). The boundary is semantic:
 multi-task implementation plans go to the `sdd` skill regardless of how they arrived;
 tasks below the triviality floor stay inline unless delegation was explicitly
 requested.
@@ -148,8 +148,7 @@ requested.
 ## Adding a provider
 
 Add one directory under `providers/` satisfying the provider pack contract:
-`pack.md`, `models.md`, and `verification-log.md` with the required manifest
-fields and tables. Run:
+`pack.md`, `models.yaml` (the model table of record), `models.md` (documentary narrative), and `verification-log.md` with the required manifest fields. Run:
 
 ```bash
 python3 scripts/validate-packs --root .
@@ -165,6 +164,7 @@ The manifest is the YAML front matter of `pack.md`. Required: `schema-version`, 
 | Field | Values | Meaning |
 | --- | --- | --- |
 | `report-transport` | `report-file` (default) · `captured-output` | How an agent's report gets back to the controller |
+| `list-models-argv` | argv array | How to enumerate an open catalog provider's live model list (e.g. pi). Surfaced by `sdd-models init`, never auto-executed |
 
 Declare `captured-output` when the CLI cannot reliably write an agent-authored file to a
 workspace path. The skills then ask for **no file** and take the full report as the
@@ -176,6 +176,25 @@ the report is silently missing and any reviewer downstream loses an input. `agy`
 Every value is validator-enforced, and `*-argv` arrays are data — `argv[0]` must equal
 `cli`, and shell metacharacters are rejected, so a manifest can never smuggle in a
 command to execute.
+
+## Model tables and overrides
+
+Each pack ships its model priority table in `providers/<id>/models.yaml` (restricted
+YAML: flat header + a list of `tier/lane/priority/model/status[/pricing/rationale]`
+rows). At dispatch time the table is resolved per provider, first file found wins
+whole-file (no merging):
+
+1. `$SDD_DISPATCH_MODELS/<id>.yaml` (env override — a directory)
+2. `<project>/.sdd-dispatch/models/<id>.yaml` (committable, team-shared)
+3. `${XDG_CONFIG_HOME:-~/.config}/sdd-dispatch/models/<id>.yaml` (this machine)
+4. the pack default
+
+Seed an override with `scripts/sdd-models init <id> --project <repo>|--user`; inspect
+with `scripts/sdd-models which`. Override statuses are your own assertion — the
+`verified` stamps in pack defaults come from live dispatch evidence only. A malformed
+override is a hard error, never a silent fall-through; an override that omits a
+(tier, lane) slot resolves that slot to "no eligible model — ask", which is the
+supported way to keep a provider from auto-routing in one project.
 
 ## Reporting verification findings
 

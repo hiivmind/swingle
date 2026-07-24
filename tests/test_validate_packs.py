@@ -188,3 +188,16 @@ def test_yaml_rejects_single_quoted_scalar(tmp_path):
     yaml.write_text(text.replace('review-model-exact', "'single-quoted-value'"))
     r = run("--root", str(root))
     assert r.returncode == 1 and "single-quoted" in r.stdout
+
+def test_list_models_argv_accepted_and_validated(tmp_path):
+    import shutil as _sh
+    root = tmp_path / "lm"; _sh.copytree(FIX / "good-yaml", root)
+    pack = root / "providers" / "alpha" / "pack.md"
+    pack.write_text(pack.read_text().replace(
+        "sandbox: enforced\n---",
+        'sandbox: enforced\nlist-models-argv: ["alpha", "--list-models"]\n---', 1))
+    assert run("--root", str(root)).returncode == 0
+    pack.write_text(pack.read_text().replace(
+        '["alpha", "--list-models"]', '["wrong-cli", "--list-models"]'))
+    r = run("--root", str(root))
+    assert r.returncode == 1 and "argv[0]" in r.stdout

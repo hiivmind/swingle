@@ -76,3 +76,25 @@ before/after evidence, so it is filed as a follow-up rather than slipped in on o
 
 Review-lane rows in `models.yaml` remain `verified` for **dispatch** (unchanged); they are
 **not** stamped for review quality. P4 (unclosed-stdin backstop) still open.
+
+---
+
+## 2026-07-25 (follow-up) — P13 re-run with the task-reviewer calibration nudge
+
+The 2026-07-25 miss above motivated a severity-floor nudge in the shared
+`contracts/task-reviewer-contract.md` (see core/verification-log.md, same date): an uncaught
+exception on plausible user input is Important, not Minor, even when the brief names only the
+happy path. Re-ran the identical P13 dispatch (same fixture, brief, `--effort high`, 2 runs
+per model) with the nudged contract.
+
+| Probe | Model | Verdict | Evidence |
+| --- | --- | --- | --- |
+| P13 | sonnet | **Passed** | 2/2 runs cited the `path.exists()`→`read_text()` defect under **Important** (generalizing to `PermissionError`/`UnicodeDecodeError`), assessment flipped to Needs fixes |
+| P13 | opus | **Passed** | 2/2 runs same — defect under **Important**, Needs fixes |
+
+Before/after is clean and stable: 4/4 **Minor** (Approved) without the nudge → 4/4 **Important**
+(Needs fixes) with it. **The `claude` review lane now clears P13** and is qualified for review
+quality, *provided the nudged contract (≥ v1.9.2) is in force*. This is a prompt mitigation, so
+keep the standing rule that severity adjudication stays in the controller — the nudge raises
+the floor reliably here, it does not remove the need to adjudicate. P4 (unclosed-stdin
+backstop) still open.

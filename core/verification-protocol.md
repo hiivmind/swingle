@@ -2,7 +2,7 @@
 
 The repeatable probe suite for (re)verifying provider-pack behavior. Run it for a pack when a
 trigger fires (see README.md), then append results to the pack's verification log and update
-its pack.md / models.md.
+its pack.md / models.yaml / models.md.
 
 The invocable form of this process is the plugin's verification skill; the active harness
 adapter supplies the command details.
@@ -25,7 +25,7 @@ pack-specific dispatch template and command surface.
 ### P1 — Version & surface
 
 Record the pack version and inspect its supported dispatch surface and model inventory. Diff
-the findings against the pack's pack.md and models.md.
+the findings against the pack's pack.md and models.yaml.
 
 ### P2 — Trivial dispatch + exit code (success path)
 
@@ -137,7 +137,7 @@ Append to the appropriate verification log:
 
 Then:
 
-1. Update the active pack's pack.md and models.md.
+1. Update the active pack's pack.md and models.yaml (models.md for narrative).
 2. If findings change how SDD should dispatch, update the relevant harness adapter and
    contracts in the same round.
 3. Clean up `$SCRATCH` artifacts, including any test writes outside the workspace.

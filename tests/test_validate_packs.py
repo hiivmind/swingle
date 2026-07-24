@@ -120,4 +120,4 @@ def test_yaml_eligible_md_row_guard(tmp_path):
     md.write_text(md.read_text() +
         "\n| cheapest | any | 9 | sneaky-model | verified | - | drift |\n")
     r = run("--root", str(root))
-    assert r.returncode == 1 and "eligible" in r.stdout
+    assert r.returncode == 1 and "eligible-row guard" in r.stdout

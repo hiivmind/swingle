@@ -96,3 +96,28 @@ def test_step0_native_bypass_ignores_malformed_config():
             "--path-dir", str(FIX / "bins-alpha"), "--lever", "native-subagents",
             "--config", str(FIX / "config-malformed.json"))
     assert r.returncode == 0 and "native-subagents: bypass" in r.stdout
+
+def test_yaml_pack_valid_and_resolvable():
+    r = run("--root", str(FIX / "good-yaml"), "--resolve", "per-task reviewer", "alpha")
+    assert r.returncode == 0 and "review-model-exact" in r.stdout
+
+def test_yaml_unknown_row_key_fails():
+    r = run("--root", str(FIX / "bad-yaml-unknown-key"))
+    assert r.returncode == 1 and "unknown row key" in r.stdout
+
+def test_yaml_bad_schema_or_provider_fails():
+    r = run("--root", str(FIX / "bad-yaml-schema"))
+    assert r.returncode == 1 and "schema" in r.stdout and "provider" in r.stdout
+
+def test_yaml_pack_clean_tree_passes():
+    r = run("--root", str(FIX / "good-yaml"))
+    assert r.returncode == 0
+
+def test_yaml_eligible_md_row_guard(tmp_path):
+    import shutil as _sh
+    root = tmp_path / "drift"; _sh.copytree(FIX / "good-yaml", root)
+    md = root / "providers" / "alpha" / "models.md"
+    md.write_text(md.read_text() +
+        "\n| cheapest | any | 9 | sneaky-model | verified | - | drift |\n")
+    r = run("--root", str(root))
+    assert r.returncode == 1 and "eligible" in r.stdout

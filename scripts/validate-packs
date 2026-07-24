@@ -82,14 +82,85 @@ def parse_models(pack):
                 else: rows.append({"tier": tier, "lane": lane, "prio": int(priority), "model": model, "status": status})
             elif documentary and cells[0] in TIERS and cells[4] in ELIGIBLE:
                 find(f"{pack}/models.md:{n}: eligible status in Documentary section")
+    check_rows(f"{pack}/models.md", rows); return rows
+
+MODEL_ROW_KEYS = {"tier", "lane", "priority", "model", "status", "pricing", "rationale"}
+MODEL_ROW_REQ = ("tier", "lane", "priority", "model", "status")
+Y_TOP_RE = re.compile(r"^([a-z]+):\s*(.*)$")
+Y_FIRST_RE = re.compile(r"^  - ([a-z]+):\s*(.*)$")
+Y_CONT_RE = re.compile(r"^    ([a-z]+):\s*(.*)$")
+
+def yaml_scalar(path, n, raw):
+    """One restricted-grammar scalar: bare or double-quoted, optional trailing comment."""
+    raw = raw.strip()
+    if raw.startswith('"'):
+        end = raw.find('"', 1)
+        if end == -1: find(f"{path}:{n}: unterminated quote"); return None
+        trailing = raw[end + 1:].strip()
+        if trailing and not trailing.startswith("#"): find(f"{path}:{n}: trailing content after quote"); return None
+        return raw[1:end]
+    return raw.split("#", 1)[0].strip()
+
+def parse_models_yaml(path, provider_id):
+    """Restricted-YAML models file (spec 2026-07-24): flat header + fixed-shape row list."""
+    header, raw_rows, current = {}, [], None
+    for n, line in enumerate(path.read_text().splitlines(), 1):
+        if not line.strip() or line.lstrip().startswith("#"): continue
+        if "'" in line: find(f"{path}:{n}: grammar violation: single quotes"); continue
+        m_first, m_cont = Y_FIRST_RE.match(line), Y_CONT_RE.match(line)
+        m_top = Y_TOP_RE.match(line) if not line.startswith(" ") else None
+        if m_first:
+            if current is not None: raw_rows.append(current)
+            current, key, value = {}, m_first.group(1), yaml_scalar(path, n, m_first.group(2))
+        elif m_cont and current is not None:
+            key, value = m_cont.group(1), yaml_scalar(path, n, m_cont.group(2))
+        elif m_top:
+            key, raw = m_top.group(1), m_top.group(2)
+            if key == "models":
+                bare = raw.split("#", 1)[0].strip()
+                if bare not in ("", "[]"): find(f"{path}:{n}: models must be a block list or []")
+                continue
+            if key in header: find(f"{path}:{n}: duplicate key {key}")
+            header[key] = yaml_scalar(path, n, raw)
+            continue
+        else:
+            find(f"{path}:{n}: grammar violation: {line!r}"); continue
+        if key not in MODEL_ROW_KEYS: find(f"{path}:{n}: unknown row key {key}"); continue
+        if key in current: find(f"{path}:{n}: duplicate row key {key}"); continue
+        current[key] = value
+    if current is not None: raw_rows.append(current)
+    if str(header.get("schema")) != "1": find(f"{path}: schema must be 1 (got {header.get('schema')})")
+    if header.get("provider") != provider_id: find(f"{path}: provider must be {provider_id} (got {header.get('provider')})")
+    for key in header:
+        if key not in {"schema", "provider"}: find(f"{path}: unknown key {key}")
+    rows = []
+    for row in raw_rows:
+        missing = [k for k in MODEL_ROW_REQ if k not in row]
+        if missing: find(f"{path}: row missing {' '.join(missing)}"); continue
+        if row["tier"] not in TIERS: find(f"{path}: bad tier {row['tier']}"); continue
+        if row["lane"] not in LANES: find(f"{path}: bad lane {row['lane']}")
+        if row["status"] not in STATUSES: find(f"{path}: bad status {row['status']}")
+        if not str(row["priority"]).isdigit() or int(row["priority"]) < 1: find(f"{path}: bad priority {row['priority']}")
+        else: rows.append({"tier": row["tier"], "lane": row["lane"], "prio": int(row["priority"]), "model": row["model"], "status": row["status"]})
+    return rows
+
+def check_rows(label, rows):
     seen = set()
     for row in rows:
         key = row["tier"], row["lane"], row["prio"]
-        if key in seen: find(f"{pack}/models.md: duplicate priority {key}")
+        if key in seen: find(f"{label}: duplicate priority {key}")
         seen.add(key)
     for tier_lane in {(row["tier"], row["lane"]) for row in rows}:
-        if not any(row["prio"] == 1 for row in rows if (row["tier"], row["lane"]) == tier_lane): find(f"{pack}/models.md: {tier_lane} has no priority 1 row")
-    return rows
+        if not any(row["prio"] == 1 for row in rows if (row["tier"], row["lane"]) == tier_lane): find(f"{label}: {tier_lane} has no priority 1 row")
+
+def check_md_has_no_eligible_rows(pack):
+    """Eligible-row guard: once models.yaml is the table of record, models.md may keep
+    prose and documentary tables but never an eligible-status tier row (table rows only —
+    prose mentions are out of scope by design)."""
+    for n, line in enumerate((pack / "models.md").read_text().splitlines(), 1):
+        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+        if len(cells) >= 5 and line.lstrip().startswith("|") and cells[0] in TIERS and cells[4] in ELIGIBLE:
+            find(f"{pack}/models.md:{n}: eligible-row guard: eligible status row belongs in models.yaml")
 
 def parse_roles(root):
     roles, path = {}, root / "core" / "roles.md"
@@ -175,7 +246,12 @@ def main():
         manifests[pack.name] = check_manifest(pack)
         for filename in ("models.md", "verification-log.md"):
             if not (pack / filename).exists(): find(f"{pack}: missing {filename}")
-        if (pack / "models.md").exists(): rows_by_id[pack.name] = parse_models(pack)
+        if (pack / "models.yaml").exists():
+            rows = parse_models_yaml(pack / "models.yaml", pack.name)
+            check_rows(f"{pack}/models.yaml", rows)
+            rows_by_id[pack.name] = rows
+            if (pack / "models.md").exists(): check_md_has_no_eligible_rows(pack)
+        elif (pack / "models.md").exists(): rows_by_id[pack.name] = parse_models(pack)
     if a.check_config:
         load_config(a.check_config, set(manifests))
     elif not a.step0 and not a.resolve:

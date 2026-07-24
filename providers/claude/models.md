@@ -17,6 +17,12 @@ Effort: `--effort low|medium|high|xhigh|max` — locally validated (bogus → wa
   `~/.claude/settings.json`) repoints what `opus` resolves to — observed on the authoring
   machine resolving `opus`→claude-opus-4-7[1m]. The alias still selects "the operator's opus";
   pin a snapshot id in a project override only if a lane needs an exact model.
-- **Review lane is stamped for dispatch, not yet for review quality.** P13 (the reviewer
-  known-defect benchmark) has not been run against a claude reviewer. All three tiers dispatch
-  cleanly; run P13 before relying on claude for adversarial review in anger.
+- **Review lane: qualified as a finder, not as a severity authority (P13, 2026-07-25).**
+  sonnet and opus were run against the P13 known-defect fixture (2 runs each). Both **found**
+  the defect every time (4/4, with file:line) — no false-clean — but both consistently rated
+  it **Minor** rather than the required ≥ Important, reading the brief's "does not exist"
+  literally instead of extending it to a directory/unreadable path. So the review rows stay
+  `verified` for **dispatch**, not for review quality: use a claude reviewer to surface
+  findings, but keep severity adjudication in the controller and re-grade any Minor that is
+  actually a violated binding constraint. Full evidence in the 2026-07-25 entry of
+  [verification-log.md](verification-log.md). haiku (cheapest) is not a review tier.

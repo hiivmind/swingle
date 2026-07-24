@@ -44,6 +44,8 @@ real options: external dispatch through the provider packs, or sequential in-ses
 execution. Silently substituting one for the other misreports which engine did the work
 and corrupts the ledger's `route=` field.
 
-pi-as-**controller** and pi-as-**provider** are separate concerns; there is no
-`providers/pi/` pack yet, so pi is a controller only. Nothing prevents a pi controller from
-dispatching to any existing pack.
+pi-as-**controller** (this adapter) and pi-as-**provider** (`providers/pi/`) are separate
+concerns. A pi controller may dispatch to any pack, including `providers/pi/` — nested
+`pi -p` under a pi controller. There is no sandbox to probe (unlike codex-under-codex), so
+nested dispatch needs no gate; the only rule is the shared one — assign a distinct
+`--session-id` per dispatch so the child session never collides with the controller's.

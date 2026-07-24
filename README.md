@@ -3,7 +3,7 @@
 ![sdd-dispatch hero banner](docs/images/hero-banner.jpg)
 
 Standalone harness-neutral plugin for subagent-driven development via external
-CLIs (codex / opencode / agy / grok): token-efficient plan execution plus the verified
+CLIs (codex / opencode / agy / grok / pi): token-efficient plan execution plus the verified
 knowledge base that makes dispatch safe.
 
 Everything is self-contained. The `sdd` skill and provider packs are discovered
@@ -14,7 +14,7 @@ from this repository; no machine-specific paths are required.
 ## Install with Claude Code
 
 Requires the `superpowers` plugin and whichever dispatch CLIs you use on PATH
-(`codex`, `opencode`, `agy`, `grok`), each authenticated once interactively.
+(`codex`, `opencode`, `agy`, `grok`, `pi`), each authenticated once interactively.
 
 ```text
 /plugin marketplace add discreteds/sdd-dispatch-plugin
@@ -101,7 +101,7 @@ opencode debug skill | grep -E '"name": "(sdd|delegate|sdd-dispatch-verify)"'
 
 `sdd` wraps `superpowers:subagent-driven-development`, so superpowers must be reachable by
 the same route (Route A covers it automatically). Dispatch CLIs (`codex`, `opencode`,
-`agy`, `grok`) must be on PATH and authenticated once interactively, as with the other
+`agy`, `grok`, `pi`) must be on PATH and authenticated once interactively, as with the other
 harnesses. Harness-specific behaviour — the missing shell background mode, the
 `subagent_depth` cap, and session-id attribution when opencode dispatches its own pack —
 is documented in [skills/sdd/harnesses/opencode.md](skills/sdd/harnesses/opencode.md).

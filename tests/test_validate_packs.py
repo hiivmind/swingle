@@ -201,3 +201,32 @@ def test_list_models_argv_accepted_and_validated(tmp_path):
         '["alpha", "--list-models"]', '["wrong-cli", "--list-models"]'))
     r = run("--root", str(root))
     assert r.returncode == 1 and "argv[0]" in r.stdout
+
+SDD_MODELS = ROOT / "scripts" / "sdd-models"
+
+def run_models(*args, **env):
+    e = dict(os.environ, XDG_CONFIG_HOME=str(FIX / "no-such-xdg"))
+    e.pop("SDD_DISPATCH_MODELS", None)
+    e.update(env)
+    return subprocess.run([sys.executable, str(SDD_MODELS), *args], capture_output=True, text=True, env=e)
+
+def test_sdd_models_which_default_layer():
+    r = run_models("which", "alpha", "--root", str(FIX / "good-yaml"))
+    assert r.returncode == 0 and "alpha: layer=default path=" in r.stdout
+
+def test_sdd_models_init_project_seeds_and_refuses_overwrite(tmp_path):
+    proj = tmp_path / "proj"; proj.mkdir()
+    r = run_models("init", "alpha", "--root", str(FIX / "good-yaml"), "--project", str(proj))
+    assert r.returncode == 0
+    seeded = proj / ".sdd-dispatch" / "models" / "alpha.yaml"
+    assert seeded.exists() and "cheap-any-model" in seeded.read_text()
+    r2 = run_models("init", "alpha", "--root", str(FIX / "good-yaml"), "--project", str(proj))
+    assert r2.returncode == 1 and "exists" in (r2.stdout + r2.stderr)
+    r3 = run_models("init", "alpha", "--root", str(FIX / "good-yaml"), "--project", str(proj), "--force")
+    assert r3.returncode == 0
+
+def test_sdd_models_init_user_layer(tmp_path):
+    r = run_models("init", "alpha", "--root", str(FIX / "good-yaml"), "--user",
+                   XDG_CONFIG_HOME=str(tmp_path / "xdg"))
+    assert r.returncode == 0
+    assert (tmp_path / "xdg" / "sdd-dispatch" / "models" / "alpha.yaml").exists()

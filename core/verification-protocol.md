@@ -25,7 +25,7 @@ pack-specific dispatch template and command surface.
 ### P1 — Version & surface
 
 Record the pack version and inspect its supported dispatch surface and model inventory. Diff
-the findings against the pack's pack.md and models.yaml.
+the findings against the pack's pack.md / models.yaml / models.md.
 
 ### P2 — Trivial dispatch + exit code (success path)
 

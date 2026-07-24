@@ -38,3 +38,41 @@ P8 is inferred from that plus `sandbox: none`.
 evidence above, plus the operator-confirmed P6 write/shell path — the implement lane is now
 end-to-end verified. Still open: P13 (reviewer known-defect benchmark) before trusting claude
 for adversarial review, and P4 (unclosed-stdin backstop).
+
+---
+
+## 2026-07-25 — claude 2.1.218 (trigger: P13 review-lane qualification)
+
+Ran the P13 reviewer known-defect benchmark against `tests/fixtures/p13/defect.diff` with the
+standard `task-reviewer-contract.md` and a realistic non-hinting Task-2 brief (the binding
+constraint quoted verbatim: exit 2 + `error: <path> not found` on stderr when the file "does
+not exist"). Read-only dispatch, verdict captured from stdout, `--effort high`. Two runs per
+model.
+
+| Probe | Assertion under test | Verdict | Evidence |
+| --- | --- | --- | --- |
+| P13 (sonnet) | required finding cited at ≥ Important | **Not passed** | 2/2 runs: found the `path.exists()`→`read_text()` directory/unreadable defect with file:line, but rated it **Minor** both times ("brief only specifies 'does not exist'") — below the ≥ Important bar |
+| P13 (opus) | required finding cited at ≥ Important | **Not passed** | 2/2 runs: same — found it precisely, one run explicitly noting "exit code 1 instead of the spec's exit 2," yet rated **Minor** both times |
+
+**Result: catches-but-under-severities, not a false-clean.** Neither model ever missed the
+defect (4/4 runs cited it with file:line) — materially safer than the fixture's
+`nemotron-3-ultra-free`, which false-cleaned it. But both consistently down-severity an
+uncaught-exception / exit-contract violation to Minor by reading the brief's "does not exist"
+literally, so neither clears the ≥ Important gate. Stable across two runs each (n=4, all Minor).
+
+**Operational implication.** The P13 disqualifier is specifically a *false-clean*; Claude does
+not false-clean, so it is usable in the review lane **as a finder** — but the controller must
+not read a Claude reviewer's severities as final. This lands inside the existing
+adjudication-stays-in-the-controller doctrine (`core/playbook.md`): treat Claude review
+findings as candidates and re-grade any Minor that is actually a violated binding constraint
+up to Important before merge-gating. Do **not** hand a Claude reviewer sole, unadjudicated
+authority over merge severity on this defect class.
+
+**Candidate follow-up (not applied here):** a one-line calibration nudge in
+`task-reviewer-contract.md` — "an uncaught exception on plausible user input is Important, not
+Minor, even when the brief names only the happy-path failure" — might lift this class to the
+right severity, but it touches the shared contract for every provider and needs its own
+before/after evidence, so it is filed as a follow-up rather than slipped in on one fixture.
+
+Review-lane rows in `models.yaml` remain `verified` for **dispatch** (unchanged); they are
+**not** stamped for review quality. P4 (unclosed-stdin backstop) still open.

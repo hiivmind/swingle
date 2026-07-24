@@ -1,0 +1,24 @@
+schema: 1
+provider: codex
+models:
+  - tier: cheapest
+    lane: any
+    priority: 1
+    model: gpt-5.6-luna
+    status: verified
+    pricing: "seat"
+    rationale: "transcription/explore; recall ~41% — escalate to terra on large codebases"
+  - tier: standard
+    lane: any
+    priority: 1
+    model: gpt-5.6-terra
+    status: verified
+    pricing: "seat"
+    rationale: "workhorse; ~90% recall; default reviewer"
+  - tier: most-capable
+    lane: any
+    priority: 1
+    model: gpt-5.6-sol
+    status: verified
+    pricing: "seat"
+    rationale: "final/design review; ~90% recall"

@@ -1,16 +1,8 @@
 # opencode models (Zen) — verified dispatching 2026-07-22
 
-## Resolvable
-
-| Tier | Lane | Priority | Model id | Status | Pricing | Rationale |
-| --- | --- | --- | --- | --- | --- | --- |
-| cheapest | any | 1 | opencode-go/deepseek-v4-flash | verified | $0.14/$0.28 | cheapest paid coder; transcription/explore |
-| standard | implement | 1 | opencode-go/minimax-m3 | verified | $0.30/$1.20 | adaptation (eager — watch over-build) |
-| standard | implement | 2 | opencode-go/qwen3.7-plus | verified | $0.40/$1.60 | adaptation alternate |
-| standard | review | 1 | opencode-go/deepseek-v4-pro | verified | $1.74/$3.48 | per-task reviewer (caught planted defect) |
-| most-capable | implement | 1 | opencode-go/deepseek-v4-pro | verified | $1.74/$3.48 | 1M ctx heavy implement |
-| most-capable | implement | 2 | opencode-go/kimi-k2.7-code | experimental | — | coding-strong, 256K ctx |
-| most-capable | review | 1 | opencode-go/glm-5.2 | verified | $1.40/$4.40 | final review; #1 open-weights AA 51 |
+> The table of record is [models.yaml](models.yaml) (layered overrides: see README
+> "Model tables and overrides"). This file carries the documentary layer only —
+> verification narrative, watch lists, and corrections.
 
 ## Documentary
 

@@ -1,2 +1,3 @@
-| standard | review | 1 | model-a | verified | - | test |
-| standard | review | 1 | model-b | verified | - | test |
+# alpha models
+
+The table of record is [models.yaml](models.yaml). This file carries narrative only.

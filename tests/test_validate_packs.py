@@ -79,10 +79,10 @@ def test_step0_invalid_manifest_never_detects_or_executes_provider_argv(tmp_path
     assert r.returncode == 1 and "interpreter" in r.stdout
     assert "installed:" not in r.stdout
     assert not marker.exists()
-def test_resolvable_table_rejects_bad_tier(tmp_path):
+def test_yaml_rejects_bad_tier(tmp_path):
     root = tmp_path / "bad-tier"; shutil.copytree(FIX / "good-lanes", root)
-    models = root / "providers" / "alpha" / "models.md"
-    models.write_text(models.read_text() + "| premium | review | 2 | invalid-tier | verified | - | test |\n")
+    models = root / "providers" / "alpha" / "models.yaml"
+    models.write_text(models.read_text() + "  - tier: premium\n    lane: review\n    priority: 2\n    model: invalid-tier\n    status: verified\n")
     r = run("--root", str(root))
     assert r.returncode == 1 and "bad tier premium" in r.stdout
 def test_link_scan_checks_relative_target_beginning_with_p(tmp_path):
@@ -172,3 +172,19 @@ def test_malformed_override_stops_never_falls_through(tmp_path):
     r = run_env("--root", str(FIX / "good-yaml"), "--resolve", "per-task reviewer", "alpha",
                 "--project", str(proj))
     assert r.returncode == 1 and "layer: default" not in r.stdout
+
+def test_yaml_accepts_apostrophe_in_double_quoted_scalar(tmp_path):
+    root = tmp_path / "apos"; shutil.copytree(FIX / "good-yaml", root)
+    yaml = root / "providers" / "alpha" / "models.yaml"
+    text = yaml.read_text()
+    yaml.write_text(text.replace('"test row"', '"it\'s fine"'))
+    r = run("--root", str(root))
+    assert r.returncode == 0
+
+def test_yaml_rejects_single_quoted_scalar(tmp_path):
+    root = tmp_path / "sq"; shutil.copytree(FIX / "good-yaml", root)
+    yaml = root / "providers" / "alpha" / "models.yaml"
+    text = yaml.read_text()
+    yaml.write_text(text.replace('review-model-exact', "'single-quoted-value'"))
+    r = run("--root", str(root))
+    assert r.returncode == 1 and "single-quoted" in r.stdout

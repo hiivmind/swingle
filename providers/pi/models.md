@@ -6,17 +6,9 @@ pi is provider-agnostic; the reachable namespace is whatever is authed in
 every `verified` status below is stamped from a **live dispatch through `pi`** (not borrowed
 from the opencode pack). Model ids use pi's combined `provider/model` form.
 
-## Resolvable
-
-| Tier | Lane | Priority | Model id | Status | Pricing | Rationale |
-| --- | --- | --- | --- | --- | --- | --- |
-| cheapest | any | 1 | opencode-go/deepseek-v4-flash | verified | $0.14/$0.28 | cheapest paid coder; transcription/explore. Dispatched repeatedly through pi (PONG, read, write, shell). |
-| standard | implement | 1 | opencode-go/minimax-m3 | verified | $0.30/$1.20 | adaptation (eager — watch over-build). PONG through pi. |
-| standard | implement | 2 | opencode-go/qwen3.7-plus | experimental | $0.40/$1.60 | adaptation alternate; in catalog, dispatch-through-pi not yet exercised. |
-| standard | review | 1 | opencode-go/deepseek-v4-pro | verified | $1.74/$3.48 | per-task reviewer. PONG through pi. |
-| most-capable | implement | 1 | opencode-go/deepseek-v4-pro | verified | $1.74/$3.48 | 1M-ctx heavy implement. PONG through pi. |
-| most-capable | implement | 2 | opencode-go/kimi-k2.7-code | experimental | — | coding-strong, 256K ctx; in catalog, dispatch-through-pi not yet exercised. |
-| most-capable | review | 1 | opencode-go/glm-5.2 | verified | $1.40/$4.40 | final review; 1M ctx. PONG through pi. |
+> The table of record is [models.yaml](models.yaml) (layered overrides: see README
+> "Model tables and overrides"). This file carries the documentary layer only —
+> verification narrative, watch lists, and corrections.
 
 ## Documentary
 

@@ -1,0 +1,51 @@
+schema: 1
+provider: opencode
+models:
+  - tier: cheapest
+    lane: any
+    priority: 1
+    model: opencode-go/deepseek-v4-flash
+    status: verified
+    pricing: "$0.14/$0.28"
+    rationale: "cheapest paid coder; transcription/explore"
+  - tier: standard
+    lane: implement
+    priority: 1
+    model: opencode-go/minimax-m3
+    status: verified
+    pricing: "$0.30/$1.20"
+    rationale: "adaptation (eager — watch over-build)"
+  - tier: standard
+    lane: implement
+    priority: 2
+    model: opencode-go/qwen3.7-plus
+    status: verified
+    pricing: "$0.40/$1.60"
+    rationale: "adaptation alternate"
+  - tier: standard
+    lane: review
+    priority: 1
+    model: opencode-go/deepseek-v4-pro
+    status: verified
+    pricing: "$1.74/$3.48"
+    rationale: "per-task reviewer (caught planted defect)"
+  - tier: most-capable
+    lane: implement
+    priority: 1
+    model: opencode-go/deepseek-v4-pro
+    status: verified
+    pricing: "$1.74/$3.48"
+    rationale: "1M ctx heavy implement"
+  - tier: most-capable
+    lane: implement
+    priority: 2
+    model: opencode-go/kimi-k2.7-code
+    status: experimental
+    rationale: "coding-strong, 256K ctx"
+  - tier: most-capable
+    lane: review
+    priority: 1
+    model: opencode-go/glm-5.2
+    status: verified
+    pricing: "$1.40/$4.40"
+    rationale: "final review; #1 open-weights AA 51"

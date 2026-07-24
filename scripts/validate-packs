@@ -62,28 +62,6 @@ def check_manifest(pack):
     if fm.get("session-source") == "session-list" and "session-list-argv" not in fm: find(f"{path}: session-list-argv required for session-source: session-list")
     return fm
 
-def parse_models(pack):
-    rows, documentary, resolvable = [], False, True
-    for n, line in enumerate((pack / "models.md").read_text().splitlines(), 1):
-        if line.lower().startswith("## resolvable"): documentary, resolvable = False, True
-        elif line.lower().startswith("## documentary"): documentary, resolvable = True, False
-        elif line.startswith("## "): resolvable = False
-        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
-        if len(cells) == 7 and line.lstrip().startswith("|"):
-            if resolvable:
-                if cells[0] == "Tier" or re.fullmatch(r":?-{3,}:?", cells[0]): continue
-                if cells[0] not in TIERS:
-                    find(f"{pack}/models.md:{n}: bad tier {cells[0]}")
-                    continue
-                tier, lane, priority, model, status = cells[:5]
-                if lane not in LANES: find(f"{pack}/models.md:{n}: bad lane {lane}")
-                if status not in STATUSES: find(f"{pack}/models.md:{n}: bad status {status}")
-                if not priority.isdigit() or int(priority) < 1: find(f"{pack}/models.md:{n}: bad priority {priority}")
-                else: rows.append({"tier": tier, "lane": lane, "prio": int(priority), "model": model, "status": status})
-            elif documentary and cells[0] in TIERS and cells[4] in ELIGIBLE:
-                find(f"{pack}/models.md:{n}: eligible status in Documentary section")
-    check_rows(f"{pack}/models.md", rows); return rows
-
 MODEL_ROW_KEYS = {"tier", "lane", "priority", "model", "status", "pricing", "rationale"}
 MODEL_ROW_REQ = ("tier", "lane", "priority", "model", "status")
 Y_TOP_RE = re.compile(r"^([a-z]+):\s*(.*)$")
@@ -93,6 +71,7 @@ Y_CONT_RE = re.compile(r"^    ([a-z]+):\s*(.*)$")
 def yaml_scalar(path, n, raw):
     """One restricted-grammar scalar: bare or double-quoted, optional trailing comment."""
     raw = raw.strip()
+    if raw.startswith("'"): find(f"{path}:{n}: single-quoted scalars not supported — use double quotes or bare"); return None
     if raw.startswith('"'):
         end = raw.find('"', 1)
         if end == -1: find(f"{path}:{n}: unterminated quote"); return None
@@ -106,7 +85,6 @@ def parse_models_yaml(path, provider_id):
     header, raw_rows, current = {}, [], None
     for n, line in enumerate(path.read_text().splitlines(), 1):
         if not line.strip() or line.lstrip().startswith("#"): continue
-        if "'" in line: find(f"{path}:{n}: grammar violation: single quotes"); continue
         m_first, m_cont = Y_FIRST_RE.match(line), Y_CONT_RE.match(line)
         m_top = Y_TOP_RE.match(line) if not line.startswith(" ") else None
         if m_first:
@@ -265,14 +243,13 @@ def main():
     manifests, rows_by_id = {}, {}
     for pack in packs:
         manifests[pack.name] = check_manifest(pack)
-        for filename in ("models.md", "verification-log.md"):
+        for filename in ("models.yaml", "models.md", "verification-log.md"):
             if not (pack / filename).exists(): find(f"{pack}: missing {filename}")
         if (pack / "models.yaml").exists():
             rows = parse_models_yaml(pack / "models.yaml", pack.name)
             check_rows(f"{pack}/models.yaml", rows)
             rows_by_id[pack.name] = rows
             if (pack / "models.md").exists(): check_md_has_no_eligible_rows(pack)
-        elif (pack / "models.md").exists(): rows_by_id[pack.name] = parse_models(pack)
     if a.check_config:
         load_config(a.check_config, set(manifests))
     elif not a.step0 and not a.resolve:
@@ -319,8 +296,7 @@ def main():
                     print(f"provider: {chosen}")
                     if role_tier_lane:
                         layer, layer_path, layer_rows = resolve_models(chosen, root, a.project)
-                        if layer is None and not findings: layer_rows = rows_by_id.get(chosen, [])
-                        elif layer_path is not None: print(f"layer: {layer} path={layer_path.resolve()}")
+                        if layer_path is not None: print(f"layer: {layer} path={layer_path.resolve()}")
                         order = candidate_order(layer_rows, *role_tier_lane, excluded.get(chosen, set()))
                         if not order and layer in ("env", "project", "user"): find(f"no eligible model for {role_tier_lane} in {chosen} — override at {layer_path} does not cover {role_tier_lane}")
                         elif not order: find(f"no eligible model for {role_tier_lane} in {chosen}")
@@ -334,7 +310,6 @@ def main():
         elif provider not in rows_by_id: find(f"unknown provider: {provider}")
         else:
             layer, layer_path, rows = resolve_models(provider, root, a.project)
-            if layer is None and not findings: layer, layer_path, rows = "default", None, rows_by_id[provider]
             if layer_path is not None: print(f"layer: {layer} path={layer_path.resolve()}")
             order = candidate_order(rows, *tier_lane, excluded.get(provider, set()))
             if order: print(f"{role} -> {tier_lane} -> {order[0]['model']} (P{order[0]['prio']}, {order[0]['status']}); fallback order: {', '.join(row['model'] for row in order)}")

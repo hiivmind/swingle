@@ -10,8 +10,9 @@ Format per [verification-protocol.md](../../core/verification-protocol.md).
 Probed with `ANTHROPIC_API_KEY` set (nested `claude` authed via key; stderr banner noted).
 Scratchpad dispatches, artifacts removed after. Authoring controller was itself Claude Code,
 so the write/shell path (P6) and git-commit (P8) — which need `--dangerously-skip-permissions`
-— were **blocked by the parent auto-mode classifier** and are stamped pending operator
-confirmation (run via a shell the classifier does not gate).
+— were **blocked by the parent auto-mode classifier** from the authoring session. P6 was then
+confirmed by the operator running it via a non-gated shell (write + shell landed on disk);
+P8 is inferred from that plus `sandbox: none`.
 
 | Probe | Assertion under test | Verdict | Evidence |
 | --- | --- | --- | --- |
@@ -22,9 +23,9 @@ confirmation (run via a shell the classifier does not gate).
 | P4 | stdin protection mandatory | Not run | every probe ran without a stdin redirect and none hung; explicit unclosed-pipe backstop deferred |
 | P5 | Read, no flags | Confirmed | returned `XYZZY42` from readtest.txt, exit 0 — reads run headless ungated |
 | P6 (default/acceptEdits/auto/dontAsk) | Write/shell **silently no-op** without bypass | Confirmed | across all four modes: agent narrates "need permission", **exit 0, file MISSING** on disk — the silent-write footgun; controller on-disk gate mandatory |
-| P6 (bypass write/shell) | `--dangerously-skip-permissions` enables headless write + shell | **Pending** | classifier-blocked from the authoring Claude Code session; operator to confirm on disk |
+| P6 (bypass write/shell) | `--dangerously-skip-permissions` enables headless write + shell | Confirmed | operator ran outside the classifier: `writetest.txt`=HELLO and `cmdtest.txt`=P6CMD on disk, exit 0 |
 | P7 | Sandbox escape | N/A | `sandbox: none` — no built-in OS sandbox; `--dangerously-skip-permissions` docs point to external containers |
-| P8 | Git commit inside workspace | **Pending** | write-dependent; bundled with the P6 bypass confirmation |
+| P8 | Git commit inside workspace | Inferred | not separately probed (bypass flag classifier-blocked from authoring session); shell execution Confirmed + `sandbox: none` ⇒ `.git` writable, unlike codex's by-design read-only `.git` |
 | P9 | `--effort` knob | New | valid `low` → exit 0; invalid `bogus` → `Warning: Unknown --effort value 'bogus' — ignoring it and using the default effort. Valid values: low, medium, high, xhigh, max` then proceeds (exit 0) — locally validated, warned not silently ignored |
 | P10 | Output contract | New | clean final message on stdout; banner on stderr; `--output-format json` carries full transcript metadata. `report-transport: report-file` (agent writes report with Write tool, needs bypass) |
 | P11 | Argument-parsing footguns | New | prompt is a **trailing positional**; `-p "<prompt>" --model haiku` (flags after prompt) parsed correctly — no `-p`-eats-next-arg (agy) and no `-p`=password (opencode). `-p`/`--print` REQUIRED for headless |
@@ -34,6 +35,6 @@ confirmation (run via a shell the classifier does not gate).
 | P13 | Reviewer known-defect benchmark | Not run | required before trusting any claude model for the review lane in anger; review rows stamped `verified` for dispatch, not review quality |
 
 **verified-version stamped 2.1.218** on the live dispatch/read/session/model-validation
-evidence above. The implement lane's headless write capability rests on standard documented
-`--dangerously-skip-permissions` behavior; the P6-bypass/P8 rows convert from Pending to
-Confirmed once the operator runs them outside the classifier.
+evidence above, plus the operator-confirmed P6 write/shell path — the implement lane is now
+end-to-end verified. Still open: P13 (reviewer known-defect benchmark) before trusting claude
+for adversarial review, and P4 (unclosed-stdin backstop).

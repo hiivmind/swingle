@@ -153,6 +153,27 @@ def check_rows(label, rows):
     for tier_lane in {(row["tier"], row["lane"]) for row in rows}:
         if not any(row["prio"] == 1 for row in rows if (row["tier"], row["lane"]) == tier_lane): find(f"{label}: {tier_lane} has no priority 1 row")
 
+def resolve_models(provider_id, root, project):
+    """Layered models.yaml walk (spec 2026-07-24): env -> project -> user -> default.
+    First file found is the whole table; a found-but-malformed file is a STOP, never
+    a fall-through."""
+    env_dir = os.environ.get("SDD_DISPATCH_MODELS")
+    if env_dir and not Path(env_dir).is_dir():
+        find(f"SDD_DISPATCH_MODELS set but not a readable directory: {env_dir}")
+        return None, None, []
+    layers = []
+    if env_dir: layers.append(("env", Path(env_dir) / f"{provider_id}.yaml"))
+    if project: layers.append(("project", Path(project) / ".sdd-dispatch" / "models" / f"{provider_id}.yaml"))
+    xdg = os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config")
+    layers.append(("user", Path(xdg) / "sdd-dispatch" / "models" / f"{provider_id}.yaml"))
+    layers.append(("default", root / "providers" / provider_id / "models.yaml"))
+    for layer, path in layers:
+        if path.exists():
+            rows = parse_models_yaml(path, provider_id)
+            check_rows(f"{path}", rows)
+            return layer, path, rows
+    return None, None, []
+
 def check_md_has_no_eligible_rows(pack):
     """Eligible-row guard: once models.yaml is the table of record, models.md may keep
     prose and documentary tables but never an eligible-status tier row (table rows only —
@@ -232,7 +253,7 @@ def check_repo_docs(root):
                 if not (path.parent / target).exists(): find(f"{path}:{n}: broken link {target}")
 
 def main():
-    ap = argparse.ArgumentParser(); ap.add_argument("--root", default="."); ap.add_argument("--resolve", nargs=2, metavar=("ROLE", "PROVIDER")); ap.add_argument("--exclude", action="append", default=[]); ap.add_argument("--check-config"); ap.add_argument("--step0", action="store_true"); ap.add_argument("--config"); ap.add_argument("--path-dir", action="append", default=[]); ap.add_argument("--lever"); ap.add_argument("--task-provider"); ap.add_argument("--role"); a = ap.parse_args()
+    ap = argparse.ArgumentParser(); ap.add_argument("--root", default="."); ap.add_argument("--resolve", nargs=2, metavar=("ROLE", "PROVIDER")); ap.add_argument("--exclude", action="append", default=[]); ap.add_argument("--check-config"); ap.add_argument("--step0", action="store_true"); ap.add_argument("--config"); ap.add_argument("--path-dir", action="append", default=[]); ap.add_argument("--lever"); ap.add_argument("--task-provider"); ap.add_argument("--role"); ap.add_argument("--project"); a = ap.parse_args()
     root, excluded = Path(a.root), {}
     for exclusion in a.exclude:
         provider, _, model = exclusion.partition(":"); excluded.setdefault(provider, set()).add(model)
@@ -297,8 +318,12 @@ def main():
                 else:
                     print(f"provider: {chosen}")
                     if role_tier_lane:
-                        order = candidate_order(rows_by_id.get(chosen, []), *role_tier_lane, excluded.get(chosen, set()))
-                        if not order: find(f"no eligible model for {role_tier_lane} in {chosen}")
+                        layer, layer_path, layer_rows = resolve_models(chosen, root, a.project)
+                        if layer is None and not findings: layer_rows = rows_by_id.get(chosen, [])
+                        elif layer_path is not None: print(f"layer: {layer} path={layer_path.resolve()}")
+                        order = candidate_order(layer_rows, *role_tier_lane, excluded.get(chosen, set()))
+                        if not order and layer in ("env", "project", "user"): find(f"no eligible model for {role_tier_lane} in {chosen} — override at {layer_path} does not cover {role_tier_lane}")
+                        elif not order: find(f"no eligible model for {role_tier_lane} in {chosen}")
                         else: print(f"model: {order[0]['model']} (P{order[0]['prio']}); fallback: {', '.join(row['model'] for row in order)}")
                     ready = manifests[chosen].get("readiness-argv") or manifests[chosen]["version-argv"]; rc, _ = run_argv(ready, a.path_dir, int(manifests[chosen].get("readiness-timeout-seconds", 30)))
                     if rc != 0: find(f"provider not ready: {chosen} (exit {rc})")
@@ -308,8 +333,12 @@ def main():
         if not tier_lane: find(f"unknown role: {role}")
         elif provider not in rows_by_id: find(f"unknown provider: {provider}")
         else:
-            order = candidate_order(rows_by_id[provider], *tier_lane, excluded.get(provider, set()))
+            layer, layer_path, rows = resolve_models(provider, root, a.project)
+            if layer is None and not findings: layer, layer_path, rows = "default", None, rows_by_id[provider]
+            if layer_path is not None: print(f"layer: {layer} path={layer_path.resolve()}")
+            order = candidate_order(rows, *tier_lane, excluded.get(provider, set()))
             if order: print(f"{role} -> {tier_lane} -> {order[0]['model']} (P{order[0]['prio']}, {order[0]['status']}); fallback order: {', '.join(row['model'] for row in order)}")
+            elif layer in ("env", "project", "user"): find(f"no eligible model for {tier_lane} in {provider} — override at {layer_path} does not cover {tier_lane}")
             else: find(f"no eligible model for {tier_lane} in {provider}")
     for finding in findings: print(finding)
     return 1 if findings else 0

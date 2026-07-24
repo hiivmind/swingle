@@ -121,3 +121,54 @@ def test_yaml_eligible_md_row_guard(tmp_path):
         "\n| cheapest | any | 9 | sneaky-model | verified | - | drift |\n")
     r = run("--root", str(root))
     assert r.returncode == 1 and "eligible-row guard" in r.stdout
+
+import os
+
+def run_env(*args, **env):
+    e = dict(os.environ, XDG_CONFIG_HOME=str(FIX / "no-such-xdg"))
+    e.pop("SDD_DISPATCH_MODELS", None)
+    e.update(env)
+    return subprocess.run([sys.executable, str(SCRIPT), *args], capture_output=True, text=True, env=e)
+
+def test_resolve_default_layer_line():
+    r = run_env("--root", str(FIX / "good-yaml"), "--resolve", "per-task reviewer", "alpha")
+    assert r.returncode == 0
+    assert "layer: default path=" in r.stdout and "models.yaml" in r.stdout
+
+def test_resolve_project_layer_wins():
+    r = run_env("--root", str(FIX / "good-yaml"), "--resolve", "per-task reviewer", "alpha",
+                "--project", str(FIX / "proj-override"))
+    assert r.returncode == 0
+    assert "layer: project path=" in r.stdout and "project-review-model" in r.stdout
+
+def test_resolve_env_layer_beats_project(tmp_path):
+    env_dir = tmp_path / "envmodels"; env_dir.mkdir()
+    (env_dir / "alpha.yaml").write_text(
+        "schema: 1\nprovider: alpha\nmodels:\n"
+        "  - tier: standard\n    lane: review\n    priority: 1\n"
+        "    model: env-review-model\n    status: experimental\n")
+    r = run_env("--root", str(FIX / "good-yaml"), "--resolve", "per-task reviewer", "alpha",
+                "--project", str(FIX / "proj-override"), SDD_DISPATCH_MODELS=str(env_dir))
+    assert r.returncode == 0
+    assert "layer: env path=" in r.stdout and "env-review-model" in r.stdout
+
+def test_env_layer_unreadable_stops(tmp_path):
+    r = run_env("--root", str(FIX / "good-yaml"), "--resolve", "per-task reviewer", "alpha",
+                SDD_DISPATCH_MODELS=str(tmp_path / "missing-dir"))
+    assert r.returncode == 1 and "SDD_DISPATCH_MODELS" in r.stdout
+
+def test_override_not_covering_slot_asks_with_path(tmp_path):
+    proj = tmp_path / "proj"; (proj / ".sdd-dispatch" / "models").mkdir(parents=True)
+    (proj / ".sdd-dispatch" / "models" / "alpha.yaml").write_text(
+        "schema: 1\nprovider: alpha\nmodels: []\n")
+    r = run_env("--root", str(FIX / "good-yaml"), "--resolve", "per-task reviewer", "alpha",
+                "--project", str(proj))
+    assert r.returncode == 1
+    assert "no eligible model" in r.stdout and "does not cover" in r.stdout
+
+def test_malformed_override_stops_never_falls_through(tmp_path):
+    proj = tmp_path / "proj"; (proj / ".sdd-dispatch" / "models").mkdir(parents=True)
+    (proj / ".sdd-dispatch" / "models" / "alpha.yaml").write_text("models: {broken\n")
+    r = run_env("--root", str(FIX / "good-yaml"), "--resolve", "per-task reviewer", "alpha",
+                "--project", str(proj))
+    assert r.returncode == 1 and "layer: default" not in r.stdout

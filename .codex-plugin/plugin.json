@@ -1,6 +1,6 @@
 {
   "name": "sdd-dispatch",
-  "version": "1.6.1",
+  "version": "1.7.0",
   "description": "Subagent-driven development via external CLIs (codex/opencode/agy/grok): token-efficient plan execution plus the verified provider-pack knowledge base that makes dispatch safe.",
   "author": {
     "name": "Nathaniel Ramm"

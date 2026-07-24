@@ -3,18 +3,18 @@
 ![sdd-dispatch hero banner](docs/images/hero-banner.jpg)
 
 Standalone harness-neutral plugin for subagent-driven development via external
-CLIs (codex / opencode / agy / grok): token-efficient plan execution plus the verified
+CLIs (codex / opencode / agy / grok / pi): token-efficient plan execution plus the verified
 knowledge base that makes dispatch safe.
 
 Everything is self-contained. The `sdd` skill and provider packs are discovered
 from this repository; no machine-specific paths are required.
 
-**Version:** 1.6.0
+**Version:** 1.7.0
 
 ## Install with Claude Code
 
 Requires the `superpowers` plugin and whichever dispatch CLIs you use on PATH
-(`codex`, `opencode`, `agy`, `grok`), each authenticated once interactively.
+(`codex`, `opencode`, `agy`, `grok`, `pi`), each authenticated once interactively.
 
 ```text
 /plugin marketplace add discreteds/sdd-dispatch-plugin
@@ -37,6 +37,75 @@ Manual alternative
 (clone + symlink into `$HOME/.agents/skills/`) and full details:
 [codex/INSTALL.md](codex/INSTALL.md). The Codex entry point is `skills/sdd/SKILL.md`.
 
+## Install with opencode
+
+opencode has no Claude Code plugin loader — its `plugin` config key takes npm packages
+and local `.ts` modules only. Plugins reach opencode as **skills trees** instead, which
+costs this repository nothing: it ships skills exclusively (no commands, agents, or
+hooks). Skills register under their bare frontmatter names (`sdd`, `delegate`,
+`sdd-dispatch-verify`); opencode has no plugin namespace and dedupes by name, so install
+by exactly one of the routes below.
+
+### Route A — expose every installed Claude Code plugin (recommended)
+
+If you already run this plugin under Claude Code, the whole plugin set can be handed to
+opencode at once. Generate version-pinned `skills.paths` entries from Claude Code's own
+install registry:
+
+```bash
+scripts/opencode-skills-path --merge ~/.config/opencode/opencode.json   # global
+scripts/opencode-skills-path --merge ./opencode.json                    # per-project
+```
+
+Run it again after installing, updating, or removing a Claude Code plugin.
+
+**Do not shortcut this by pointing `skills.paths` at `~/.claude/plugins/cache` directly.**
+That directory retains every version ever installed (`cache/<marketplace>/<plugin>/<version>/`),
+and because opencode dedupes by skill name it will silently register an arbitrary version
+per skill — including mismatched versions within a single plugin. Observed on a real
+machine: the bare cache path loaded `sdd` 1.0.0 next to `delegate` 1.5.0, and superpowers
+6.0.3 while 6.1.1 was the installed version. The script reads `installed_plugins.json` and
+emits only the pinned `installPath` of each installed plugin, which resolves all three
+correctly.
+
+### Route B — this plugin alone, from a checkout
+
+For a source checkout (or if you do not use Claude Code at all), point `skills.paths` at
+the repository's `skills/` directory in `~/.config/opencode/opencode.json` (global) or
+`./opencode.json` (per-project). Entries are scanned recursively for `**/SKILL.md`; `~/`
+is expanded and relative paths resolve against the working directory.
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "skills": {
+    "paths": ["~/src/sdd-dispatch-plugin/skills"]
+  }
+}
+```
+
+A symlink into `~/.claude/skills/` works too — opencode scans Claude Code's skill
+directories by default — but it has two drawbacks Route B avoids: the compat scan is
+switched off by `OPENCODE_DISABLE_EXTERNAL_SKILLS` / `OPENCODE_DISABLE_CLAUDE_CODE`, and
+skill locations are reported *through* the symlink, so the asset-root derivation in
+[skills/sdd/harnesses/opencode.md](skills/sdd/harnesses/opencode.md) must resolve the
+physical path before it can find `core/` and `providers/`.
+
+### After either route
+
+Restart opencode and confirm the skills are registered before first use:
+
+```bash
+opencode debug skill | grep -E '"name": "(sdd|delegate|sdd-dispatch-verify)"'
+```
+
+`sdd` wraps `superpowers:subagent-driven-development`, so superpowers must be reachable by
+the same route (Route A covers it automatically). Dispatch CLIs (`codex`, `opencode`,
+`agy`, `grok`, `pi`) must be on PATH and authenticated once interactively, as with the other
+harnesses. Harness-specific behaviour — the missing shell background mode, the
+`subagent_depth` cap, and session-id attribution when opencode dispatches its own pack —
+is documented in [skills/sdd/harnesses/opencode.md](skills/sdd/harnesses/opencode.md).
+
 ## Layout
 
 ```
@@ -51,6 +120,7 @@ archive/v1.1/                      # verbatim legacy references
 references/                        # v1.1 tombstones with migration links
 scripts/validate-packs             # pack validator and resolver
 scripts/codex-smoke                # Codex layout and validator smoke test
+scripts/opencode-skills-path       # opencode skills.paths from installed Claude Code plugins
 ```
 
 ## Skills

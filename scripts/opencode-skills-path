@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+# Emit the `skills.paths` entries that expose every INSTALLED Claude Code plugin
+# to opencode, version-pinned from ~/.claude/plugins/installed_plugins.json.
+#
+# Why not just point skills.paths at ~/.claude/plugins/cache: that directory keeps
+# every version ever installed (cache/<marketplace>/<plugin>/<version>/). opencode
+# dedupes skills by name, so a bare cache path silently registers an arbitrary
+# version per skill — and can mix versions within one plugin (observed: sdd 1.0.0
+# alongside delegate 1.5.0, superpowers 6.0.3 while 6.1.1 was installed).
+#
+# Usage:
+#   scripts/opencode-skills-path              # print the JSON path array
+#   scripts/opencode-skills-path --merge FILE # merge into an opencode.json in place
+set -euo pipefail
+
+MODE=print
+TARGET=""
+case "${1:-}" in
+  --merge)
+    MODE=merge
+    TARGET="${2:?--merge requires a path to an opencode.json}"
+    ;;
+  "") ;;
+  *) echo "usage: $0 [--merge <opencode.json>]" >&2; exit 2 ;;
+esac
+
+MODE="$MODE" TARGET="$TARGET" python3 - <<'PY'
+import json, os, sys
+
+mode = os.environ["MODE"]
+target = os.environ["TARGET"]
+src = os.path.expanduser("~/.claude/plugins/installed_plugins.json")
+
+if not os.path.isfile(src):
+    sys.exit(f"no Claude Code plugin registry at {src}")
+
+registry = json.load(open(src))
+paths = sorted(
+    {
+        entry["installPath"]
+        for entries in registry.get("plugins", {}).values()
+        for entry in entries
+        if entry.get("installPath") and os.path.isdir(entry["installPath"])
+    }
+)
+if not paths:
+    sys.exit("no installed plugins found")
+
+if mode == "print":
+    print(json.dumps(paths, indent=2))
+    sys.exit(0)
+
+config = {}
+if os.path.isfile(target) and os.path.getsize(target):
+    config = json.load(open(target))
+config.setdefault("$schema", "https://opencode.ai/config.json")
+skills = config.setdefault("skills", {})
+cache_root = os.path.expanduser("~/.claude/plugins/cache")
+existing = [p for p in skills.get("paths", []) if not os.path.expanduser(p).startswith(cache_root)]
+skills["paths"] = existing + paths
+with open(target, "w") as fh:
+    json.dump(config, fh, indent=2)
+    fh.write("\n")
+print(f"wrote {len(paths)} plugin paths to {target}")
+PY

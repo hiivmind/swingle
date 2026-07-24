@@ -1,12 +1,18 @@
 ---
 name: sdd
-description: Execute an implementation plan via subagent-driven development with external-CLI dispatch (codex/opencode/agy/grok). Use whenever executing a written plan with SDD — wraps superpowers:subagent-driven-development and applies the external-dispatch optimizations mechanically. Triggers: "run this plan with SDD", "/sdd", "execute the plan via subagents", the Standard Delivery Flow reaching its execute step.
+description: >-
+  Execute an implementation plan via subagent-driven development with
+  external-CLI dispatch (codex/opencode/agy/grok/pi). Use whenever executing a
+  written plan with SDD — wraps superpowers:subagent-driven-development and
+  applies the external-dispatch optimizations mechanically. Triggers: "run this
+  plan with SDD", "/sdd", "execute the plan via subagents", the Standard
+  Delivery Flow reaching its execute step.
 ---
 
 # SDD with Provider Packs
 
 **Harness**: identify your controlling harness and read `harnesses/<harness>.md`
-(claude-code, codex, grok) before Step 0 — it maps skill-loading, native subagent
+(claude-code, codex, grok, opencode, pi) before Step 0 — it maps skill-loading, native subagent
 dispatch, task tracking, background jobs, and asset-root resolution. All paths below
 are relative to the plugin tree root `<root>` (the directory containing `skills/`,
 `core/`, `providers/`).

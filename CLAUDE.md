@@ -1,6 +1,6 @@
 # CLAUDE.md — sdd-dispatch plugin
 
-Harness-neutral plugin for SDD execution via external CLIs (codex / opencode / agy / grok).
+Harness-neutral plugin for SDD execution via external CLIs (codex / opencode / agy / grok / pi).
 This repository is simultaneously a **Claude Code plugin** (`.claude-plugin/`), a
 **Codex plugin** (`.codex-plugin/` + `.agents/plugins/marketplace.json`), and a plain
 skills tree — treat all three distribution surfaces as first-class.
@@ -91,9 +91,13 @@ commit doc fixes directly to `main`: that exception is withdrawn, because the ru
 enforces the PR path and a documented exception that only an admin bypass can satisfy is
 worse than no exception at all.
 
-- Any change: `feature/*` / `bugfix/*` / `docs/*` / `chore/*` branch → PR to `main` →
-  merge on the owner's instruction. `main` also blocks force-pushes, deletion, and
-  non-linear history; conversation resolution is required.
+- **`develop` is the integration branch (adopted 2026-07-24).** Any change:
+  `feature/*` / `bugfix/*` / `docs/*` / `chore/*` branch → PR to `develop` → merge on the
+  owner's instruction. Releases go `develop` → `release/*` → PR to `main` → tag.
+- `main` remains protected and release-only: it blocks force-pushes, deletion, and
+  non-linear history; conversation resolution is required. The ruleset currently protects
+  `main` only — `develop` has no equivalent ruleset yet, so branch protection there is
+  convention, not enforcement, until an admin adds one.
 - The ruleset lists **repo admin as a bypass actor**, so a direct push to `main` will
   succeed for the owner. That is an emergency escape hatch, not the flow — using it
   silently reintroduces the conflict this section exists to remove.

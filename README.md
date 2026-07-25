@@ -14,8 +14,9 @@ one you have already installed and authenticated.
 
 The name: a *swingletree* is the pivoting crossbar in a draught harness that spreads one load
 across more than one animal. Swingle spreads coding work across the agent CLIs you already
-run, sending each task to a suitable harness and model tier instead of running everything on
-one premium model.
+run. That buys two things your harness's own subagents cannot: another provider's frontier
+model for a second opinion or an independent review, and delegation to a model whose tokens
+come out of a different quota than the harness you are driving.
 
 **Version:** 2.0.3 · [v2.0.0 release](https://github.com/hiivmind/swingle/releases/tag/v2.0.0)
 

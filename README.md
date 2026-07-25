@@ -86,10 +86,6 @@ The ledger records every dispatch — role, harness, model, session id, and retu
 model-attempt: job=002 phase=worker attempt=1 role=transcription-implementer provider=grok model=grok-4.5 class=scope outcome=ok
 ```
 
-This repository's hero banner came from one such fan-out run: jobs `005` (agy) and `006`
-(grok) each produced two SVG concepts, which were then iterated and merged; the run is
-recorded in `.sdd-dispatch/delegate/`.
-
 ## Scope
 
 Swingle is not an LLM router or a model-endpoint aggregator. A router hands you an endpoint

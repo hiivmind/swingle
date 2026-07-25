@@ -1,13 +1,13 @@
 {
-  "name": "sdd-dispatch-marketplace",
+  "name": "swingle-marketplace",
   "owner": {
     "name": "Nathaniel Ramm"
   },
   "plugins": [
     {
-      "name": "sdd-dispatch",
+      "name": "swingle",
       "source": "./",
-      "description": "SDD execution via external CLIs with verified dispatch knowledge base"
+      "description": "Local harness-to-harness dispatch with model tiering and a verified dispatch knowledge base"
     }
   ]
 }

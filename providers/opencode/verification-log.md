@@ -83,3 +83,11 @@ same-day on the smoke2 repo. **Rejected for both lanes.**
 - **Data caveat (Zen docs):** free tier is "trial use only"; prompts logged and may be
   used to improve NVIDIA products/services — disqualifying for proprietary code even if
   quality were good. Applies presumptively to all `-free` tiers.
+
+## 2026-07-25 — plugin renamed to Swingle (v2.0.0)
+
+The plugin `sdd-dispatch` is renamed `swingle` at v2.0.0 (`sdd-dispatch-marketplace` →
+`swingle-marketplace`, skill `sdd-dispatch-verify` → `swingle-verify`, repository →
+`discreteds/swingle`). Entries above predate the rename and keep the old names as
+historical record. No pack facts or probe results changed in this release.
+

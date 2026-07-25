@@ -46,3 +46,11 @@ fix → verify → residual finding → verify), each round citing its own prior
 Session id from exec output; overrides passed as `-c` keys only (see resume prose above).
 Verdict continuity held — the resumed reviewer confirmed or narrowed its own findings
 rather than re-deriving the review.
+
+## 2026-07-25 — plugin renamed to Swingle (v2.0.0)
+
+The plugin `sdd-dispatch` is renamed `swingle` at v2.0.0 (`sdd-dispatch-marketplace` →
+`swingle-marketplace`, skill `sdd-dispatch-verify` → `swingle-verify`, repository →
+`discreteds/swingle`). Entries above predate the rename and keep the old names as
+historical record. No pack facts or probe results changed in this release.
+

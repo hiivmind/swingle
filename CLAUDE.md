@@ -1,4 +1,4 @@
-# CLAUDE.md — sdd-dispatch plugin
+# CLAUDE.md — swingle plugin
 
 Harness-neutral plugin for SDD execution via external CLIs (codex / opencode / agy / grok / pi / claude).
 This repository is simultaneously a **Claude Code plugin** (`.claude-plugin/`), a
@@ -48,7 +48,7 @@ because the shell used `;`. The gate is a precondition, not a preceding step.
 - **Pack facts changed ⇒ bump the plugin patch version** and keep `plugin.json`,
   `.codex-plugin/plugin.json`, and the README `**Version:**` line in sync.
 - **On any CLI version bump**: read the pack's `Changelog` row FIRST (verify skill step
-  2b), then re-verify with `sdd-dispatch-verify <id>`. Never assume permission or sandbox
+  2b), then re-verify with `swingle-verify <id>`. Never assume permission or sandbox
   behavior survived a patch release — agy has flipped permission behavior on every one.
 - `verified-version` in a pack manifest is stamped only by live end-to-end dispatch
   evidence, recorded in that pack's verification log.
@@ -67,7 +67,7 @@ The three skills and what they own:
 | --- | --- |
 | `sdd` | executing a written multi-task plan (task reviews, ledger, final review) |
 | `delegate` | an explicitly requested one-off job or homogeneous batch — no plan, no superpowers dependency; workspace `.sdd-dispatch/delegate/` |
-| `sdd-dispatch-verify` | re-probing a CLI on version bumps and model releases |
+| `swingle-verify` | re-probing a CLI on version bumps and model releases |
 
 `delegate` must stay free of any *operational* superpowers dependency: it never invokes a
 superpowers skill, never runs `scripts/sdd-workspace`, and never touches `.superpowers/`.

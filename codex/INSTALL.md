@@ -12,19 +12,19 @@ and hosts its own marketplace (`.agents/plugins/marketplace.json`). Add the mark
 then install from the plugin browser:
 
 ```bash
-codex plugin marketplace add discreteds/sdd-dispatch-plugin
-codex plugin add sdd-dispatch@sdd-dispatch-marketplace
+codex plugin marketplace add discreteds/swingle
+codex plugin add swingle@swingle-marketplace
 ```
 
 (Verified end-to-end 2026-07-23 on codex 0.144.3: the plugin installs to
-`~/.codex/plugins/cache/<marketplace>/sdd-dispatch/<version>/` with the full repository —
+`~/.codex/plugins/cache/<marketplace>/swingle/<version>/` with the full repository —
 `core/`, `providers/`, `contracts/` ship beside `skills/`, so root resolution works
 unchanged.) Alternatively install from the `/plugins` browser in a session. Start a new
 session before using the bundled skills. Refresh later with:
 
 ```bash
-codex plugin marketplace upgrade sdd-dispatch-marketplace
-codex plugin add sdd-dispatch@sdd-dispatch-marketplace
+codex plugin marketplace upgrade swingle-marketplace
+codex plugin add swingle@swingle-marketplace
 ```
 
 The plugin bundles the whole repository, so the `sdd` skill's sibling directories
@@ -38,15 +38,15 @@ The `sdd` skill requires its sibling directories; copying only `SKILL.md` is uns
 Clone and symlink — the followed symlink preserves the physical sibling layout:
 
 ```bash
-git clone https://github.com/discreteds/sdd-dispatch-plugin "$HOME/src/sdd-dispatch-plugin"
+git clone https://github.com/discreteds/swingle "$HOME/src/swingle"
 mkdir -p "$HOME/.agents/skills"
-ln -s "$HOME/src/sdd-dispatch-plugin/skills/sdd" "$HOME/.agents/skills/sdd"
-ln -s "$HOME/src/sdd-dispatch-plugin/skills/sdd-dispatch-verify" "$HOME/.agents/skills/sdd-dispatch-verify"
+ln -s "$HOME/src/swingle/skills/sdd" "$HOME/.agents/skills/sdd"
+ln -s "$HOME/src/swingle/skills/swingle-verify" "$HOME/.agents/skills/swingle-verify"
 ```
 
 If a target link already exists, inspect it first; replace it only when it is an obsolete
 registration for this skill. Restart Codex. Update with
-`git -C "$HOME/src/sdd-dispatch-plugin" pull`. For project scoping, symlink under a
+`git -C "$HOME/src/swingle" pull`. For project scoping, symlink under a
 repository's `.agents/skills/` instead.
 
 > Older drafts of these instructions referenced `${CODEX_HOME:-$HOME/.codex}/skills`; the

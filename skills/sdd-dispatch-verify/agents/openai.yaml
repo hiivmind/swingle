@@ -1,7 +1,0 @@
-interface:
-  display_name: "SDD Dispatch Verify"
-  short_description: "Re-verify one SDD dispatch provider pack (or all active packs) against live CLI behavior after a version bump, model release, or anomaly."
-  default_prompt: "Re-verify the named provider pack with sdd-dispatch-verify."
-
-policy:
-  allow_implicit_invocation: false

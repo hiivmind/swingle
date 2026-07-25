@@ -274,3 +274,7 @@ scripts/opencode-skills-path      # opencode skills.paths from installed Claude 
 archive/                          # superseded v1.x pack snapshots (historical)
 references/                       # cross-harness reference material
 ```
+
+## License
+
+[MIT](LICENSE) © 2026 Nathaniel Ramm

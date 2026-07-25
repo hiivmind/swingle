@@ -16,7 +16,8 @@
 - **Branding:** swingletree / draught-harness concept only. Tagline **"share the load."** The "Greedy Cup" doctrine and the milkshake epigraph are dropped (owner decision 2026-07-25) — do not add them.
 - **Vocabulary in new prose:** "harness" (unit of dispatch), "dispatch" (not "route"), "local dispatch, no proxy, no key custody" (not "gateway"/"upstream"). `llm-router`/`llm-gateway` appear in manifest keywords ONLY, never prose. Physical paths (`providers/<id>/`, manifest field names) do NOT change.
 - **Every commit:** `python3 scripts/validate-packs --root . && ./scripts/codex-smoke && git commit ...` — chained with `&&`, never `;`.
-- Version `2.0.0` must appear in `.claude-plugin/plugin.json`, `.codex-plugin/plugin.json`, AND the README `**Version:**` line in the SAME commit (the validator enforces sync — Task 1 does all three).
+- Version `2.0.0` must appear in `.claude-plugin/plugin.json`, `.codex-plugin/plugin.json`, AND the README `**Version:**` line in the SAME commit. The validator today syncs only `.claude-plugin/plugin.json` ↔ README; Task 1 Step 5b extends it to `.codex-plugin/plugin.json` so all three are enforced.
+- **Release prerequisite (not in this PR):** the GitHub repo rename to `discreteds/swingle` (W6) MUST happen before the v2.0.0 release to `main` — docs written in this PR reference the new URL ahead of it, and until the rename lands that URL 404s. Merging this PR to `develop` is fine; releasing is not.
 
 ---
 
@@ -143,6 +144,21 @@
 
 - [ ] **Step 5: In `README.md` change line 12** `**Version:** 1.9.2` → `**Version:** 2.0.0`. Touch nothing else in the README.
 
+- [ ] **Step 5b: Extend the validator's version-sync check to the Codex manifest.** In `scripts/validate-packs`, `check_repo_docs` (line 209) currently reads only `.claude-plugin/plugin.json` and the README. Replace its first four lines with:
+
+```python
+def check_repo_docs(root):
+    plugin, readme = root / ".claude-plugin" / "plugin.json", root / "README.md"
+    codex_plugin = root / ".codex-plugin" / "plugin.json"
+    plugin_version = json.loads(plugin.read_text()).get("version") if plugin.exists() else None
+    codex_version = json.loads(codex_plugin.read_text()).get("version") if codex_plugin.exists() else None
+    match = re.search(r"\*\*Version:\*\*\s*([0-9.]+)", readme.read_text()) if readme.exists() else None
+    if plugin_version and match and plugin_version != match.group(1): find(f"version mismatch: plugin.json {plugin_version} != README {match.group(1)}")
+    if plugin_version and codex_version and plugin_version != codex_version: find(f"version mismatch: .claude-plugin {plugin_version} != .codex-plugin {codex_version}")
+```
+
+(Everything from the `banned = re.compile(...)` line down is unchanged.) The gate run in Step 6 proves the extended check passes with the new manifests.
+
 - [ ] **Step 6: Gate + tests + commit**
 
 ```bash
@@ -172,7 +188,7 @@ Expected: gate PASS lines, pytest all green. If the validator complains about a 
 
 - [ ] **Step 2: Edit `skills/swingle-verify/SKILL.md`:**
   - Frontmatter `name: sdd-dispatch-verify` → `name: swingle-verify`.
-  - Frontmatter description: `Re-verify one SDD dispatch provider pack, or all active packs,` → `Re-verify one Swingle provider pack, or all active packs,` (rest of the sentence unchanged).
+  - Frontmatter description: `Re-verify one SDD dispatch provider pack, or all active packs,` → `Re-verify one Swingle harness pack, or all active packs,` (rest of the sentence unchanged — "harness" is the locked vocabulary; `providers/<id>/` stays as the physical path only).
   - Title `# SDD Dispatch Verification` → `# Swingle Verification`.
   - Line 35: `the repo for \`https://github.com/discreteds/sdd-dispatch-plugin\`` → `the repo for \`https://github.com/discreteds/swingle\``.
   - Lines 39–40: `codex plugin marketplace upgrade sdd-dispatch-marketplace` → `codex plugin marketplace upgrade swingle-marketplace`; `codex plugin add sdd-dispatch@sdd-dispatch-marketplace` → `codex plugin add swingle@swingle-marketplace`.
@@ -184,8 +200,8 @@ Expected: gate PASS lines, pytest all green. If the validator complains about a 
 ```yaml
 interface:
   display_name: "Swingle Verify"
-  short_description: "Re-verify one Swingle provider pack (or all active packs) against live CLI behavior after a version bump, model release, or anomaly."
-  default_prompt: "Re-verify the named provider pack with swingle-verify."
+  short_description: "Re-verify one Swingle harness pack (or all active packs) against live CLI behavior after a version bump, model release, or anomaly."
+  default_prompt: "Re-verify the named harness pack with swingle-verify."
 
 policy:
   allow_implicit_invocation: false
@@ -575,24 +591,38 @@ repositions; it does **not** alter dispatch behaviour, state layout, or config p
 Bring this checklist to any repo or machine that installed the plugin as
 `sdd-dispatch`; an agent (or human) there can execute it directly.
 
-1. **Re-point the plugin source.** The install cache is keyed on the old marketplace
-   name, so upgrade-in-place does not work — remove and re-add:
-   - Claude Code: `/plugin uninstall sdd-dispatch@sdd-dispatch-marketplace`, remove the
-     old marketplace, then `/plugin marketplace add discreteds/swingle` and
+> **Timing:** run this guide only after the upstream repository rename
+> (`discreteds/sdd-dispatch-plugin` → `discreteds/swingle`) has happened — it is a
+> release prerequisite for v2.0.0. Before then the new URL does not resolve; afterwards
+> the old URL 301-redirects.
+
+1. **Remove the v1 install FIRST, then add the v2 source.** The old and new plugins
+   both export `sdd` and `delegate`, so letting them coexist creates duplicate skill
+   registrations with ambiguous discovery — and the install cache is keyed on the old
+   marketplace name, so upgrade-in-place does not work. Order matters: remove, then add.
+   (Subcommand spellings below are from Claude Code 2.x / Codex 0.145; confirm against
+   `--help` if your version differs — the remove-before-add ordering is the requirement.)
+   - Claude Code: `/plugin uninstall sdd-dispatch@sdd-dispatch-marketplace`, then
+     `/plugin marketplace remove sdd-dispatch-marketplace`, then
+     `/plugin marketplace add discreteds/swingle` and
      `/plugin install swingle@swingle-marketplace`.
-   - Codex: `codex plugin marketplace add discreteds/swingle` then
-     `codex plugin add swingle@swingle-marketplace`; the stale
-     `sdd-dispatch-marketplace` entry can be removed at leisure.
+   - Codex: `codex plugin remove sdd-dispatch@sdd-dispatch-marketplace`, then
+     `codex plugin marketplace remove sdd-dispatch-marketplace`, then
+     `codex plugin marketplace add discreteds/swingle` and
+     `codex plugin add swingle@swingle-marketplace`.
    - opencode Route A: rerun `scripts/opencode-skills-path --merge <config>` after the
-     Claude Code reinstall. Route B / pi / symlink installs: update the checkout
+     Claude Code remove/reinstall. Route B / pi / symlink installs: update the checkout
      (`git pull` — the remote 301-redirects) and re-point any symlink named
      `sdd-dispatch-verify` at `skills/swingle-verify`.
 2. **Update local invocation references.** In the workspace's CLAUDE.md / AGENTS.md /
    settings, replace `/sdd-dispatch-verify` with `/swingle-verify`. Leave `/sdd`,
    `/delegate`, and every `.sdd-dispatch/` path exactly as they are.
-3. **Update pinned URLs.** Git remotes keep working via the 301, but move pins to
-   `https://github.com/discreteds/swingle`
-   (`git remote set-url origin https://github.com/discreteds/swingle`).
+3. **Update pinned URLs — inspect before rewriting.** Git remotes keep working via the
+   301, but pins should move to `https://github.com/discreteds/swingle`. Run
+   `git remote -v` first and rewrite **only** a remote whose URL is the old upstream
+   (`discreteds/sdd-dispatch-plugin`, with or without `.git`). In a fork checkout,
+   `origin` is your fork — leave it alone and update (or add) the `upstream` remote
+   instead. Never blanket-rewrite `origin`.
 4. **Verify.** Confirm `.sdd-dispatch/` contents are untouched, then run one live
    dispatch round (or `swingle-verify <id>` for a pack you use) to confirm the new
    install resolves packs.
@@ -613,7 +643,7 @@ historical record. No pack facts or probe results changed in this release.
 - [ ] **Step 3: `docs/rename-to-swingle.md`** — change the status block (lines 3–5) to:
 
 ```markdown
-**Status:** W1–W5 shipped in v2.0.0 (2026-07-25); W6 (repo rename + external refs) and W7 (visual identity) outstanding
+**Status:** W1–W5 implemented in v2.0.0 (2026-07-25), pending release; W6 (repo rename — a release prerequisite — + external refs) and W7 (visual identity) outstanding
 **Decided:** 2026-07-23
 **Target version:** v2.0.0 (breaking — plugin identity changes)
 ```
@@ -642,21 +672,33 @@ git commit -m "docs: v2.0.0 self-migration guide, rename log entries, backlog st
 
 **Files:** none expected — this task verifies and only edits if the sweep finds a straggler.
 
-- [ ] **Step 1: Residual-name sweep**
+- [ ] **Step 1: Residual-name sweep — tracked content only.** Plain `grep -r` cannot pass
+here: the working tree carries hundreds of git-ignored agent artifacts
+(`.superpowers/`, `.sdd-dispatch/`) full of old product names. Sweep what the PR
+actually ships — tracked files — with `git grep`:
 
 ```bash
-grep -rIn --exclude-dir=.git --exclude-dir=archive 'sdd-dispatch\|sdd_dispatch\|SDD Dispatch' . \
-  | grep -v '^\./docs/sol-' \
-  | grep -v '^\./docs/migration-' \
-  | grep -v '^\./docs/rename-to-swingle.md' \
-  | grep -v '^\./docs/superpowers/' \
-  | grep -v 'verification-log.md' \
+git grep -nI -e 'sdd-dispatch' -e 'sdd_dispatch' -e 'SDD Dispatch' -- \
+  ':(exclude)archive/**' \
+  ':(exclude)docs/sol-*' \
+  ':(exclude)docs/migration-*' \
+  ':(exclude)docs/rename-to-swingle.md' \
+  ':(exclude)docs/superpowers/**' \
+  ':(exclude)*verification-log.md' \
   | grep -v '\.sdd-dispatch' \
   | grep -v 'config}/sdd-dispatch\|xdg" / "sdd-dispatch\|"sdd-dispatch" / "models\|Path(xdg) / "sdd-dispatch' \
   || echo SWEEP-CLEAN
 ```
 
-Expected: `SWEEP-CLEAN`. Any surviving line is a missed rename — fix it per Rule 0 and re-run. (The `verification-log.md` exclusion is safe: Task 5 appended the only new content those files get; their remaining hits are historical entries and H1 identity lines, both allowed.)
+Expected: `SWEEP-CLEAN`. Any surviving line is a missed rename — fix it per Rule 0 and re-run. The exclusions are exactly the allowed set: historical artefacts, the migration docs (whose old-name mentions are their content), verification logs (historical entries + H1 identity lines, plus Task 5's appended entry which names the old names deliberately), and the two filter lines for deliberately-kept state/config paths (`.gitignore`'s `.sdd-dispatch/` line included).
+
+Then separately confirm the NEW migration guide says what it must — both names, correct direction:
+
+```bash
+grep -c 'sdd-dispatch' docs/migration-2.0.0.md && grep -c 'swingle' docs/migration-2.0.0.md
+```
+
+Expected: both counts ≥ 5 (the guide maps old → new; a guide missing either vocabulary is broken).
 
 - [ ] **Step 2: Confirm the state-dir strings survived UNCHANGED** (renaming them would be a behaviour break):
 
@@ -696,6 +738,8 @@ Renames sdd-dispatch → Swingle per docs/superpowers/specs/2026-07-25-rename-to
 - W5: validator docstring; tests untouched and green
 
 Out of scope: W6 (GitHub repo rename + external refs), W7 (visual identity), any behaviour change.
+
+**Release prerequisite:** the GitHub repo rename to discreteds/swingle (W6) must land before the v2.0.0 release to main — docs in this PR reference the new URL ahead of it.
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
 EOF

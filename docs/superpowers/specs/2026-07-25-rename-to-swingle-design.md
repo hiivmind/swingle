@@ -12,7 +12,10 @@
   outside-the-repo references) and W7 (visual identity) follow separately.
 - **Q2 (repo fate):** the GitHub repo will be **renamed in place** later —
   `discreteds/sdd-dispatch-plugin` → `discreteds/swingle`, relying on GitHub's 301.
-  Docs written in this PR name `discreteds/swingle` as the canonical URL.
+  Docs written in this PR name `discreteds/swingle` as the canonical URL. **The repo
+  rename is therefore a release prerequisite: it must land before v2.0.0 is released to
+  `main`** (merging this PR to `develop` is safe; until the rename, the new URL 404s —
+  reviewer finding, 2026-07-25).
 - **Q4 (sequencing):** resolved by events — the Grok work shipped as v1.6.0 and the repo
   is now at v1.9.2, so the rename lands as its own clean diff.
 - **Seed branch:** `develop` @ 993c620, confirmed by the owner.
@@ -67,13 +70,16 @@ can be brought to any v1 workspace — a repo whose tooling installed the plugin
 written as an executable checklist addressed to the consuming workspace, not prose about
 this repo:
 
-1. Re-point the plugin source: remove the stale `sdd-dispatch-marketplace` entry
-   (cache dir is keyed on the old name), add the marketplace from `discreteds/swingle`,
-   re-install the plugin as `swingle`.
+1. Re-point the plugin source — **remove the v1 install first, then add** (the old and
+   new plugins both export `sdd`/`delegate`, so coexistence duplicates skill
+   registrations; the cache dir is keyed on the old marketplace name): uninstall the v1
+   plugin, remove the stale `sdd-dispatch-marketplace` entry, add the marketplace from
+   `discreteds/swingle`, install `swingle`.
 2. Update local invocation references: `/sdd-dispatch-verify` → `/swingle-verify` in the
    workspace's CLAUDE.md / AGENTS.md / settings; `/sdd` and `/delegate` are unchanged.
-3. Update any pinned repo URLs (git remotes keep working via 301, but pins should move
-   to `discreteds/swingle`).
+3. Update any pinned repo URLs — inspect `git remote -v` first and rewrite only remotes
+   whose URL is the old upstream; in a fork checkout `origin` is the user's fork and
+   stays, with `upstream` updated instead. Never blanket-rewrite `origin`.
 4. Verify: `.sdd-dispatch/` state (ledgers, contracts, logs) is untouched and remains
    valid; a live dispatch round confirms the new install resolves packs.
 
@@ -108,8 +114,8 @@ re-install, explicit "no state-dir migration" statement.
    are append-only: each gets **one appended dated entry** noting the rename; no prior
    entry is edited.
 3. `docs/rename-to-swingle.md` itself has its Status line flipped to
-   "shipped in v2.0.0" in this PR and records the Q2/Q4 resolutions and the W3
-   amendment.
+   "implemented in v2.0.0, pending release" in this PR and records the Q2/Q4
+   resolutions and the W3 amendment; "shipped" waits for the release to `main`.
 
 ### Do NOT rewrite
 
@@ -118,8 +124,10 @@ docs, git history.
 
 ## W5 — Code, tests, CI
 
-- `scripts/validate-packs` (version-sync check must accept the new name),
-  `scripts/codex-smoke`, `scripts/sdd-models` (post-backlog addition).
+- `scripts/validate-packs` (version-sync check must accept the new name, and is
+  **extended** to also sync `.codex-plugin/plugin.json` — previously it compared only
+  `.claude-plugin/plugin.json` against the README, leaving Codex-manifest drift
+  undetected), `scripts/codex-smoke`, `scripts/sdd-models` (post-backlog addition).
 - `tests/test_delegate_skill.py`, `tests/test_validate_packs.py`.
 - `tests/fixtures/**` — checked for hardcoded product-name strings; fixtures are
   evidence artefacts and are not regenerated, only touched if a test's string
@@ -139,8 +147,9 @@ docs, git history.
 
 1. Full hard gate, chained: `python3 scripts/validate-packs --root . && ./scripts/codex-smoke`.
 2. `uv run --with pytest pytest tests/ -q` fully green.
-3. Residual-name sweep: `grep -rI 'sdd-dispatch\|sdd_dispatch\|SDD Dispatch'` returns
-   hits **only** in the allowed set — `archive/**`, `docs/sol-*.md`, dated migration
+3. Residual-name sweep over **tracked content** (`git grep` — a recursive filesystem
+   grep cannot pass, since git-ignored agent workspaces carry old names): hits land
+   **only** in the allowed set — `archive/**`, `docs/sol-*.md`, dated migration
    docs, dated `docs/superpowers/specs+plans/**` artefacts, verification-log historical
    entries, historical prose in `docs/rename-to-swingle.md` / this spec, and state/config
    paths that deliberately keep the old name (`.sdd-dispatch/`, `.sdd-dispatch.json`,

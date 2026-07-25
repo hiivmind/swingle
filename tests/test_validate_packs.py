@@ -5,6 +5,12 @@ ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "validate-packs"
 FIX = Path(__file__).parent / "fixtures"
 
+import importlib.machinery, importlib.util, io, contextlib
+loader = importlib.machinery.SourceFileLoader("validate_packs", str(SCRIPT))
+vp_spec = importlib.util.spec_from_loader("validate_packs", loader)
+vp = importlib.util.module_from_spec(vp_spec)
+vp_spec.loader.exec_module(vp)
+
 def run(*args):
     return subprocess.run([sys.executable, str(SCRIPT), *args], capture_output=True, text=True)
 
@@ -239,4 +245,170 @@ def test_codex_manifest_version_mismatch_fails(tmp_path):
     (root / "README.md").write_text("**Version:** 2.0.0\n")
     r = run("--root", str(root))
     assert r.returncode == 1 and ".claude-plugin 2.0.0 != .codex-plugin 1.9.9" in r.stdout
+
+def make_health_test_root(tmp_path, providers=("alpha", "beta")):
+    root = tmp_path / "root"
+    for p in providers:
+        pdir = root / "providers" / p
+        pdir.mkdir(parents=True)
+        (pdir / "pack.md").write_text(
+            "---\n"
+            f"schema-version: 1\n"
+            f"id: {p}\n"
+            f"cli: {p}-cli\n"
+            "verified-version: 1.0.0\n"
+            f'version-argv: ["{p}-cli", "--version"]\n'
+            f'resume-argv: ["{p}-cli", "--resume", "{{session_id}}"]\n'
+            f'readiness-argv: ["{p}-cli", "--ready"]\n'
+            "session-source: conversation-id\n"
+            "stall-signal: log-age\n"
+            "sandbox: enforced\n"
+            "---\n"
+        )
+        (pdir / "models.yaml").write_text(
+            f"schema: 1\nprovider: {p}\nmodels:\n"
+            "  - tier: standard\n    lane: implement\n    priority: 1\n"
+            f"    model: {p}-model\n    status: verified\n"
+        )
+        (pdir / "models.md").write_text(f"# {p} models\n")
+        (pdir / "verification-log.md").write_text(f"# {p} log\n")
+    return root
+
+def test_health_installed_and_uninstalled(tmp_path):
+    root = make_health_test_root(tmp_path, ("alpha", "beta"))
+    bin_dir = tmp_path / "bin"; bin_dir.mkdir()
+    cli = bin_dir / "alpha-cli"
+    cli.write_text("#!/bin/sh\nif [ \"$1\" = \"--version\" ]; then echo \"1.0.0\"; else echo \"ready\"; fi\n")
+    cli.chmod(0o755)
+
+    r = run("--health", "--root", str(root), "--path-dir", str(bin_dir))
+    assert r.returncode == 0
+    assert "alpha: installed=yes version=1.0.0 verified=1.0.0 drift=no readiness=ok registry-layer=default" in r.stdout
+    assert "beta: installed=no version=- verified=1.0.0 drift=no readiness=skipped registry-layer=default" in r.stdout
+    assert "config-layer=none" in r.stdout
+
+def test_health_version_drift(tmp_path):
+    root = make_health_test_root(tmp_path, ("alpha",))
+    bin_dir = tmp_path / "bin"; bin_dir.mkdir()
+    cli = bin_dir / "alpha-cli"
+    cli.write_text("#!/bin/sh\nif [ \"$1\" = \"--version\" ]; then echo \"2.0.0\"; else echo \"ready\"; fi\n")
+    cli.chmod(0o755)
+
+    r = run("--health", "--root", str(root), "--path-dir", str(bin_dir))
+    assert r.returncode == 0
+    assert "alpha: installed=yes version=2.0.0 verified=1.0.0 drift=yes readiness=ok registry-layer=default" in r.stdout
+
+def test_health_readiness_fail(tmp_path):
+    root = make_health_test_root(tmp_path, ("alpha",))
+    bin_dir = tmp_path / "bin"; bin_dir.mkdir()
+    cli = bin_dir / "alpha-cli"
+    cli.write_text("#!/bin/sh\nif [ \"$1\" = \"--version\" ]; then echo \"1.0.0\"; else exit 1; fi\n")
+    cli.chmod(0o755)
+
+    r = run("--health", "--root", str(root), "--path-dir", str(bin_dir))
+    assert r.returncode == 0
+    assert "alpha: installed=yes version=1.0.0 verified=1.0.0 drift=no readiness=fail registry-layer=default" in r.stdout
+
+def test_health_readiness_timeout(tmp_path, monkeypatch):
+    root = make_health_test_root(tmp_path, ("alpha",))
+    bin_dir = tmp_path / "bin"; bin_dir.mkdir()
+    cli = bin_dir / "alpha-cli"
+    cli.write_text(f"#!/bin/sh\nif [ \"$1\" = \"--version\" ]; then echo \"1.0.0\"; else {sys.executable} -c \"import time; time.sleep(2)\"; fi\n")
+    cli.chmod(0o755)
+
+    monkeypatch.setattr(vp, "HEALTH_PROBE_TIMEOUT_SECONDS", 0.1)
+
+    out = io.StringIO()
+    with contextlib.redirect_stdout(out):
+        monkeypatch.setattr(sys, "argv", ["validate-packs", "--health", "--root", str(root), "--path-dir", str(bin_dir)])
+        exit_code = vp.main()
+
+    output = out.getvalue()
+    assert exit_code == 0
+    assert "alpha: installed=yes version=1.0.0 verified=1.0.0 drift=no readiness=timeout registry-layer=default" in output
+
+def test_health_registry_layers(tmp_path):
+    root = make_health_test_root(tmp_path, ("alpha",))
+    proj = tmp_path / "proj"
+    (proj / ".swingle" / "models").mkdir(parents=True)
+    (proj / ".swingle" / "models" / "alpha.yaml").write_text(
+        "schema: 1\nprovider: alpha\nmodels:\n  - tier: standard\n    lane: implement\n    priority: 1\n    model: proj-model\n    status: verified\n"
+    )
+
+    r = run("--health", "--root", str(root), "--project", str(proj))
+    assert r.returncode == 0
+    assert "alpha: installed=no version=- verified=1.0.0 drift=no readiness=skipped registry-layer=project" in r.stdout
+
+def test_health_config_layers(tmp_path):
+    root = make_health_test_root(tmp_path, ("alpha",))
+
+    # none
+    r = run_env("--health", "--root", str(root))
+    assert r.returncode == 0 and "config-layer=none" in r.stdout
+
+    # project
+    proj = tmp_path / "proj"; proj.mkdir()
+    (proj / ".swingle.json").write_text("{}")
+    r = run_env("--health", "--root", str(root), "--project", str(proj))
+    assert r.returncode == 0 and "config-layer=project" in r.stdout
+
+    # user
+    xdg = tmp_path / "xdg"
+    (xdg / "swingle").mkdir(parents=True)
+    (xdg / "swingle" / "config.json").write_text("{}")
+    r = run_env("--health", "--root", str(root), XDG_CONFIG_HOME=str(xdg))
+    assert r.returncode == 0 and "config-layer=user" in r.stdout
+
+    # env
+    cfg = tmp_path / "custom.json"; cfg.write_text("{}")
+    r = run_env("--health", "--root", str(root), SWINGLE_CONFIG=str(cfg))
+    assert r.returncode == 0 and "config-layer=env" in r.stdout
+
+    # env-unreadable
+    r = run_env("--health", "--root", str(root), SWINGLE_CONFIG=str(tmp_path / "missing.json"))
+    assert r.returncode == 0 and "config-layer=env-unreadable" in r.stdout
+
+def test_health_composes_with_check_config(tmp_path):
+    root = make_health_test_root(tmp_path, ("alpha",))
+    cfg = tmp_path / "bad.json"; cfg.write_text('{"disable": ["unknown-provider"]}')
+
+    r = run("--health", "--root", str(root), "--check-config", str(cfg))
+    assert r.returncode == 1
+    assert "disable names unknown provider unknown-provider" in r.stdout
+    assert "alpha: installed=no" in r.stdout
+    assert "config-layer=none" in r.stdout
+
+def test_health_never_exits_nonzero_for_env_states(tmp_path):
+    root = make_health_test_root(tmp_path, ("alpha",))
+    bin_dir = tmp_path / "bin"; bin_dir.mkdir()
+    cli = bin_dir / "alpha-cli"
+    cli.write_text("#!/bin/sh\nif [ \"$1\" = \"--version\" ]; then echo \"9.9.9\"; else exit 1; fi\n")
+    cli.chmod(0o755)
+
+    r = run_env("--health", "--root", str(root), "--path-dir", str(bin_dir), SWINGLE_CONFIG=str(tmp_path / "missing.json"))
+    assert r.returncode == 0
+    assert "alpha: installed=yes version=9.9.9 verified=1.0.0 drift=yes readiness=fail registry-layer=default" in r.stdout
+    assert "config-layer=env-unreadable" in r.stdout
+
+def test_health_provider_scoping(tmp_path):
+    root = make_health_test_root(tmp_path, ("alpha", "beta"))
+    r = run("--health", "--root", str(root), "--provider", "alpha")
+    assert r.returncode == 0
+    assert "alpha: installed=no" in r.stdout
+    assert "beta: installed=no" not in r.stdout
+    assert "config-layer=none" in r.stdout
+
+def test_health_detects_cli_on_inherited_path(tmp_path):
+    root = make_health_test_root(tmp_path, ("alpha",))
+    bin_dir = tmp_path / "bin"; bin_dir.mkdir()
+    cli = bin_dir / "alpha-cli"
+    cli.write_text("#!/bin/sh\nif [ \"$1\" = \"--version\" ]; then echo \"1.0.0\"; else echo \"ready\"; fi\n")
+    cli.chmod(0o755)
+
+    new_path = str(bin_dir) + os.pathsep + os.environ.get("PATH", "")
+    r = run_env("--health", "--root", str(root), PATH=new_path)
+    assert r.returncode == 0
+    assert "alpha: installed=yes version=1.0.0 verified=1.0.0 drift=no readiness=ok registry-layer=default" in r.stdout
+
+
 

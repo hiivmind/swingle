@@ -42,6 +42,8 @@ Clone and symlink — the followed symlink preserves the physical sibling layout
 git clone https://github.com/hiivmind/swingle "$HOME/src/swingle"
 mkdir -p "$HOME/.agents/skills"
 ln -s "$HOME/src/swingle/skills/sdd" "$HOME/.agents/skills/sdd"
+ln -s "$HOME/src/swingle/skills/delegate" "$HOME/.agents/skills/delegate"
+ln -s "$HOME/src/swingle/skills/swingle-setup" "$HOME/.agents/skills/swingle-setup"
 ln -s "$HOME/src/swingle/skills/swingle-verify" "$HOME/.agents/skills/swingle-verify"
 ```
 
@@ -67,7 +69,8 @@ repository's `.agents/skills/` instead.
 Whichever dispatch CLIs you use must be on PATH (`codex`, `opencode`, `agy`), each
 authenticated once interactively; provider-specific setup (for example agy's headless
 permission baseline) lives in `providers/<id>/pack.md`. On first use, read the Codex
-harness adapter: `skills/sdd/harnesses/codex.md`.
+harness adapter: `skills/sdd/harnesses/codex.md`. After installing, run `swingle-setup`
+for a guided environment check.
 
 From a clone, verify the repository layout and release gate:
 

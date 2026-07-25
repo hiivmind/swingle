@@ -1,0 +1,7 @@
+interface:
+  display_name: "Swingle Setup"
+  short_description: "Check and set up this machine's swingle environment with the swingle-setup skill."
+  default_prompt: "Check and set up this machine's swingle environment with the swingle-setup skill."
+
+policy:
+  allow_implicit_invocation: false

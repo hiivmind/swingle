@@ -200,11 +200,90 @@ def load_config(path, provider_ids=None):
         if provider in disabled: find(f"{path}: providers_by_lane[{lane}] names disabled provider {provider}")
     return cfg
 
+HEALTH_PROBE_TIMEOUT_SECONDS = 30
+
+def get_path_dirs(path_dirs):
+    return path_dirs if path_dirs else os.environ.get("PATH", "").split(os.pathsep)
+
+def is_provider_installed(fm, path_dirs):
+    cli = fm.get("cli", "")
+    if not cli: return False
+    return any((Path(directory) / cli).exists() and os.access(Path(directory) / cli, os.X_OK) for directory in get_path_dirs(path_dirs))
+
+def detect_installed_providers(manifests, path_dirs):
+    return [provider for provider, fm in manifests.items() if is_provider_installed(fm, path_dirs)]
+
+def check_provider_version(fm, path_dirs, timeout):
+    rc, output = run_argv(fm["version-argv"], path_dirs, timeout)
+    match = VER_RE.search(output or "")
+    return rc, output, match.group(0) if match else None
+
+def check_provider_readiness(fm, path_dirs, timeout):
+    ready_argv = fm.get("readiness-argv") or fm["version-argv"]
+    rc, output = run_argv(ready_argv, path_dirs, timeout)
+    if rc == 0: status = "ok"
+    elif rc == -2: status = "timeout"
+    else: status = "fail"
+    return rc, status
+
+def resolve_config_layer(config_arg, project_dir):
+    env_config = config_arg or os.environ.get("SWINGLE_CONFIG")
+    if env_config:
+        p = Path(env_config)
+        if p.is_file() and os.access(p, os.R_OK): return "env"
+        return "env-unreadable"
+    if project_dir:
+        p = Path(project_dir) / ".swingle.json"
+        if p.is_file() and os.access(p, os.R_OK): return "project"
+    xdg = os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config")
+    p = Path(xdg) / "swingle" / "config.json"
+    if p.is_file() and os.access(p, os.R_OK): return "user"
+    return "none"
+
+def run_health(manifests, path_dirs, root, project, scoped_providers, config_arg):
+    target_providers = sorted(manifests.keys())
+    if scoped_providers:
+        scoped_set = set(scoped_providers)
+        target_providers = [p for p in scoped_providers if p in manifests] + [p for p in sorted(manifests.keys()) if p in scoped_set and p not in scoped_providers]
+
+    for provider_id in target_providers:
+        fm = manifests[provider_id]
+        installed = is_provider_installed(fm, path_dirs)
+        verified_ver = fm.get("verified-version", "")
+
+        if not installed:
+            inst_str = "no"
+            ver_str = "-"
+            drift_str = "no"
+            readiness_str = "skipped"
+        else:
+            inst_str = "yes"
+            rc, output, actual_ver = check_provider_version(fm, path_dirs, HEALTH_PROBE_TIMEOUT_SECONDS)
+            if actual_ver:
+                ver_str = actual_ver
+                drift_str = "no" if actual_ver == verified_ver else "yes"
+            else:
+                ver_str = "-"
+                drift_str = "yes"
+
+            ready_rc, ready_status = check_provider_readiness(fm, path_dirs, HEALTH_PROBE_TIMEOUT_SECONDS)
+            readiness_str = ready_status
+
+        layer, _, _ = resolve_models(provider_id, root, project)
+        reg_layer_str = layer if layer else "-"
+
+        print(f"{provider_id}: installed={inst_str} version={ver_str} verified={verified_ver} drift={drift_str} readiness={readiness_str} registry-layer={reg_layer_str}")
+
+    cfg_layer = resolve_config_layer(config_arg, project)
+    print(f"config-layer={cfg_layer}")
+
 def run_argv(argv, path_dirs, timeout):
     try:
-        result = subprocess.run(argv, capture_output=True, text=True, timeout=timeout, env=dict(os.environ, PATH=os.pathsep.join(path_dirs)))
+        env_path = os.pathsep.join(path_dirs) if path_dirs else os.environ.get("PATH", "")
+        result = subprocess.run(argv, capture_output=True, text=True, timeout=timeout, env=dict(os.environ, PATH=env_path))
         return result.returncode, result.stdout + result.stderr
-    except (OSError, subprocess.TimeoutExpired) as error: return -1, str(error)
+    except subprocess.TimeoutExpired as error: return -2, str(error)
+    except OSError as error: return -1, str(error)
 
 def check_repo_docs(root):
     plugin, readme = root / ".claude-plugin" / "plugin.json", root / "README.md"
@@ -249,7 +328,7 @@ def check_repo_docs(root):
                     if known is not None and anchor not in known: find(f"{path}:{n}: broken anchor #{anchor} → {pathpart or path.name}")
 
 def main():
-    ap = argparse.ArgumentParser(); ap.add_argument("--root", default="."); ap.add_argument("--resolve", nargs=2, metavar=("ROLE", "PROVIDER")); ap.add_argument("--exclude", action="append", default=[]); ap.add_argument("--check-config"); ap.add_argument("--step0", action="store_true"); ap.add_argument("--config"); ap.add_argument("--path-dir", action="append", default=[]); ap.add_argument("--lever"); ap.add_argument("--task-provider"); ap.add_argument("--role"); ap.add_argument("--project"); a = ap.parse_args()
+    ap = argparse.ArgumentParser(); ap.add_argument("--root", default="."); ap.add_argument("--resolve", nargs=2, metavar=("ROLE", "PROVIDER")); ap.add_argument("--exclude", action="append", default=[]); ap.add_argument("--check-config"); ap.add_argument("--step0", action="store_true"); ap.add_argument("--health", action="store_true"); ap.add_argument("--provider", action="append", default=[]); ap.add_argument("--config"); ap.add_argument("--path-dir", action="append", default=[]); ap.add_argument("--lever"); ap.add_argument("--task-provider"); ap.add_argument("--role"); ap.add_argument("--project"); a = ap.parse_args()
     root, excluded = Path(a.root), {}
     for exclusion in a.exclude:
         provider, _, model = exclusion.partition(":"); excluded.setdefault(provider, set()).add(model)
@@ -270,9 +349,11 @@ def main():
             if (pack / "models.md").exists(): check_md_has_no_eligible_rows(pack)
     if a.check_config:
         load_config(a.check_config, set(manifests))
-    elif not a.step0 and not a.resolve:
+    if not (a.check_config or a.step0 or a.health or a.resolve):
         check_repo_docs(root)
-    if a.step0:
+    if a.health:
+        run_health(manifests, a.path_dir, root, a.project, a.provider, a.config)
+    elif a.step0:
         # Native bypass first (rev 4): no provider is selected, so provider config is irrelevant.
         if a.lever == "native-subagents":
             if findings:
@@ -285,16 +366,17 @@ def main():
             if findings:
                 for finding in findings: print(finding)
                 return 1
-            installed = [provider for provider, fm in manifests.items() if any((Path(directory) / fm.get("cli", "")).exists() and os.access(Path(directory) / fm.get("cli", ""), os.X_OK) for directory in a.path_dir)]
+            installed = detect_installed_providers(manifests, a.path_dir)
             print(f"installed: {' '.join(installed) or '(none)'}")
             active = [provider for provider in installed if provider not in set(cfg.get("disable", []))]
             incompatible = []
             for provider in active:
                 timeout = int(manifests[provider].get("readiness-timeout-seconds", 30))
-                rc, output = run_argv(manifests[provider]["version-argv"], a.path_dir, timeout); match = VER_RE.search(output or "")
-                if rc != 0 or not match or match.group(0) != manifests[provider].get("verified-version"):
-                    actual = match.group(0) if match else "unparseable"
-                    print(f"warning: incompatible: {provider} ({actual} != {manifests[provider].get('verified-version')})")
+                rc, output, actual_ver = check_provider_version(manifests[provider], a.path_dir, timeout)
+                verified_ver = manifests[provider].get("verified-version")
+                if rc != 0 or not actual_ver or actual_ver != verified_ver:
+                    actual = actual_ver if actual_ver else "unparseable"
+                    print(f"warning: incompatible: {provider} ({actual} != {verified_ver})")
                     incompatible.append(provider)
             if cfg.get("require-verified-version"):
                 dropped = set(incompatible)
@@ -319,7 +401,7 @@ def main():
                         if not order and layer in ("env", "project", "user"): find(f"no eligible model for {role_tier_lane} in {chosen} — override at {layer_path} does not cover {role_tier_lane}")
                         elif not order: find(f"no eligible model for {role_tier_lane} in {chosen}")
                         else: print(f"model: {order[0]['model']} (P{order[0]['prio']}); fallback: {', '.join(row['model'] for row in order)}")
-                    ready = manifests[chosen].get("readiness-argv") or manifests[chosen]["version-argv"]; rc, _ = run_argv(ready, a.path_dir, int(manifests[chosen].get("readiness-timeout-seconds", 30)))
+                    rc, _ = check_provider_readiness(manifests[chosen], a.path_dir, int(manifests[chosen].get("readiness-timeout-seconds", 30)))
                     if rc != 0: find(f"provider not ready: {chosen} (exit {rc})")
                     else: print(f"ready: {chosen}")
     elif a.resolve:

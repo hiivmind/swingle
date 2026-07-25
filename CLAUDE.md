@@ -66,13 +66,14 @@ grandparent directory — `core/`, `providers/`, `contracts/` are load-bearing s
 the tree) breaks every install route. Codex plugin installs cache the whole repo, so the
 layout survives; the symlink route depends on it.
 
-The three skills and what they own (frontmatter names are `swingle-`-prefixed since v2.1.0
+The four skills and what they own (frontmatter names are `swingle-`-prefixed since v2.1.0
 because opencode/Codex register skills in a flat namespace; directory names are unchanged):
 
 | Skill | Directory | Owns |
 | --- | --- | --- |
 | `swingle-sdd` | `skills/sdd/` | executing a written multi-task plan (task reviews, ledger, final review) |
 | `swingle-delegate` | `skills/delegate/` | an explicitly requested one-off job or homogeneous batch — no plan, no superpowers dependency; workspace `.swingle/delegate/` |
+| `swingle-setup` | `skills/swingle-setup/` | onboarding, environment health checks, config migration, and registry setup |
 | `swingle-verify` | `skills/swingle-verify/` | re-probing a CLI on version bumps and model releases |
 
 `swingle-delegate` must stay free of any *operational* superpowers dependency: it never invokes a

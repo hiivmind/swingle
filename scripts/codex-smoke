@@ -38,6 +38,18 @@ else
   fail "skills/delegate/agents/openai.yaml exists"
 fi
 
+if [ -f skills/swingle-setup/SKILL.md ]; then
+  pass "skills/swingle-setup/SKILL.md exists"
+else
+  fail "skills/swingle-setup/SKILL.md exists"
+fi
+
+if [ -f skills/swingle-setup/agents/openai.yaml ]; then
+  pass "skills/swingle-setup/agents/openai.yaml exists"
+else
+  fail "skills/swingle-setup/agents/openai.yaml exists"
+fi
+
 if [ -f contracts/reader-contract.md ]; then
   pass "contracts/reader-contract.md exists"
 else

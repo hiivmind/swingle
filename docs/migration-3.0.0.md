@@ -21,12 +21,18 @@ directory names are unchanged.
 Run in each repository that has used the plugin:
 
 ```bash
-# 1. Project config file, if present
-[ -f .sdd-dispatch.json ] && git mv .sdd-dispatch.json .swingle.json 2>/dev/null \
-  || { [ -f .sdd-dispatch.json ] && mv .sdd-dispatch.json .swingle.json; }
+# 1. Project config file, if present. If BOTH names exist, reconcile by hand (or run
+#    swingle-setup) — a bare mv would silently REPLACE the new file with the old one.
+[ -f .sdd-dispatch.json ] && { [ -f .swingle.json ] \
+  && echo "BOTH config files exist — reconcile manually or run swingle-setup" \
+  || git mv .sdd-dispatch.json .swingle.json 2>/dev/null \
+  || mv .sdd-dispatch.json .swingle.json; }
 
-# 2. Workspace + committable model overrides
-[ -d .sdd-dispatch ] && mv .sdd-dispatch .swingle
+# 2. Workspace + committable model overrides. If .swingle/ already exists (partial prior
+#    migration), a bare mv NESTS the old dir inside it — merge instead.
+[ -d .sdd-dispatch ] && { [ -e .swingle ] \
+  && echo "BOTH exist — merge manually or run swingle-setup" \
+  || mv .sdd-dispatch .swingle; }
 ```
 
 Then re-point the ignore entry: if `.sdd-dispatch/` appears in the repo's tracked
@@ -41,9 +47,12 @@ Note the split within `.swingle/`: `models/` is committable project config; the
 ## Per-machine migration steps
 
 ```bash
-# 3. User config + machine-wide model registry
-[ -d "${XDG_CONFIG_HOME:-$HOME/.config}/sdd-dispatch" ] && \
-  mv "${XDG_CONFIG_HOME:-$HOME/.config}/sdd-dispatch" "${XDG_CONFIG_HOME:-$HOME/.config}/swingle"
+# 3. User config + machine-wide model registry. Same both-exist guard: never mv into an
+#    existing target (it nests).
+[ -d "${XDG_CONFIG_HOME:-$HOME/.config}/sdd-dispatch" ] && { \
+  [ -e "${XDG_CONFIG_HOME:-$HOME/.config}/swingle" ] \
+  && echo "BOTH exist — merge manually or run swingle-setup" \
+  || mv "${XDG_CONFIG_HOME:-$HOME/.config}/sdd-dispatch" "${XDG_CONFIG_HOME:-$HOME/.config}/swingle"; }
 ```
 
 4. In shell profiles, CI variables, and harness settings, rename `$SDD_DISPATCH_CONFIG` →

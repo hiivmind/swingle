@@ -9,7 +9,7 @@ them to file-based substitutes rather than to tools that do not exist. Do not fa
 
 | Concern | pi mapping |
 | --- | --- |
-| Skill load | There is **no skill tool**. pi injects skill names and descriptions into the system prompt as XML and expects the agent to `read` the full `SKILL.md` on demand — so to load this plugin, read and follow `<root>/skills/sdd/SKILL.md`; same for `delegate` / `sdd-dispatch-verify`. Announce the skill name, then follow its body. `/skill:<name>` forces a load in interactive mode. Name collisions keep the **first** skill found and warn. |
+| Skill load | There is **no skill tool**. pi injects skill names and descriptions into the system prompt as XML and expects the agent to `read` the full `SKILL.md` on demand — so to load this plugin, read and follow `<root>/skills/sdd/SKILL.md`; same for `delegate` / `swingle-verify`. Announce the skill name, then follow its body. `/skill:<name>` forces a load in interactive mode. Name collisions keep the **first** skill found and warn. |
 | Native subagents | **Not in core.** The `native-subagents` route is unavailable unless a subagent extension/package is installed; superpowers' `references/pi-tools.md` names `pi-subagents` as the optional companion. With no such tool present, do not degrade silently — say the harness-native route is unavailable and run every lane through `providers/<id>/`, or execute sequentially in-session when the user declines external dispatch. |
 | Task tracking | **Not in core.** Use the plan ledger on disk (`.sdd-dispatch/delegate/ledger.md` for `delegate`, the plan progress file for `sdd`). This costs nothing here: SDD's tracking is already file-based, and the ledger is the durable record a todo tool would only mirror. |
 | Background jobs | **No background bash.** The `bash` tool runs foreground only, so the detached form from `core/liveness.md` is the sole mechanism: write the dispatch script to a file, launch it with `setsid nohup <script> >/dev/null 2>&1 </dev/null &` plus `disown`, record the CLI pid to a pid file, and have the wrapper append its terminal line to a marker file. Observe completion by polling that marker with short `bash` calls between turns — there is no notification channel and no watcher tool. pi's own docs point at tmux and containers for anything richer. Never hold a dispatch in the foreground: it blocks the controller and disables the stall rule. |
@@ -17,7 +17,7 @@ them to file-based substitutes rather than to tools that do not exist. Do not fa
 
 ## Install and discovery
 
-`pi install https://github.com/discreteds/sdd-dispatch-plugin` clones the whole repository
+`pi install https://github.com/discreteds/swingle` clones the whole repository
 as a package and discovers its `skills/` directory automatically, so the layout contract
 (`core/`, `providers/`, `contracts/` as siblings of `skills/`) survives intact. This is the
 preferred route. pi also loads skills from `~/.pi/agent/skills/`, `~/.agents/skills/`,

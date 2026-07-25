@@ -86,7 +86,7 @@ Read these plugin documents when their policy is needed:
    same malformed-config STOP conditions as the `sdd` skill. ACTIVE = installed −
    disabled (− incompatible iff require-verified-version).
 4. **Compatibility**: compare `version-argv` output to `verified-version`; mismatch →
-   warn and suggest `sdd-dispatch-verify <id>` (block iff config
+   warn and suggest `swingle-verify <id>` (block iff config
    require-verified-version).
 5. **Routing**: per-request provider directive → session lever → config
    `providers_by_lane[lane-of-role]` / `default_provider` → codex-if-active else

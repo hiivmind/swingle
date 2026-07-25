@@ -66,7 +66,7 @@ Read these plugin documents when their policy is needed:
    $SDD_DISPATCH_CONFIG = STOP with the error. ACTIVE = installed − disabled
    (− incompatible iff require-verified-version).
 6. **Compatibility**: compare `version-argv` output to `verified-version`; mismatch →
-   warn and suggest `sdd-dispatch-verify <id>` (block iff config require-verified-version).
+   warn and suggest `swingle-verify <id>` (block iff config require-verified-version).
 7. **Provider routing (before any model resolution)**: FIRST, if the `native-subagents`
    lever (or per-task native directive) is in effect → bypass external dispatch entirely
    (harness-native subagents per adapter; no provider is selected). Otherwise: per-task

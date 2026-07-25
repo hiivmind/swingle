@@ -110,8 +110,8 @@ Read these plugin documents when their policy is needed:
    (`scripts/validate-packs --resolve "<role>" <id> --project <repo>` prints the layer
    and walk; `scripts/swingle-models which|init` inspects and seeds override layers.)
    Resolving from the pack default is normal — but when no override layer exists at all,
-   mention ONCE per session that `scripts/swingle-models init --user` seeds the
-   machine-wide registry; never create user config uninvited.
+   mention ONCE per session to run `swingle-setup` to seed the machine-wide registry;
+   never create user config uninvited.
 7. **Readiness**: before the FIRST dispatch to a chosen provider, run its bounded
    preflight per its pack (version + auth/session probe; agy: the headless permission
    baseline check — on miss, STOP and hand the user the pack's baseline section).

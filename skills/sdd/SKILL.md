@@ -93,8 +93,8 @@ Read these plugin documents when their policy is needed:
    (`scripts/validate-packs --resolve "<role>" <provider> --project <repo>` prints the
    layer and the walk order; `scripts/swingle-models which|init` inspects and seeds
    override layers.) Resolving from the pack default is normal — but when no override
-   layer exists at all, mention ONCE per session that `scripts/swingle-models init --user`
-   seeds the machine-wide registry; never create user config uninvited.
+   layer exists at all, mention ONCE per session to run `swingle-setup` to seed the
+   machine-wide registry; never create user config uninvited.
 9. **Readiness**: before the FIRST dispatch to a chosen provider, run its bounded
    preflight (version + session-list/auth probe per manifest); failures are
    channel-class → fallback rules.

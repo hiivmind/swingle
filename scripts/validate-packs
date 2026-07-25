@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""sdd-dispatch pack validator/resolver + Step-0 simulator (stdlib only)."""
+"""swingle pack validator/resolver + Step-0 simulator (stdlib only)."""
 import argparse, json, os, re, subprocess, sys
 from pathlib import Path
 

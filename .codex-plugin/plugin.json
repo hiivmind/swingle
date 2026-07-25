@@ -1,6 +1,6 @@
 {
   "name": "swingle",
-  "version": "2.0.1",
+  "version": "2.0.3",
   "description": "Share the load: dispatch implementation and review work across coding-agent harnesses (codex/opencode/agy/grok/pi/claude), locally, through validated packs — no proxy, no key custody.",
   "author": {
     "name": "Nathaniel Ramm"

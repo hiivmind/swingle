@@ -1,6 +1,6 @@
 {
   "name": "swingle",
-  "version": "2.0.3",
+  "version": "2.1.0",
   "description": "Share the load: dispatch implementation and review work across coding-agent harnesses (codex/opencode/agy/grok/pi/claude), locally — model tiering, token thrift, liveness protocol, and a verified per-harness knowledge base",
   "author": {
     "name": "Nathaniel Ramm",

@@ -18,7 +18,7 @@ run. That buys two things your harness's own subagents cannot: another provider'
 model for a second opinion or an independent review, and delegation to a model whose tokens
 come out of a different quota than the harness you are driving.
 
-**Version:** 2.0.3 · [v2.0.0 release](https://github.com/hiivmind/swingle/releases/tag/v2.0.0)
+**Version:** 2.1.0 · [v2.0.0 release](https://github.com/hiivmind/swingle/releases/tag/v2.0.0)
 
 ## Vocabulary
 
@@ -45,9 +45,10 @@ Every ask becomes a briefed subagent before the target CLI runs:
    the controller checks the working tree (staged + untracked + `HEAD`-unchanged) and re-runs
    the covering tests before committing.
 
-A single named delegation runs end to end inside the `delegate` skill. Naming a model or
-fanning out across several CLIs is composition by the driving harness: it routes a model name
-to a CLI that serves it (there is no automatic model-to-CLI discovery inside `delegate`; pin
+A single named delegation runs end to end inside the `swingle-delegate` skill. Naming a model
+or fanning out across several CLIs is composition by the driving harness: it routes a model
+name to a CLI that serves it (there is no automatic model-to-CLI discovery inside
+`swingle-delegate`; pin
 the target with `via opencode`), or runs several dispatches and merges the results. Whatever
 the harness picks is recorded in the ledger, so the run reproduces.
 
@@ -100,9 +101,10 @@ driving.
 
 ## Requirements & install
 
-- The **`superpowers`** plugin, if you use the `sdd` skill: `sdd` augments superpowers' own
-  subagent-driven-development routines with external-CLI dispatch (see [Skills](#skills)).
-- No superpowers for `delegate`: it handles direct, one-off interactions on its own.
+- The **`superpowers`** plugin, if you use the `swingle-sdd` skill: `swingle-sdd` augments
+  superpowers' own subagent-driven-development routines with external-CLI dispatch (see
+  [Skills](#skills)).
+- No superpowers for `swingle-delegate`: it handles direct, one-off interactions on its own.
 - Whichever dispatch CLIs you use, on `PATH`: `claude`, `codex`, `opencode`, `agy`, `grok`,
   `pi` — each authenticated once. Auth modes, CI consequences, and seat economics:
   [docs/credentials.md](docs/credentials.md). An OAuth-only harness will not run in headless
@@ -124,7 +126,7 @@ pack is verified end-to-end against a specific CLI version; re-verify on a versi
 
 Swingle's packs, contracts, and routing doctrine ship in this repository and are discovered
 from the repo tree; no machine-specific paths are baked into the packs. The external pieces —
-the `superpowers` plugin (for `sdd`) and each CLI's own auth — are called out where they
+the `superpowers` plugin (for `swingle-sdd`) and each CLI's own auth — are called out where they
 apply, not bundled here.
 
 ### Claude Code
@@ -162,32 +164,36 @@ opencode's install has known pitfalls: a plugin-cache trap that silently loads m
 versions, two environment-variable caveats, and a `grep` verification step. They are
 documented in [skills/sdd/harnesses/opencode.md](skills/sdd/harnesses/opencode.md); read it
 before your first opencode dispatch. opencode registers skills under bare frontmatter names
-with name-based dedupe, so `delegate` is a global name on that harness — if you maintain
-another `delegate` skill, expect a collision (tracked for a `swingle-delegate` alias).
+with name-based dedupe; Swingle's skill names are all `swingle-`-prefixed, so they do not
+collide with other skills' generic names on that harness.
 
 ## Skills
 
 | Skill | Purpose |
 | --- | --- |
-| `sdd` | Execute an implementation plan through the active harness and harness packs |
-| `delegate` | Directly dispatch an explicitly requested one-off job or homogeneous batch — no plan required |
+| `swingle-sdd` | Execute an implementation plan through the active harness and harness packs |
+| `swingle-delegate` | Directly dispatch an explicitly requested one-off job or homogeneous batch — no plan required |
 | `swingle-verify` | Re-run the CLI probe suite when versions bump or models release |
 
-`sdd` wraps [`superpowers:subagent-driven-development`](https://github.com/obra/superpowers)
-and requires the superpowers plugin. Swingle supplies the external-CLI dispatch, packs,
-tiering, and gates; SDD is the methodology it applies, maintained upstream. `delegate` is the
+Skill names are `swingle-`-prefixed because several harnesses register skills in a flat,
+first-wins namespace; the skills live in `skills/sdd/` and `skills/delegate/` on disk.
+
+`swingle-sdd` wraps
+[`superpowers:subagent-driven-development`](https://github.com/obra/superpowers) and requires
+the superpowers plugin. Swingle supplies the external-CLI dispatch, packs, tiering, and
+gates; SDD is the methodology it applies, maintained upstream. `swingle-delegate` is the
 standalone path: it invokes no superpowers skill and has no `.superpowers/` dependency, which
-is why one-line asks route through `delegate`, not `sdd`.
+is why one-line asks route through `swingle-delegate`, not `swingle-sdd`.
 
 ## Direct delegation
 
-`delegate <task>` dispatches a self-contained job (or homogeneous batch) with the full pack
+`swingle-delegate <task>` dispatches a self-contained job (or homogeneous batch) with the full pack
 doctrine — role inference, model tiering, liveness, evidence gates, controller commits, and
 session resume — without plan-execution machinery. Levers (`via <harness>`, `floor it` /
 `play it safe`, `with review`, `read-only`, `supervised`) and the full lifecycle are in
 [skills/delegate/SKILL.md](skills/delegate/SKILL.md). Artifacts and the ledger live in
 `.sdd-dispatch/delegate/`. The boundary is semantic: multi-task implementation plans go to
-the `sdd` skill regardless of how they arrived; tasks below the triviality floor stay inline
+the `swingle-sdd` skill regardless of how they arrived; tasks below the triviality floor stay inline
 unless delegation was explicitly requested.
 
 ## Safety & trust

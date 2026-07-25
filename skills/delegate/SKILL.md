@@ -1,6 +1,6 @@
 ---
-name: delegate
-description: Directly delegate an explicitly requested, self-contained job or homogeneous batch to an external CLI (codex/opencode/agy/grok/pi/claude) through validated provider packs — role inference, model tiering, liveness, evidence gates, and session resume — without a written implementation plan. Use the sdd skill for multi-task implementation plans; keep sub-triviality-floor tasks inline unless delegation was explicitly requested.
+name: swingle-delegate
+description: Directly delegate an explicitly requested, self-contained job or homogeneous batch to an external CLI (codex/opencode/agy/grok/pi/claude) through validated provider packs — role inference, model tiering, liveness, evidence gates, and session resume — without a written implementation plan. Use the swingle-sdd skill for multi-task implementation plans; keep sub-triviality-floor tasks inline unless delegation was explicitly requested.
 ---
 
 # Delegate — Direct One-Off Dispatch
@@ -20,10 +20,10 @@ and dispatch templates move with them. A dispatch built from memory looks identi
 correct one and fails silently: a stale flag, a superseded model id, a tier that no longer
 matches the role. Read the files; they are short by design.
 
-**Boundary (semantic, not transport-based)**: `sdd` = dependency-aware execution of a
-multi-task implementation plan (task reviews, plan ledger, final review) — use it
+**Boundary (semantic, not transport-based)**: `swingle-sdd` = dependency-aware execution
+of a multi-task implementation plan (task reviews, plan ledger, final review) — use it
 whenever the work is a plan, whether it arrived as a file, a pasted numbered checklist,
-or a structured message. `delegate` = an **explicitly requested**, self-contained job or
+or a structured message. `swingle-delegate` = an **explicitly requested**, self-contained job or
 homogeneous batch, wherever its text originated. The playbook's triviality floor still
 applies: work the controller can finish inline for less than the orchestration cycle
 stays inline unless the caller explicitly asked for external delegation. This skill has
@@ -83,7 +83,7 @@ Read these plugin documents when their policy is needed:
 3. **Layered config** (first found): `$SDD_DISPATCH_CONFIG` →
    `<project>/.sdd-dispatch.json` →
    `${XDG_CONFIG_HOME:-~/.config}/sdd-dispatch/config.json` — disable/steer only; the
-   same malformed-config STOP conditions as the `sdd` skill. ACTIVE = installed −
+   same malformed-config STOP conditions as the `swingle-sdd` skill. ACTIVE = installed −
    disabled (− incompatible iff require-verified-version).
 4. **Compatibility (advisory)**: compare `version-argv` output to `verified-version`. A
    mismatch is a WARNING, not a gate — warn (installed X vs verified Y) and PROCEED.

@@ -61,7 +61,7 @@ the task, with cold-start overhead per execution).
 | **Sub-dispatch** (native subagent) | 1–3k (prompt + report) | full task, isolated context | 0 | judgment-heavy isolated work; the `native-subagents` lever |
 | **Pack dispatch** | ~2k + **6–8 controller turns** | orchestration only | task cost | the SDD default for typical plans (≤ ~6–8 tasks) |
 | **Supervised pack dispatch** (cheap native subagent runs the pack cycle) | ~0.5k — one consolidated report | supervisor turns | task cost | long plans where the controller's orchestration turns are the binding cost |
-| **Delegate** (one-off pack dispatch, no plan — the `delegate` skill) | ~1–2k/job | orchestration only | task cost | explicitly requested self-contained jobs or homogeneous batches arriving outside a plan; auto-supervised at ≥3 planned cycles |
+| **Delegate** (one-off pack dispatch, no plan — the `swingle-delegate` skill) | ~1–2k/job | orchestration only | task cost | explicitly requested self-contained jobs or homogeneous batches arriving outside a plan; auto-supervised at ≥3 planned cycles |
 
 Rules that fall out:
 

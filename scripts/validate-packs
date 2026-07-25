@@ -226,8 +226,6 @@ def check_repo_docs(root):
         # Git-ignored agent scratch: sdd workspace and delegate workspace. Their reports
         # are agent-authored artifacts full of illustrative links — never repo content.
         if ".superpowers" in path.parts or ".sdd-dispatch" in path.parts: continue
-        if relative.parent == Path("docs") and relative.match("sol-*.md"): continue
-        if str(relative).startswith("docs/superpowers/"): continue  # specs/plans: planning artifacts, illustrative links
         for n, line in enumerate(path.read_text().splitlines(), 1):
             for target in link_re.findall(line):
                 if target.startswith(("http://", "https://", "#", "/")): continue

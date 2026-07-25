@@ -32,7 +32,7 @@ Knowledge base (all paths are relative to the plugin tree root `<root>`):
    - SOURCE: `git -C <root> rev-parse --is-inside-work-tree` succeeds AND the path is not
      under a plugin cache; edits there are committable.
    - INSTALLED: cache path, or no git work tree. Locate the source checkout instead
-     (the repo for `https://github.com/discreteds/swingle` on this machine;
+     (the repo for `https://github.com/hiivmind/swingle` on this machine;
      ask the user for its path if unknown — clone it if absent). Run the round against
      the source tree's `<root>`, commit per the repo's CLAUDE.md, then refresh the
      installed copies (Claude Code: reinstall/reload the plugin; Codex:
@@ -44,7 +44,7 @@ Knowledge base (all paths are relative to the plugin tree root `<root>`):
    **No writable source? Raise a GitHub issue instead of dropping the finding.** When no
    source checkout exists on the machine, or the user lacks push rights to the source
    repository, file each finding as an issue on the upstream project
-   (`gh issue create --repo discreteds/swingle --label verification ...`,
+   (`gh issue create --repo hiivmind/swingle --label verification ...`,
    or the web form — the repo ships a "Verification finding" issue template at
    `.github/ISSUE_TEMPLATE/verification-finding.md`). One issue per independent finding,
    with the probe-grade fields filled: CLI version, plugin version, copy type, trigger,
@@ -56,10 +56,10 @@ Knowledge base (all paths are relative to the plugin tree root `<root>`):
    PR) carrying the log entry; (3) no source tree at all → issue only.
 
    **Deduplicate before filing.** Search existing issues first —
-   `gh issue list --repo discreteds/swingle --label verification --state all
+   `gh issue list --repo hiivmind/swingle --label verification --state all
    --search "<cli> <key terms of the finding>"` — and choose by what your evidence adds:
    - **Same finding already open** → add a 👍 reaction to weight its prioritisation
-     (`gh api repos/discreteds/swingle/issues/<n>/reactions -f content='+1'`)
+     (`gh api repos/hiivmind/swingle/issues/<n>/reactions -f content='+1'`)
      and file nothing.
    - **Same finding, new angle or wrinkle** (different CLI version, different failure
      signature, a workaround, a narrower repro) → comment on the existing issue with just

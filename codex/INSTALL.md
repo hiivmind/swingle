@@ -12,7 +12,7 @@ and hosts its own marketplace (`.agents/plugins/marketplace.json`). Add the mark
 then install from the plugin browser:
 
 ```bash
-codex plugin marketplace add discreteds/swingle
+codex plugin marketplace add hiivmind/swingle
 codex plugin add swingle@swingle-marketplace
 ```
 
@@ -38,7 +38,7 @@ The `sdd` skill requires its sibling directories; copying only `SKILL.md` is uns
 Clone and symlink — the followed symlink preserves the physical sibling layout:
 
 ```bash
-git clone https://github.com/discreteds/swingle "$HOME/src/swingle"
+git clone https://github.com/hiivmind/swingle "$HOME/src/swingle"
 mkdir -p "$HOME/.agents/skills"
 ln -s "$HOME/src/swingle/skills/sdd" "$HOME/.agents/skills/sdd"
 ln -s "$HOME/src/swingle/skills/swingle-verify" "$HOME/.agents/skills/swingle-verify"

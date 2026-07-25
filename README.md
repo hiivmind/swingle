@@ -129,7 +129,7 @@ apply, not bundled here.
 ### Claude Code
 
 ```text
-/plugin marketplace add discreteds/swingle
+/plugin marketplace add hiivmind/swingle
 /plugin install swingle@swingle-marketplace
 ```
 
@@ -141,7 +141,7 @@ This repository is also a Codex plugin (`.codex-plugin/plugin.json`) with a self
 marketplace:
 
 ```bash
-codex plugin marketplace add discreteds/swingle
+codex plugin marketplace add hiivmind/swingle
 codex plugin add swingle@swingle-marketplace
 ```
 
@@ -229,7 +229,7 @@ idea, and it's why "floor it" (cheapest model clearing each bar) is the default.
 
 **Honesty note:** we have not yet published a *measured* token/cost delta on a real plan.
 That number can't be asserted — it has to be measured — and it's tracked in
-[#17](https://github.com/discreteds/swingle/issues/17). Until it lands, treat tiering as a
+[#17](https://github.com/hiivmind/swingle/issues/17). Until it lands, treat tiering as a
 sound design principle, not a proven savings figure. The convenience — never leaving your
 harness — is the benefit that stands today.
 
@@ -294,7 +294,7 @@ and the `swingle-verify` skill, step 0):
    `~/.claude/plugins/cache/...`, Codex `~/.codex/plugins/cache/...`) — caches are clobbered on
    the next upgrade.
 2. **Clone but no push rights** — commit locally and open an issue or PR carrying the log entry.
-3. **No source tree** (installed copy only) — [open an issue](https://github.com/discreteds/swingle/issues/new?template=verification-finding.md)
+3. **No source tree** (installed copy only) — [open an issue](https://github.com/hiivmind/swingle/issues/new?template=verification-finding.md)
    using the **Verification finding** template (`verification` label), one issue per independent
    finding: CLI + plugin version, trigger, the pack assertion under test, verdict, verbatim
    evidence, impact. **Search first**: if an equivalent issue exists, a 👍 reaction adds weight

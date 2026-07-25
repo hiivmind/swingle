@@ -18,7 +18,7 @@ run. That buys two things your harness's own subagents cannot: another provider'
 model for a second opinion or an independent review, and delegation to a model whose tokens
 come out of a different quota than the harness you are driving.
 
-**Version:** 3.0.0 · [v2.0.0 release](https://github.com/hiivmind/swingle/releases/tag/v2.0.0) · config/state paths renamed `sdd-dispatch` → `swingle`: [docs/migration-3.0.0.md](docs/migration-3.0.0.md)
+**Version:** 3.1.0 · [v2.0.0 release](https://github.com/hiivmind/swingle/releases/tag/v2.0.0) · config/state paths renamed `sdd-dispatch` → `swingle`: [docs/migration-3.0.0.md](docs/migration-3.0.0.md)
 
 ## Vocabulary
 

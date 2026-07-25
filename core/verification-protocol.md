@@ -112,17 +112,30 @@ caches (Claude Code `~/.claude/plugins/cache/...`, Codex `~/.codex/plugins/cache
 `~/.codex/.tmp/marketplaces/...`) are throwaway snapshots clobbered by the next upgrade.
 If the running skill's root is an installed copy, resolve the git source checkout first
 (swingle-verify Procedure step 0), write and commit there, then refresh installs.
-This applies equally to mid-run incident notes appended by the `sdd` skill.
+This applies equally to mid-run incident notes appended by the `swingle-sdd` skill.
 
 When no writable source exists (no checkout on the machine, or no push rights), **raise a
 GitHub issue on the upstream project instead of dropping the finding** — one issue per
 independent finding using the repository's "Verification finding" template
-(`gh issue create --repo discreteds/swingle --label verification`). The
+(`gh issue create --repo hiivmind/swingle --label verification`). The
 recording ladder is: writable source → commit; clone-but-no-push → local commit + issue
 or PR; no source tree → issue only. **Deduplicate before filing**: search existing
 `verification` issues (open and closed) first — an equivalent open issue gets a 👍
 reaction, not a duplicate; a new angle or wrinkle on an existing finding gets a comment
 with only the new evidence; only a genuinely distinct finding gets a new issue.
+
+**Drift-triggered findings (the common real-world trigger).** The version gate is
+advisory: the `swingle-sdd` / `swingle-delegate` skills warn on `installed ≠ verified-version` and proceed
+— re-verification is maintenance, not a per-dispatch tax. When a dispatch then fails with a
+**channel-class** signature (auth/permission failure, silent no-op = exit 0 + zero work +
+missing/empty report, a rejected or unknown flag, a transport/startup failure surviving the
+pack's retry) **while that drift is in effect**, the failure is evidence the pack is stale
+on the running CLI version — an `anomaly` trigger. The controller does NOT file
+automatically: it runs the dedup search above and **recommends** the appropriate action
+(👍 / comment / new issue) to the user, with the fields below pre-filled — installed CLI
+version vs `verified-version`, plugin version, the controlling harness + its version, and
+the verbatim failure signature. **Quality failures are excluded** (a reviewer rejecting the
+work is not drift evidence). The user decides whether to file.
 
 Append to the appropriate verification log:
 

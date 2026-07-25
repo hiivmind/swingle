@@ -1,126 +1,261 @@
+<p align="center">
+  <img src="docs/images/hero-banner.svg" alt="Swingle" width="100%">
+</p>
+
 # Swingle
 
-**Share the load.**
+Swingle lets the coding-agent harness you are already driving (Claude Code, Codex, opencode,
+Grok, Pi, Antigravity) dispatch work to the other agent CLIs installed on the same machine.
+You ask in natural language — *"ask Grok for ideas on this"*, *"review this in GLM 5.2"*,
+*"spec this in Kimi and Codex and merge the results"* — and the harness turns the ask into a
+briefed dispatch to the right CLI at an appropriate model tier, then checks the result before
+trusting it. There is no command syntax to learn and no re-authentication: each target CLI is
+one you have already installed and authenticated.
 
-A *swingletree* is the pivoting crossbar in a draught harness that equalises pull
-between animals of unequal strength. Hitch a shire and a pony to one load and the bar
-rotates until neither is over-pulled. That is what this plugin does for coding-agent
-harnesses.
+The name: a *swingletree* is the pivoting crossbar in a draught harness that spreads one load
+across more than one animal. Swingle spreads coding work across the agent CLIs you already
+run. That buys two things your harness's own subagents cannot: another provider's frontier
+model for a second opinion or an independent review, and delegation to a model whose tokens
+come out of a different quota than the harness you are driving.
 
-Swingle is a **local harness-to-harness dispatcher**: from whichever harness you are
-driving (Claude Code, Codex, opencode, Antigravity's agy, Grok, Pi), it dispatches
-implementation and review work to the others as external-CLI subagents, tiering the
-model to each task's judgment bar. Token thrift is the point — heavy pulls go to the
-strongest harness that clears the bar, light pulls to the cheapest.
+**Version:** 2.1.0 · [v2.0.0 release](https://github.com/hiivmind/swingle/releases/tag/v2.0.0)
 
-**A router is a hop; Swingle is a hitch.** LLM routers and gateways proxy your traffic
-and hold your keys. Swingle spawns processes locally against credentials you already
-hold — local dispatch, no proxy, no key custody. Nothing enters the prompt path.
+## Vocabulary
 
-Vocabulary, used consistently below: a **harness** is the unit of dispatch (Claude
-Code, Codex, agy, …) — not a "provider" (a billing entity) or a "model" (weights). The
-on-disk pack directories keep the historical name `providers/<id>/`; each pack
-describes one harness.
+- **Harness** — the unit of dispatch: a coding-agent CLI (Claude Code, Codex, Antigravity,
+  Grok, Pi, opencode). Distinct from both "provider" and "model".
+- **Provider** — the billing entity behind a harness (Anthropic, OpenAI, Google, xAI, …).
+- **Model** — the weights a harness runs, and the light/medium/heavy tier picked per task.
 
-Everything is self-contained. The `sdd` skill and harness packs are discovered from
-this repository; no machine-specific paths are required.
+On-disk pack directories keep the historical name `providers/<id>/`; each pack describes one
+harness.
 
-**Version:** 2.0.0
+## How a dispatch works
 
-## Install with Claude Code
+Every ask becomes a briefed subagent before the target CLI runs:
 
-Requires the `superpowers` plugin and whichever dispatch CLIs you use on PATH
-(`codex`, `opencode`, `agy`, `grok`, `pi`, `claude`), each authenticated once interactively.
+1. **Role** — implementer, reviewer, or explorer, inferred from the ask.
+2. **Model tier** — matched to the task's difficulty and passed explicitly, never left to the
+   CLI's default.
+3. **Operating contract + instructions** — the target CLI receives a brief: what to do, what
+   not to do, the context, the interfaces it touches.
+4. **Return contract** — a fixed status vocabulary (`DONE`, `DONE_WITH_CONCERNS`,
+   `NEEDS_CONTEXT`, `BLOCKED`) and a required report shape.
+5. **Liveness + evidence gate** — the run is watched for stalls, and after a write-lane job
+   the controller checks the working tree (staged + untracked + `HEAD`-unchanged) and re-runs
+   the covering tests before committing.
+
+A single named delegation runs end to end inside the `swingle-delegate` skill. Naming a model
+or fanning out across several CLIs is composition by the driving harness: it routes a model
+name to a CLI that serves it (there is no automatic model-to-CLI discovery inside
+`swingle-delegate`; pin
+the target with `via opencode`), or runs several dispatches and merges the results. Whatever
+the harness picks is recorded in the ledger, so the run reproduces.
+
+### What a dispatch returns
+
+A returned report (an implementer job, trimmed):
+
+```markdown
+# Job 002 — grok pack self-smoke report
+
+## What was implemented
+End-to-end smoke of the `providers/grok` pack dispatch path...
+
+## Files changed
+| File | Action |
+| --- | --- |
+| `.sdd-dispatch/delegate/002-smoke-marker.txt` | created |
+
+No files outside `.sdd-dispatch/delegate/` were modified. No git commit or push was
+performed (implementer contract).
+
+## Self-review
+- Completeness: both brief requirements satisfied.
+- Discipline: stayed in-repo; did not commit.
+
+## Issues or concerns
+None.
+```
+
+The ledger records every dispatch — role, harness, model, session id, and returned status:
 
 ```text
-/plugin marketplace add discreteds/swingle
+002 dispatched: provider=grok model=grok-4.5 attempt=1
+002 session: attempt=1 019f8f64-8d1d-7db3-99f8-addae0933d63
+002 complete: status=DONE outcome=answer-returned
+model-attempt: job=002 phase=worker attempt=1 role=transcription-implementer provider=grok model=grok-4.5 class=scope outcome=ok
+```
+
+## Scope
+
+Swingle is not an LLM router or a model-endpoint aggregator. A router hands you an endpoint
+or a model, and you still author the harness around it — agent loop, tools, sandbox, file
+edits, session resume, return contract. Swingle dispatches complete harnesses you have
+already installed and authenticated, with their own scaffolding intact.
+
+It is also distinct from a harness's built-in subagents, which run that harness's own model
+inside its own loop. Swingle covers the case those cannot: dispatching to a different
+harness — a different vendor's CLI, a different model — without leaving the one you are
+driving.
+
+## Requirements & install
+
+- The **`superpowers`** plugin, if you use the `swingle-sdd` skill: `swingle-sdd` augments
+  superpowers' own subagent-driven-development routines with external-CLI dispatch (see
+  [Skills](#skills)).
+- No superpowers for `swingle-delegate`: it handles direct, one-off interactions on its own.
+- Whichever dispatch CLIs you use, on `PATH`: `claude`, `codex`, `opencode`, `agy`, `grok`,
+  `pi` — each authenticated once. Auth modes, CI consequences, and seat economics:
+  [docs/credentials.md](docs/credentials.md). An OAuth-only harness will not run in headless
+  CI as-is; Claude and Grok also accept an API key and can.
+
+**Harness support.** Two roles: a harness you **drive from** needs a controller adapter under
+`skills/sdd/harnesses/`; a harness you **dispatch to** needs a pack under `providers/`. Each
+pack is verified end-to-end against a specific CLI version; re-verify on a version bump with
+`swingle-verify <id>`.
+
+| Harness | CLI | Verified against | Drive from? | Dispatch to? |
+| --- | --- | --- | --- | --- |
+| Claude Code | `claude` | 2.1.218 | ✅ | ✅ |
+| Codex | `codex` | 0.144.3 | ✅ | ✅ |
+| opencode | `opencode` | 1.17.18 | ✅ | ✅ |
+| Grok | `grok` | 0.2.111 | ✅ | ✅ |
+| Pi | `pi` | 0.81.1 | ✅ | ✅ |
+| Antigravity | `agy` | 1.1.5 | ✅ | ✅ |
+
+Swingle's packs, contracts, and routing doctrine ship in this repository and are discovered
+from the repo tree; no machine-specific paths are baked into the packs. The external pieces —
+the `superpowers` plugin (for `swingle-sdd`) and each CLI's own auth — are called out where they
+apply, not bundled here.
+
+### Claude Code
+
+```text
+/plugin marketplace add hiivmind/swingle
 /plugin install swingle@swingle-marketplace
 ```
 
-(A local checkout also works: `/plugin marketplace add /path/to/swingle`.)
+(A local checkout works too: `/plugin marketplace add /path/to/swingle`.)
 
-## Install with Codex
+### Codex
 
 This repository is also a Codex plugin (`.codex-plugin/plugin.json`) with a self-hosted
 marketplace:
 
 ```bash
-codex plugin marketplace add discreteds/swingle
+codex plugin marketplace add hiivmind/swingle
 codex plugin add swingle@swingle-marketplace
 ```
 
-Manual alternative
-(clone + symlink into `$HOME/.agents/skills/`) and full details:
-[codex/INSTALL.md](codex/INSTALL.md). The Codex entry point is `skills/sdd/SKILL.md`.
+Manual alternative and full details: [codex/INSTALL.md](codex/INSTALL.md). The Codex entry
+point is `skills/sdd/SKILL.md`.
 
-## Install with opencode
+### opencode
 
-opencode has no Claude Code plugin loader — its `plugin` config key takes npm packages
-and local `.ts` modules only. Plugins reach opencode as **skills trees** instead, which
-costs this repository nothing: it ships skills exclusively (no commands, agents, or
-hooks). Skills register under their bare frontmatter names (`sdd`, `delegate`,
-`swingle-verify`); opencode has no plugin namespace and dedupes by name, so install
-by exactly one of the routes below.
-
-### Route A — expose every installed Claude Code plugin (recommended)
-
-If you already run this plugin under Claude Code, the whole plugin set can be handed to
-opencode at once. Generate version-pinned `skills.paths` entries from Claude Code's own
-install registry:
+opencode loads plugins as skills trees (it has no Claude Code plugin loader). The recommended
+route generates version-pinned `skills.paths` from Claude Code's own install registry:
 
 ```bash
 scripts/opencode-skills-path --merge ~/.config/opencode/opencode.json   # global
-scripts/opencode-skills-path --merge ./opencode.json                    # per-project
 ```
 
-Run it again after installing, updating, or removing a Claude Code plugin.
+opencode's install has known pitfalls: a plugin-cache trap that silently loads mismatched
+versions, two environment-variable caveats, and a `grep` verification step. They are
+documented in [skills/sdd/harnesses/opencode.md](skills/sdd/harnesses/opencode.md); read it
+before your first opencode dispatch. opencode registers skills under bare frontmatter names
+with name-based dedupe; Swingle's skill names are all `swingle-`-prefixed, so they do not
+collide with other skills' generic names on that harness.
 
-**Do not shortcut this by pointing `skills.paths` at `~/.claude/plugins/cache` directly.**
-That directory retains every version ever installed (`cache/<marketplace>/<plugin>/<version>/`),
-and because opencode dedupes by skill name it will silently register an arbitrary version
-per skill — including mismatched versions within a single plugin. Observed on a real
-machine: the bare cache path loaded `sdd` 1.0.0 next to `delegate` 1.5.0, and superpowers
-6.0.3 while 6.1.1 was the installed version. The script reads `installed_plugins.json` and
-emits only the pinned `installPath` of each installed plugin, which resolves all three
-correctly.
+## Skills
 
-### Route B — this plugin alone, from a checkout
+| Skill | Purpose |
+| --- | --- |
+| `swingle-sdd` | Execute an implementation plan through the active harness and harness packs |
+| `swingle-delegate` | Directly dispatch an explicitly requested one-off job or homogeneous batch — no plan required |
+| `swingle-verify` | Re-run the CLI probe suite when versions bump or models release |
 
-For a source checkout (or if you do not use Claude Code at all), point `skills.paths` at
-the repository's `skills/` directory in `~/.config/opencode/opencode.json` (global) or
-`./opencode.json` (per-project). Entries are scanned recursively for `**/SKILL.md`; `~/`
-is expanded and relative paths resolve against the working directory.
+Skill names are `swingle-`-prefixed because several harnesses register skills in a flat,
+first-wins namespace; the skills live in `skills/sdd/` and `skills/delegate/` on disk.
 
-```json
-{
-  "$schema": "https://opencode.ai/config.json",
-  "skills": {
-    "paths": ["~/src/swingle/skills"]
-  }
-}
-```
+`swingle-sdd` wraps
+[`superpowers:subagent-driven-development`](https://github.com/obra/superpowers) and requires
+the superpowers plugin. Swingle supplies the external-CLI dispatch, packs, tiering, and
+gates; SDD is the methodology it applies, maintained upstream. `swingle-delegate` is the
+standalone path: it invokes no superpowers skill and has no `.superpowers/` dependency, which
+is why one-line asks route through `swingle-delegate`, not `swingle-sdd`.
 
-A symlink into `~/.claude/skills/` works too — opencode scans Claude Code's skill
-directories by default — but it has two drawbacks Route B avoids: the compat scan is
-switched off by `OPENCODE_DISABLE_EXTERNAL_SKILLS` / `OPENCODE_DISABLE_CLAUDE_CODE`, and
-skill locations are reported *through* the symlink, so the asset-root derivation in
-[skills/sdd/harnesses/opencode.md](skills/sdd/harnesses/opencode.md) must resolve the
-physical path before it can find `core/` and `providers/`.
+## Direct delegation
 
-### After either route
+`swingle-delegate <task>` dispatches a self-contained job (or homogeneous batch) with the full pack
+doctrine — role inference, model tiering, liveness, evidence gates, controller commits, and
+session resume — without plan-execution machinery. Levers (`via <harness>`, `floor it` /
+`play it safe`, `with review`, `read-only`, `supervised`) and the full lifecycle are in
+[skills/delegate/SKILL.md](skills/delegate/SKILL.md). Artifacts and the ledger live in
+`.sdd-dispatch/delegate/`. The boundary is semantic: multi-task implementation plans go to
+the `swingle-sdd` skill regardless of how they arrived; tasks below the triviality floor stay inline
+unless delegation was explicitly requested.
 
-Restart opencode and confirm the skills are registered before first use:
+## Safety & trust
+
+Swingle spawns agentic CLIs that run tools, edit files, and execute commands, on task text a
+model authored. The full threat model is [docs/safety.md](docs/safety.md); the essentials:
+
+- The gates are not a sandbox. A dispatched agent reads, writes, and runs commands the way
+  you can. `read-only` is an opt-in lane, not the default.
+- Only `codex` and `grok` sandbox at the OS level. The rest rely on the gate plus your
+  review.
+- The evidence gates surface effects, not correctness. They show what an agent did (or
+  didn't) so the controller can adjudicate; they do not prove the work is right.
+- Prompt injection is a real surface. Review dispatched changes as you would a pull request
+  from a stranger.
+
+## Model tiering & economics
+
+Each task is tiered: a cheap model for a review or trivial edit, the strongest for a hard
+implementation. `floor it` (the cheapest model clearing each task's bar) is the default.
+Model tables, override precedence, and `sdd-models`:
+[docs/model-tiering.md](docs/model-tiering.md).
+
+A measured token/cost delta on a real plan has not yet been published; measuring it is
+tracked in [#17](https://github.com/hiivmind/swingle/issues/17). The handoff itself —
+briefing, tiering, contract, evidence gate — does not depend on that number.
+
+## Adding a harness pack
+
+Routing is manifest-driven; adding a pack requires no edits to `core/`. Add one directory
+under `providers/` satisfying the pack contract (`pack.md`, `models.yaml`, `models.md`,
+`verification-log.md`) and run the validator that ships with the repo:
 
 ```bash
-opencode debug skill | grep -E '"name": "(sdd|delegate|swingle-verify)"'
+python3 scripts/validate-packs --root .
 ```
 
-`sdd` wraps `superpowers:subagent-driven-development`, so superpowers must be reachable by
-the same route (Route A covers it automatically). Dispatch CLIs (`codex`, `opencode`,
-`agy`, `grok`, `pi`, `claude`) must be on PATH and authenticated once interactively, as with the other
-harnesses. Harness-specific behaviour — the missing shell background mode, the
-`subagent_depth` cap, and session-id attribution when opencode dispatches its own pack —
-is documented in [skills/sdd/harnesses/opencode.md](skills/sdd/harnesses/opencode.md).
+The manifest grammar, the `report-transport` field, and the enforcement invariants are in
+[docs/pack-authoring.md](docs/pack-authoring.md).
+
+## Reporting verification findings
+
+The packs are living documents: CLIs change behavior between patch releases, models come and
+go, and every live dispatch is evidence. Where a finding gets recorded depends on what you
+can write to (full rules: `core/verification-protocol.md` §Recording and the `swingle-verify`
+skill):
+
+- writable checkout → append to the pack's `verification-log.md` and commit;
+- clone but no push → commit locally and open an issue or PR;
+- installed copy only →
+  [open an issue](https://github.com/hiivmind/swingle/issues/new?template=verification-finding.md)
+  using the **Verification finding** template.
+
+Search existing issues first; 👍 an equivalent issue rather than filing a duplicate. A
+finding recorded only in an installed cache is invisible upstream.
+
+## Subscription seats
+
+Swingle's economics work best driving CLIs you already run under flat-rate subscription seats
+rather than metered API keys. Note that unattended use can approach some providers'
+acceptable-use limits. The framing, the API-key degradation route, and what happens when a
+seat hits its cap: [docs/credentials.md](docs/credentials.md).
 
 ## Layout
 
@@ -129,112 +264,13 @@ skills/sdd/                       # plan-execution skill and harness adapters
 skills/delegate/                  # direct one-off dispatch skill (no plan machinery)
 skills/swingle-verify/            # CLI re-verification skill
 core/                             # shared doctrine, playbook, roles, and logs
-providers/<id>/                    # self-contained harness packs
-contracts/                         # implementer, task-reviewer, design-reviewer, and reader contracts
-codex/INSTALL.md                   # Codex installation instructions
-archive/v1.1/                      # verbatim legacy references
-references/                        # v1.1 tombstones with migration links
-scripts/validate-packs             # pack validator and resolver
-scripts/codex-smoke                # Codex layout and validator smoke test
-scripts/opencode-skills-path       # opencode skills.paths from installed Claude Code plugins
+providers/<id>/                   # self-contained harness packs
+contracts/                        # implementer, task-reviewer, design-reviewer, reader contracts
+docs/                             # user reference (safety, pack-authoring, model-tiering, credentials) + migration guides + hero image
+codex/INSTALL.md                  # Codex installation instructions
+scripts/validate-packs            # pack validator, resolver, and link/anchor check
+scripts/codex-smoke               # Codex layout and validator smoke test
+scripts/opencode-skills-path      # opencode skills.paths from installed Claude Code plugins
+archive/                          # superseded v1.x pack snapshots (historical)
+references/                       # cross-harness reference material
 ```
-
-## Skills
-
-| Skill | Purpose |
-| --- | --- |
-| `sdd` | Execute an implementation plan through the active harness and harness packs |
-| `delegate` | Directly dispatch an explicitly requested one-off job or homogeneous batch through the packs — no plan required |
-| `swingle-verify` | Re-run the CLI probe suite when versions bump or models release |
-
-`sdd` keeps its name deliberately: it executes plans via **SDD — subagent-driven
-development** — a methodology that exists independently of this plugin (see the upstream
-`superpowers:subagent-driven-development` skill). Swingle is the product; SDD is a
-method it applies.
-
-## Direct delegation
-
-`delegate <task>` dispatches a self-contained job (or homogeneous batch) to an external
-CLI with the full pack doctrine — role inference from `core/roles.md`, model tiering,
-liveness, hardened evidence gates (staged + untracked + HEAD-unchanged), controller
-commits, and session resume — but none of the SDD plan-execution ceremony. Levers:
-`via <harness>`, `floor it` / `play it safe` / explicit model, `with review`,
-`read-only`, `supervised` / `unsupervised`. Jobs implying ≥3 planned dispatch cycles
-run supervised automatically (announced). Artifacts and the lifecycle ledger live in
-`.sdd-dispatch/delegate/`, ignored via `.git/info/exclude` (`.sdd-dispatch/models/` is committable project config). The boundary is semantic:
-multi-task implementation plans go to the `sdd` skill regardless of how they arrived;
-tasks below the triviality floor stay inline unless delegation was explicitly
-requested.
-
-## Adding a harness pack
-
-Add one directory under `providers/` satisfying the pack contract:
-`pack.md`, `models.yaml` (the model table of record), `models.md` (documentary narrative), and `verification-log.md` with the required manifest fields. Run:
-
-```bash
-python3 scripts/validate-packs --root .
-```
-
-Adding a pack requires zero edits to `core/`; routing is manifest-driven.
-
-The manifest is the YAML front matter of `pack.md`. Required: `schema-version`, `id`,
-`cli`, `verified-version`, `version-argv`, `resume-argv`, `session-source`,
-`stall-signal`, `sandbox`. Optional: `fork-flag`, `session-list-argv`,
-`readiness-argv`, `readiness-timeout-seconds`, and:
-
-| Field | Values | Meaning |
-| --- | --- | --- |
-| `report-transport` | `report-file` (default) · `captured-output` | How an agent's report gets back to the controller |
-| `list-models-argv` | argv array | How to enumerate an open catalog harness's live model list (e.g. pi). Surfaced by `sdd-models init`, never auto-executed |
-
-Declare `captured-output` when the CLI cannot reliably write an agent-authored file to a
-workspace path. The skills then ask for **no file** and take the full report as the
-captured final message, saving it themselves. Getting this wrong is not cosmetic: on such
-a harness a report-file request fails *intermittently* while the exit code stays 0, so
-the report is silently missing and any reviewer downstream loses an input. `agy` is
-`captured-output`; `codex`, `opencode`, and `grok` are `report-file`.
-
-Every value is validator-enforced, and `*-argv` arrays are data — `argv[0]` must equal
-`cli`, and shell metacharacters are rejected, so a manifest can never smuggle in a
-command to execute.
-
-## Model tables and overrides
-
-Each pack ships its model priority table in `providers/<id>/models.yaml` (restricted
-YAML: flat header + a list of `tier/lane/priority/model/status[/pricing/rationale]`
-rows). At dispatch time the table is resolved per harness, first file found wins
-whole-file (no merging):
-
-1. `$SDD_DISPATCH_MODELS/<id>.yaml` (env override — a directory)
-2. `<project>/.sdd-dispatch/models/<id>.yaml` (committable, team-shared)
-3. `${XDG_CONFIG_HOME:-~/.config}/sdd-dispatch/models/<id>.yaml` (this machine)
-4. the pack default
-
-Seed an override with `scripts/sdd-models init <id> --project <repo>|--user`; inspect
-with `scripts/sdd-models which`. Override statuses are your own assertion — the
-`verified` stamps in pack defaults come from live dispatch evidence only. A malformed
-override is a hard error, never a silent fall-through; an override that omits a
-(tier, lane) slot resolves that slot to "no eligible model — ask", which is the
-supported way to keep a harness from auto-routing in one project.
-
-## Reporting verification findings
-
-The packs are living documents: CLIs flip behavior between patch releases, models come
-and go, and every live dispatch is evidence. Where a finding gets recorded depends on
-what you can write to (the **recording ladder** — full rules in
-`core/verification-protocol.md` §Recording and the `swingle-verify` skill, step 0):
-
-1. **Writable source checkout** — append to the pack's `verification-log.md`, update the
-   pack facts, and commit. Never record into an installed plugin cache (Claude Code
-   `~/.claude/plugins/cache/...`, Codex `~/.codex/plugins/cache/...`) — caches are
-   clobbered on the next upgrade.
-2. **Clone but no push rights** — commit locally and open an issue or PR carrying the
-   log entry.
-3. **No source tree** (installed copy only) — [open an issue](https://github.com/discreteds/swingle/issues/new?template=verification-finding.md)
-   using the **Verification finding** template (`verification` label), one issue per
-   independent finding: CLI + plugin version, trigger, the pack assertion under test,
-   verdict, verbatim evidence, impact. **Search first**: if an equivalent issue exists,
-   a 👍 reaction adds weight to its prioritisation; comment only when you bring a new
-   angle or wrinkle not already covered.
-
-A finding recorded only in an installed cache is a finding lost.

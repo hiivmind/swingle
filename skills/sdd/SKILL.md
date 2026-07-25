@@ -1,18 +1,18 @@
 ---
-name: sdd
+name: swingle-sdd
 description: >-
   Execute an implementation plan via subagent-driven development with
   external-CLI dispatch (codex/opencode/agy/grok/pi/claude). Use whenever executing a
   written plan with SDD — wraps superpowers:subagent-driven-development and
   applies the external-dispatch optimizations mechanically. Triggers: "run this
-  plan with SDD", "/sdd", "execute the plan via subagents", the Standard
-  Delivery Flow reaching its execute step.
+  plan with SDD", "/swingle-sdd", "/sdd", "execute the plan via subagents", the
+  Standard Delivery Flow reaching its execute step.
 ---
 
 # SDD with Provider Packs
 
 **Harness**: identify your controlling harness and read `harnesses/<harness>.md`
-(claude-code, codex, grok, opencode, pi) before Step 0 — it maps skill-loading, native subagent
+(claude-code, codex, grok, opencode, pi, agy) before Step 0 — it maps skill-loading, native subagent
 dispatch, task tracking, background jobs, and asset-root resolution. All paths below
 are relative to the plugin tree root `<root>` (the directory containing `skills/`,
 `core/`, `providers/`).
@@ -65,8 +65,15 @@ Read these plugin documents when their policy is needed:
    default_provider or providers_by_lane target, or set-but-unreadable
    $SDD_DISPATCH_CONFIG = STOP with the error. ACTIVE = installed − disabled
    (− incompatible iff require-verified-version).
-6. **Compatibility**: compare `version-argv` output to `verified-version`; mismatch →
-   warn and suggest `swingle-verify <id>` (block iff config require-verified-version).
+6. **Compatibility (advisory)**: compare `version-argv` output to `verified-version`. A
+   mismatch is a WARNING, not a gate — warn (installed X vs verified Y) and PROCEED.
+   Re-verifying a bumped CLI is maintenance (`swingle-verify <id>`), never a per-dispatch
+   stop; block only under config `require-verified-version`. Note that **drift is in
+   effect** for the session: if a later dispatch fails with a channel-class signature
+   (step 10), that failure IS a verification finding — recommend recording it per the
+   existing recording ladder and dedup (`core/verification-protocol.md` Recording),
+   capturing plugin + CLI versions. Never file automatically; never block the user
+   pre-dispatch on drift alone.
 7. **Provider routing (before any model resolution)**: FIRST, if the `native-subagents`
    lever (or per-task native directive) is in effect → bypass external dispatch entirely
    (harness-native subagents per adapter; no provider is selected). Otherwise: per-task
@@ -95,6 +102,13 @@ Read these plugin documents when their policy is needed:
     — channel-failed (provider, model) pairs are excluded session-wide and rebuilt from
     the ledger after compaction; quality failures (BLOCKED, repeated review rejection)
     create no exclusion and NEVER auto-fall-back — escalate tier or adjudicate.
+    **Channel failure while version drift is in effect** (step 6 warned installed ≠
+    `verified-version`) is also a verification finding — the pack may be stale on this CLI
+    version. **Recommend** (do not auto-file) recording it via the existing recording
+    ladder and dedup in `core/verification-protocol.md` Recording (search existing
+    `verification` issues → 👍 / comment / new), capturing plugin version, installed CLI
+    version vs `verified-version`, the controlling harness + its version, and the failure
+    signature. Quality failures are excluded — they are not drift evidence.
 
 ## Dispatch overrides (replace the stock skill's dispatch steps)
 

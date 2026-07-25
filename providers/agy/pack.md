@@ -19,7 +19,7 @@ sandbox: none
 | `< /dev/null` needed | **Yes** — hangs |
 | Sandbox | None — no isolation; file tools pass under default policy, shell commands gated by the permission baseline below |
 | Permission flags | **Headless honors persisted `settings.json` policies since 1.1.4** (per vendor changelog): file read/write passes under default policy, but shell `command` use is auto-denied (exit 0, zero work) unless `permissions.allow` has a `command(<target>)` rule or `--dangerously-skip-permissions` is passed — see 2026-07-23 verification-log entry |
-| Changelog | https://antigravity.google/changelog?tab=cli — read on every version bump before probing |
+| Changelog | https://antigravity.google/changelog?tab=cli — read when re-verifying (`swingle-verify`, maintenance) or when triaging a drift-triggered failure; agy's permission behaviour is patch-volatile |
 | Exit codes | Normal 0/1 (≥1.1.4; earlier versions reportedly returned 1 on success) |
 | Model validation | Errors cleanly, lists available models |
 | Reasoning-effort control | Effort-in-name (`-low/-medium/-high` slug or `(Low)` label) **or** base slug + `--effort` — mixing both **errors** |
@@ -59,8 +59,13 @@ agy --model gemini-3.6-flash --effort <low|medium|high> \
   flags.~~ **Superseded 2026-07-23**: this held only for FILE tools — 1.1.4 made headless
   honor persisted `settings.json` policies and shell `command` use is auto-denied without
   an allow-rule (see "Headless permission baseline" below). No read-only tier exists.
-  (On ≤1.1.1 headless auto-denied every tool — permission behavior has now shifted at
-  every patch release; re-verify on every version bump.)
+  (On ≤1.1.1 headless auto-denied every tool — permission behaviour has shifted across
+  patch releases, so agy is the provider most likely to bite when it runs ahead of
+  `verified-version`. This is **advisory, not a stop**: proceed on the version warning; a
+  channel-class failure with drift in effect is a drift-triggered verification finding to
+  recommend recording — see `core/verification-protocol.md` Recording — never a
+  pre-dispatch block. Re-verification via `swingle-verify` is maintenance, not a per-user
+  tax.)
 - **Document-shaped tasks divert output**: "produce a document" prompts write the answer to
   `~/.gemini/antigravity-cli/brain/<conversation-id>/*.md` and print only a banner to stdout.
   Mitigations, in order:

@@ -1,11 +1,11 @@
 {
   "name": "swingle",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Share the load: dispatch implementation and review work across coding-agent harnesses (codex/opencode/agy/grok/pi/claude), locally, through validated packs — no proxy, no key custody.",
   "author": {
     "name": "Nathaniel Ramm"
   },
-  "repository": "https://github.com/discreteds/swingle",
+  "repository": "https://github.com/hiivmind/swingle",
   "keywords": [
     "swingle",
     "harness",
@@ -27,6 +27,6 @@
       "Read",
       "Write"
     ],
-    "websiteURL": "https://github.com/discreteds/swingle"
+    "websiteURL": "https://github.com/hiivmind/swingle"
   }
 }

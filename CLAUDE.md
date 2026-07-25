@@ -47,9 +47,14 @@ because the shell used `;`. The gate is a precondition, not a preceding step.
   p = 0.21 and could not support the claim a single green run had seemed to).
 - **Pack facts changed ⇒ bump the plugin patch version** and keep `plugin.json`,
   `.codex-plugin/plugin.json`, and the README `**Version:**` line in sync.
-- **On any CLI version bump**: read the pack's `Changelog` row FIRST (verify skill step
-  2b), then re-verify with `swingle-verify <id>`. Never assume permission or sandbox
-  behavior survived a patch release — agy has flipped permission behavior on every one.
+- **On any CLI version bump** (a *maintenance* activity, NOT a per-dispatch gate): read
+  the pack's `Changelog` row FIRST (verify skill step 2b), then re-verify with
+  `swingle-verify <id>`. Never assume permission or sandbox behavior survived a patch
+  release — agy has flipped permission behavior on every one. The `swingle-sdd`/`swingle-delegate` skills
+  do not stop a user on drift: the version gate is advisory (warn + proceed), and a
+  channel-class dispatch failure *while drift is in effect* is what surfaces a
+  drift-triggered verification finding to recommend recording — the real-world trigger for
+  a re-verify round.
 - `verified-version` in a pack manifest is stamped only by live end-to-end dispatch
   evidence, recorded in that pack's verification log.
 
@@ -61,15 +66,16 @@ grandparent directory — `core/`, `providers/`, `contracts/` are load-bearing s
 the tree) breaks every install route. Codex plugin installs cache the whole repo, so the
 layout survives; the symlink route depends on it.
 
-The three skills and what they own:
+The three skills and what they own (frontmatter names are `swingle-`-prefixed since v2.1.0
+because opencode/Codex register skills in a flat namespace; directory names are unchanged):
 
-| Skill | Owns |
-| --- | --- |
-| `sdd` | executing a written multi-task plan (task reviews, ledger, final review) |
-| `delegate` | an explicitly requested one-off job or homogeneous batch — no plan, no superpowers dependency; workspace `.sdd-dispatch/delegate/` |
-| `swingle-verify` | re-probing a CLI on version bumps and model releases |
+| Skill | Directory | Owns |
+| --- | --- | --- |
+| `swingle-sdd` | `skills/sdd/` | executing a written multi-task plan (task reviews, ledger, final review) |
+| `swingle-delegate` | `skills/delegate/` | an explicitly requested one-off job or homogeneous batch — no plan, no superpowers dependency; workspace `.sdd-dispatch/delegate/` |
+| `swingle-verify` | `skills/swingle-verify/` | re-probing a CLI on version bumps and model releases |
 
-`delegate` must stay free of any *operational* superpowers dependency: it never invokes a
+`swingle-delegate` must stay free of any *operational* superpowers dependency: it never invokes a
 superpowers skill, never runs `scripts/sdd-workspace`, and never touches `.superpowers/`.
 The structural tests assert exactly one negative-disclaimer mention of each, so adding a
 second mention of either string fails the suite.

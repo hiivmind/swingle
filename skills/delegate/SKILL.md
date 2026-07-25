@@ -1,12 +1,12 @@
 ---
-name: delegate
-description: Directly delegate an explicitly requested, self-contained job or homogeneous batch to an external CLI (codex/opencode/agy/grok/pi/claude) through validated provider packs — role inference, model tiering, liveness, evidence gates, and session resume — without a written implementation plan. Use the sdd skill for multi-task implementation plans; keep sub-triviality-floor tasks inline unless delegation was explicitly requested.
+name: swingle-delegate
+description: Directly delegate an explicitly requested, self-contained job or homogeneous batch to an external CLI (codex/opencode/agy/grok/pi/claude) through validated provider packs — role inference, model tiering, liveness, evidence gates, and session resume — without a written implementation plan. Use the swingle-sdd skill for multi-task implementation plans; keep sub-triviality-floor tasks inline unless delegation was explicitly requested.
 ---
 
 # Delegate — Direct One-Off Dispatch
 
 **Harness**: identify your controlling harness and read
-`<root>/skills/sdd/harnesses/<harness>.md` (claude-code, codex, grok, opencode, pi) before setup — it
+`<root>/skills/sdd/harnesses/<harness>.md` (claude-code, codex, grok, opencode, pi, agy) before setup — it
 maps skill-loading, native subagent dispatch, background jobs, completion observation,
 and asset-root resolution. `<root>` is this skill directory's grandparent (the directory
 containing `skills/`, `core/`, `providers/`, `contracts/`).
@@ -20,10 +20,10 @@ and dispatch templates move with them. A dispatch built from memory looks identi
 correct one and fails silently: a stale flag, a superseded model id, a tier that no longer
 matches the role. Read the files; they are short by design.
 
-**Boundary (semantic, not transport-based)**: `sdd` = dependency-aware execution of a
-multi-task implementation plan (task reviews, plan ledger, final review) — use it
+**Boundary (semantic, not transport-based)**: `swingle-sdd` = dependency-aware execution
+of a multi-task implementation plan (task reviews, plan ledger, final review) — use it
 whenever the work is a plan, whether it arrived as a file, a pasted numbered checklist,
-or a structured message. `delegate` = an **explicitly requested**, self-contained job or
+or a structured message. `swingle-delegate` = an **explicitly requested**, self-contained job or
 homogeneous batch, wherever its text originated. The playbook's triviality floor still
 applies: work the controller can finish inline for less than the orchestration cycle
 stays inline unless the caller explicitly asked for external delegation. This skill has
@@ -83,11 +83,17 @@ Read these plugin documents when their policy is needed:
 3. **Layered config** (first found): `$SDD_DISPATCH_CONFIG` →
    `<project>/.sdd-dispatch.json` →
    `${XDG_CONFIG_HOME:-~/.config}/sdd-dispatch/config.json` — disable/steer only; the
-   same malformed-config STOP conditions as the `sdd` skill. ACTIVE = installed −
+   same malformed-config STOP conditions as the `swingle-sdd` skill. ACTIVE = installed −
    disabled (− incompatible iff require-verified-version).
-4. **Compatibility**: compare `version-argv` output to `verified-version`; mismatch →
-   warn and suggest `swingle-verify <id>` (block iff config
-   require-verified-version).
+4. **Compatibility (advisory)**: compare `version-argv` output to `verified-version`. A
+   mismatch is a WARNING, not a gate — warn (installed X vs verified Y) and PROCEED.
+   Re-verifying a bumped CLI is maintenance (`swingle-verify <id>`), never a per-dispatch
+   stop; block only under config `require-verified-version`. Note that **drift is in
+   effect** for the session: if a later dispatch fails with a channel-class signature
+   (Failure handling), that failure IS a verification finding — recommend recording it
+   per the existing recording ladder and dedup (`core/verification-protocol.md`
+   Recording), capturing plugin + CLI versions. Never file automatically; never block the
+   user pre-dispatch on drift alone.
 5. **Routing**: per-request provider directive → session lever → config
    `providers_by_lane[lane-of-role]` / `default_provider` → codex-if-active else
    sole-active-iff-exactly-one → ask. Inactive provider named anywhere → ask, never
@@ -251,6 +257,15 @@ BEFORE launch — a crash or compaction never loses the number→task mapping.
      automatic.
    - Quality failure → stops ALL automatic recovery; any tier escalation requires
      user approval (tier moves are never the controller's unilateral call).
+   - **Channel-class failure while version drift is in effect** (setup warned installed ≠
+     `verified-version`): after applying the pack's recovery, treat the failure as a
+     verification finding — the pack is a candidate for being stale on this CLI version.
+     **Recommend** (do not auto-file) recording it via the existing recording ladder and
+     dedup in `core/verification-protocol.md` Recording: search existing `verification`
+     issues first, then 👍 / comment / new-issue as the evidence warrants. The finding
+     captures plugin version, installed CLI version vs `verified-version`, the controlling
+     harness + its version, and the failure signature. Maintenance signal, not a user
+     block; quality failures are excluded (they are not drift evidence).
    - Every attempt appends:
      `model-attempt: job=NNN phase=<worker|review|reader2> attempt=<n> role=<role> provider=<id> model=<id> class=<scope> outcome=<failed|ok>`.
 

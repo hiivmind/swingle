@@ -29,7 +29,7 @@ def test_skill_exists_with_frontmatter():
     text = SKILL.read_text()
     assert text.startswith("---\n")
     front = text.split("---", 2)[1]
-    assert re.search(r"^name: delegate$", front, re.M)
+    assert re.search(r"^name: swingle-delegate$", front, re.M)
     assert re.search(r"^description: .{40,}", front, re.M)
 
 def _skill_files():

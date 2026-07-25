@@ -267,3 +267,37 @@ The plugin `sdd-dispatch` is renamed `swingle` at v2.0.0 (`sdd-dispatch-marketpl
 `discreteds/swingle`). Entries above predate the rename and keep the old names as
 historical record. No pack facts or probe results changed in this release.
 
+## 2026-07-25 — repo moved to the `hiivmind` org; planning/reviews split to swingle-central
+
+`discreteds/swingle` transferred to `hiivmind/swingle` (GitHub 301-redirects the old path).
+Live repo-URL references (README, codex/INSTALL.md, `.codex-plugin/plugin.json`,
+`core/verification-protocol.md`, `skills/sdd/harnesses/pi.md`, `skills/swingle-verify/`,
+`docs/migration-2.0.0.md`) now name `hiivmind/swingle`; the `discreteds/swingle` mentions in
+the entry above and in each pack's verification log are append-only history, left as-is.
+
+Planning and review artifacts (`docs/superpowers/**`, `docs/sol-*.md`,
+`docs/swingle-readme-adversarial-review.md`, `docs/rename-to-swingle.md`) relocated to the new
+private docs repo `hiivmind/swingle-central` (clean copy, `mountainash-central` layout). The
+plugin's `docs/` now ships only `images/` and `migration-*.md`. The validator's two
+`docs/`-specific link-scan skips were removed as dead code. No pack facts or probe results
+changed.
+
+## 2026-07-25 — version gate softened to advisory; drift-triggered findings (all providers)
+
+The `sdd`/`delegate` Compatibility step no longer pushes a stop on `installed ≠
+verified-version`: a mismatch is an **advisory warning + proceed** for every provider.
+Re-verification (`swingle-verify`) is reframed as a maintenance activity, not a per-dispatch
+tax; the only hard block remains the opt-in `require-verified-version` config. Removed the
+reflexive "re-verify on every version bump" imperative from the agy pack (Changelog row and
+the permission-volatility note) and the repo `CLAUDE.md` bump rule — kept the *fact* that
+agy's permission behaviour is patch-volatile as triage context.
+
+New feedback loop, routed through the **existing** recording ladder + dedup (no new
+mechanism): a **channel-class** dispatch failure (auth/permission, silent no-op, rejected
+flag, transport failure surviving retry) **while version drift is in effect** is an
+`anomaly`-trigger verification finding. The controller does not auto-file — it runs the
+dedup search and **recommends** 👍 / comment / new issue with plugin + CLI + harness
+versions and the failure signature pre-filled; the user decides. Quality failures are
+excluded (not drift evidence). Behaviour change ⇒ patch bump 2.0.0 → 2.0.1. `verified-version`
+stamps unchanged (no live re-probe in this round).
+

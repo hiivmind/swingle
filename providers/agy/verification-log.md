@@ -253,3 +253,34 @@ The plugin `sdd-dispatch` is renamed `swingle` at v2.0.0 (`sdd-dispatch-marketpl
 `discreteds/swingle`). Entries above predate the rename and keep the old names as
 historical record. No pack facts or probe results changed in this release.
 
+## 2026-07-25 — agy verified as a DRIVER (controlling harness), not only a dispatch target
+
+**Trigger:** anomaly — the README claimed agy was "a dispatch target, not yet a driver",
+inferred only from the absence of a `skills/sdd/harnesses/agy.md` adapter, never from a live
+probe. Owner disputed it.
+
+**Probe (inception double-dispatch):** the controller (Claude Code, agy 1.1.7 — drift from
+verified 1.1.5, advisory) dispatched a job *to* agy whose task was to itself dispatch *to*
+opencode and capture the result:
+
+```
+opencode run --auto -m opencode-go/deepseek-v4-flash --dir <scratch> \
+  'Reply with EXACTLY this one line and nothing else: OPENCODE_DRIVEN_BY_AGY_7Q2'
+```
+
+**Verdict: Confirmed.** agy ran the nested dispatch via its `run_command` tool
+(asynchronously), captured opencode's stdout verbatim, and the marker `OPENCODE_DRIVEN_BY_AGY_7Q2`
+round-tripped (`STATUS: DONE`). No friction (opencode on PATH, no auth prompt, clean capture).
+Evidence gate clean: repo tree untouched, HEAD unchanged. One environment prerequisite
+surfaced: agy's permission baseline had to allow the target CLI (`command(opencode)` added to
+`~/.gemini/antigravity-cli/settings.json`) — driving another harness needs an allow rule for
+it, the same permission model agy uses for its own tools.
+
+**Consequence:** agy is a controlling harness. Wrote `skills/sdd/harnesses/agy.md` (driver
+adapter — `invoke_subagent` native children, `manage_task` background processes, task-artifact
+todos, physical-path asset root, the baseline-allow prerequisite), backed by superpowers'
+`using-superpowers/references/antigravity-tools.md`; listed agy in the `sdd`/`delegate` harness
+enumerations; flipped the README support table Drive-from cell to ✅. Patch bump 2.0.2 → 2.0.3.
+`verified-version` (target-side) unchanged — this probe verified the driver role, not a new CLI
+version.
+

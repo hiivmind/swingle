@@ -14,10 +14,18 @@ substantial prose rewrite of most sections; sections that held up are preserved.
 ## Positioning spine (the order claims are made)
 
 1. **Convenience (the lead).** Stay in the harness you like; reach every other installed
-   CLI in one sentence. Delegated work is **first-class** — the template + contract system
-   briefs the other CLI with role, instructions, and a **return contract**, so a delegated
-   job comes back as structured work, not a raw prompt forwarded to an endpoint. Worked
-   example: *"ask Antigravity to produce a logo based on the principles in our README."*
+   CLI in one sentence — *"ask Antigravity to produce a logo based on the principles in our
+   README."* The one-line ask is the surface; the **delegation handoff** underneath is where
+   the value is, and it gets its own section (below) — the hero only teases it, it does not
+   explain it here.
+1a. **The delegation handoff (the magic — its own section).** The point is NOT merely
+   "type a sentence." It is what Swingle does with that sentence: infer the role, select the
+   model tier for the task, brief the target CLI with an **operating contract** and specific
+   instructions, hand it a **return contract** (status vocabulary + report shape), run it
+   under the liveness protocol, and gate the result on evidence before it comes back. A
+   one-liner becomes a **first-class, fully-briefed subagent** that returns structured work —
+   not a raw prompt forwarded to an endpoint. This section must *show* that pipeline; the
+   convenience lead must not sell it short by stopping at "just ask."
 2. **Capability / fair comparison (≈4 sentences).** A model-endpoint tool (`llm`, LLM
    routers/gateways) hands you an *endpoint or a model* — you still author the harness
    (agent loop, tools, sandbox, contracts). Swingle dispatches **whole harnesses you
@@ -47,8 +55,13 @@ substantial prose rewrite of most sections; sections that held up are preserved.
 1. **Hero** — banner (`docs/images/hero-banner.svg`, promoted from `agy-merged-v6.svg`),
    title, tagline "Share the load across model providers.", the convenience lead, the
    worked-example sentence, swingletree story trimmed to 1–2 lines, `**Version:** 2.0.0`.
-2. **A worked example** (new) — one sentence → role inferred → briefed with a contract →
-   runs on the chosen harness/model → returns a structured report. The "show" of convenience.
+2. **The delegation handoff** (new, load-bearing) — the magic, per spine 1a. Walk the
+   pipeline a single sentence triggers: role inference → model-tier selection → operating
+   contract + specific instructions → **return contract** (status vocab + report shape) →
+   liveness-protocol run → evidence gate → structured report back. Show it concretely
+   (the logo ask is a real, lived example). This is the section that must not undersell the
+   framework — the convenience of "just ask" is the doorway; the briefed, contract-bound,
+   tiered handoff is the room.
 3. **What Swingle isn't** (~4 sentences) — the `llm`/router fair comparison (endpoint vs
    whole harness) + why cross-harness beats one harness's own subagents. Disambiguation,
    not a headline war (review §4).
@@ -61,7 +74,15 @@ substantial prose rewrite of most sections; sections that held up are preserved.
    env-var caveats, grep verification) trimmed to a short pointer to the existing
    `skills/sdd/harnesses/opencode.md`, which already documents that behaviour — so the
    README body stops reading as 600 words of asymmetry.
-6. **Skills** — sdd / delegate / swingle-verify; tie `delegate` to the worked example.
+6. **Skills** — sdd / delegate / swingle-verify. **Credit superpowers explicitly**: the
+   `sdd` skill **rides along with `superpowers:subagent-driven-development`** — it wraps that
+   methodology and depends on the superpowers plugin being installed; say so plainly and give
+   credit (this also satisfies review 1.5's "own the dependency loudly"). By contrast,
+   `delegate` works **more directly and does NOT require superpowers** — no superpowers skill
+   invoked, no `.superpowers/` dependency — which is exactly why the delegation-handoff
+   section (§2) and the worked example route through `delegate`, not `sdd`. Make the split
+   unmistakable: sdd = plan execution on top of superpowers; delegate = standalone one-shot
+   dispatch with no superpowers dependency.
 7. **Safety & trust** (new) — honest threat model: what the evidence gates
    (staged + untracked + HEAD-unchanged) defend against and what they **do not**;
    dispatched agents run real tools and edits; read-only is opt-in; prompt-injection via

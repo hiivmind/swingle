@@ -100,8 +100,9 @@ driving.
 
 ## Requirements & install
 
-- The **`superpowers`** plugin (the `sdd` skill wraps `superpowers:subagent-driven-development`
-  — see [Skills](#skills)). `delegate` does not need it.
+- The **`superpowers`** plugin, if you use the `sdd` skill: `sdd` augments superpowers' own
+  subagent-driven-development routines with external-CLI dispatch (see [Skills](#skills)).
+- No superpowers for `delegate`: it handles direct, one-off interactions on its own.
 - Whichever dispatch CLIs you use, on `PATH`: `claude`, `codex`, `opencode`, `agy`, `grok`,
   `pi` — each authenticated once. Auth modes, CI consequences, and seat economics:
   [docs/credentials.md](docs/credentials.md). An OAuth-only harness will not run in headless

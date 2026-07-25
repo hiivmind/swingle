@@ -8,8 +8,8 @@
 Don't switch coding harnesses to switch models.
 
 You already drive a coding-agent harness — Claude Code, Codex, Grok, opencode, or Pi.
-Swingle lets you **stay in it** and reach every installed CLI — Antigravity included — in
-a sentence:
+Swingle lets you **stay in it** and reach any of the six supported CLIs you have installed
+— Antigravity included — in a sentence:
 
 > *"ask Grok for ideas on this."*
 > *"review this in GLM 5.2."*
@@ -31,7 +31,7 @@ the harnesses you already run.
 ## The delegation handoff
 
 The magic isn't "type a sentence." It's what Swingle does with that sentence before the
-other CLI ever sees it. One ask becomes a **fully-briefed subagent**:
+other CLI ever sees it. One ask is turned into a **briefed subagent**:
 
 1. **Role** — is this an implementer, a reviewer, an explorer? Inferred from the ask.
 2. **Model tier** — cheap model for a light task, the strongest for a hard one; matched to
@@ -39,7 +39,9 @@ other CLI ever sees it. One ask becomes a **fully-briefed subagent**:
 3. **Operating contract + instructions** — the target CLI is handed a real brief: what to
    do, what *not* to do, the scene, the interfaces it touches.
 4. **Return contract** — a required status vocabulary and report shape, so the answer comes
-   back as *structured work you can act on*, not a wall of chat.
+   back structured — or as an explicit *blocked* / *needs-context* status you can act on —
+   not a wall of chat. (A job can come back needing more from you; the contract makes that
+   legible instead of silent.)
 5. **Liveness + evidence gate** — the run is watched for stalls, and the result is checked
    against what actually landed (staged + untracked + `HEAD`-unchanged) before it's trusted.
 
@@ -56,7 +58,7 @@ dispatches. Real asks, and what each one does:
 | You say | What happens |
 | --- | --- |
 | *"ask Grok for ideas on this"* | One delegation to a named **harness**; Grok is briefed and returns structured ideas. |
-| *"review this in GLM 5.2"* | Name a **model**; the driving harness routes to the CLI that serves it (GLM 5.2 lives in opencode) and selects it there — model-level, not just harness-level. Name the harness explicitly (`via opencode`) if you'd rather be exact. |
+| *"review this in GLM 5.2"* | Name a **model**; your driving harness routes to a CLI that serves it — GLM 5.2 is offered by both opencode and Pi, so it picks one (or asks), and you can pin it with `via opencode`. Model-level selection, not just harness-level. (Routing is your driving harness interpreting the ask; there's no automatic model-to-CLI discovery inside `delegate`.) |
 | *"spec this in Kimi and Codex — blend their best ideas"* | The driving harness runs the two as separate `delegate` dispatches — concurrently where the lane allows it — then synthesises the results itself. There's no single "blend" primitive; it's your driving harness composing dispatches (exactly how this project's own logo concepts were produced). |
 
 The surface is natural language; the routing, tiering, briefing, and — for a fan-out — the
@@ -184,8 +186,9 @@ above route through `delegate`, not `sdd`.
 doctrine — role inference from `core/roles.md`, model tiering, liveness, evidence gates
 (staged + untracked + `HEAD`-unchanged), controller commits, and session resume — but none
 of the plan-execution ceremony. Levers: `via <harness>`, `floor it` / `play it safe` /
-explicit model, `with review`, `read-only`, `supervised` / `unsupervised`. Jobs implying ≥3
-planned dispatch cycles run supervised automatically (announced). Artifacts and the lifecycle
+explicit model, `with review`, `read-only`, `supervised` / `unsupervised`. Jobs whose
+planned worker + reviewer dispatches total ≥3 (counted after batching) run supervised
+automatically (announced). Artifacts and the lifecycle
 ledger live in `.sdd-dispatch/delegate/`, ignored via `.git/info/exclude`
 (`.sdd-dispatch/models/` is committable project config). The boundary is semantic: multi-task
 implementation plans go to the `sdd` skill regardless of how they arrived; tasks below the

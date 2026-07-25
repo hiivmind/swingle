@@ -72,7 +72,7 @@ because opencode/Codex register skills in a flat namespace; directory names are 
 | Skill | Directory | Owns |
 | --- | --- | --- |
 | `swingle-sdd` | `skills/sdd/` | executing a written multi-task plan (task reviews, ledger, final review) |
-| `swingle-delegate` | `skills/delegate/` | an explicitly requested one-off job or homogeneous batch — no plan, no superpowers dependency; workspace `.sdd-dispatch/delegate/` |
+| `swingle-delegate` | `skills/delegate/` | an explicitly requested one-off job or homogeneous batch — no plan, no superpowers dependency; workspace `.swingle/delegate/` |
 | `swingle-verify` | `skills/swingle-verify/` | re-probing a CLI on version bumps and model releases |
 
 `swingle-delegate` must stay free of any *operational* superpowers dependency: it never invokes a

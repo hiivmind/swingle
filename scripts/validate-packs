@@ -135,15 +135,15 @@ def resolve_models(provider_id, root, project):
     """Layered models.yaml walk (spec 2026-07-24): env -> project -> user -> default.
     First file found is the whole table; a found-but-malformed file is a STOP, never
     a fall-through."""
-    env_dir = os.environ.get("SDD_DISPATCH_MODELS")
+    env_dir = os.environ.get("SWINGLE_MODELS")
     if env_dir and not Path(env_dir).is_dir():
-        find(f"SDD_DISPATCH_MODELS set but not a readable directory: {env_dir}")
+        find(f"SWINGLE_MODELS set but not a readable directory: {env_dir}")
         return None, None, []
     layers = []
     if env_dir: layers.append(("env", Path(env_dir) / f"{provider_id}.yaml"))
-    if project: layers.append(("project", Path(project) / ".sdd-dispatch" / "models" / f"{provider_id}.yaml"))
+    if project: layers.append(("project", Path(project) / ".swingle" / "models" / f"{provider_id}.yaml"))
     xdg = os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config")
-    layers.append(("user", Path(xdg) / "sdd-dispatch" / "models" / f"{provider_id}.yaml"))
+    layers.append(("user", Path(xdg) / "swingle" / "models" / f"{provider_id}.yaml"))
     layers.append(("default", root / "providers" / provider_id / "models.yaml"))
     for layer, path in layers:
         if path.exists():
@@ -234,7 +234,7 @@ def check_repo_docs(root):
         # Git-ignored agent scratch (sdd/delegate workspaces) and archive snapshots are
         # agent-authored or historical artifacts full of illustrative links — never repo content.
         rel = str(p.relative_to(root))
-        return not ("archive/" in rel or ".git" in p.parts or ".superpowers" in p.parts or ".sdd-dispatch" in p.parts)
+        return not ("archive/" in rel or ".git" in p.parts or ".superpowers" in p.parts or ".swingle" in p.parts or ".sdd-dispatch" in p.parts)
     for path in sorted(root.rglob("*.md")):
         if not scanned(path): continue
         for n, line in enumerate(path.read_text().splitlines(), 1):

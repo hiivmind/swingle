@@ -21,13 +21,13 @@ eligible; a `verified` stamp comes from live dispatch evidence only.
 At dispatch time the table is resolved per harness — **first file found wins whole-file** (no
 merging):
 
-1. `$SDD_DISPATCH_MODELS/<id>.yaml` — env override (a directory)
-2. `<project>/.sdd-dispatch/models/<id>.yaml` — committable, team-shared
-3. `${XDG_CONFIG_HOME:-~/.config}/sdd-dispatch/models/<id>.yaml` — this machine
+1. `$SWINGLE_MODELS/<id>.yaml` — env override (a directory)
+2. `<project>/.swingle/models/<id>.yaml` — committable, team-shared
+3. `${XDG_CONFIG_HOME:-~/.config}/swingle/models/<id>.yaml` — this machine
 4. the pack default
 
-Seed an override with `scripts/sdd-models init <id> --project <repo>|--user`; inspect the
-resolved layer and walk with `scripts/sdd-models which` (or
+Seed an override with `scripts/swingle-models init <id> --project <repo>|--user`; inspect the
+resolved layer and walk with `scripts/swingle-models which` (or
 `scripts/validate-packs --resolve "<role>" <id> --project <repo>`).
 
 ## Override discipline

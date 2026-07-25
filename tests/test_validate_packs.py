@@ -126,7 +126,7 @@ import os
 
 def run_env(*args, **env):
     e = dict(os.environ, XDG_CONFIG_HOME=str(FIX / "no-such-xdg"))
-    e.pop("SDD_DISPATCH_MODELS", None)
+    e.pop("SWINGLE_MODELS", None)
     e.update(env)
     return subprocess.run([sys.executable, str(SCRIPT), *args], capture_output=True, text=True, env=e)
 
@@ -148,18 +148,18 @@ def test_resolve_env_layer_beats_project(tmp_path):
         "  - tier: standard\n    lane: review\n    priority: 1\n"
         "    model: env-review-model\n    status: experimental\n")
     r = run_env("--root", str(FIX / "good-yaml"), "--resolve", "per-task reviewer", "alpha",
-                "--project", str(FIX / "proj-override"), SDD_DISPATCH_MODELS=str(env_dir))
+                "--project", str(FIX / "proj-override"), SWINGLE_MODELS=str(env_dir))
     assert r.returncode == 0
     assert "layer: env path=" in r.stdout and "env-review-model" in r.stdout
 
 def test_env_layer_unreadable_stops(tmp_path):
     r = run_env("--root", str(FIX / "good-yaml"), "--resolve", "per-task reviewer", "alpha",
-                SDD_DISPATCH_MODELS=str(tmp_path / "missing-dir"))
-    assert r.returncode == 1 and "SDD_DISPATCH_MODELS" in r.stdout
+                SWINGLE_MODELS=str(tmp_path / "missing-dir"))
+    assert r.returncode == 1 and "SWINGLE_MODELS" in r.stdout
 
 def test_override_not_covering_slot_asks_with_path(tmp_path):
-    proj = tmp_path / "proj"; (proj / ".sdd-dispatch" / "models").mkdir(parents=True)
-    (proj / ".sdd-dispatch" / "models" / "alpha.yaml").write_text(
+    proj = tmp_path / "proj"; (proj / ".swingle" / "models").mkdir(parents=True)
+    (proj / ".swingle" / "models" / "alpha.yaml").write_text(
         "schema: 1\nprovider: alpha\nmodels: []\n")
     r = run_env("--root", str(FIX / "good-yaml"), "--resolve", "per-task reviewer", "alpha",
                 "--project", str(proj))
@@ -167,8 +167,8 @@ def test_override_not_covering_slot_asks_with_path(tmp_path):
     assert "no eligible model" in r.stdout and "does not cover" in r.stdout
 
 def test_malformed_override_stops_never_falls_through(tmp_path):
-    proj = tmp_path / "proj"; (proj / ".sdd-dispatch" / "models").mkdir(parents=True)
-    (proj / ".sdd-dispatch" / "models" / "alpha.yaml").write_text("models: {broken\n")
+    proj = tmp_path / "proj"; (proj / ".swingle" / "models").mkdir(parents=True)
+    (proj / ".swingle" / "models" / "alpha.yaml").write_text("models: {broken\n")
     r = run_env("--root", str(FIX / "good-yaml"), "--resolve", "per-task reviewer", "alpha",
                 "--project", str(proj))
     assert r.returncode == 1 and "layer: default" not in r.stdout
@@ -202,11 +202,11 @@ def test_list_models_argv_accepted_and_validated(tmp_path):
     r = run("--root", str(root))
     assert r.returncode == 1 and "argv[0]" in r.stdout
 
-SDD_MODELS = ROOT / "scripts" / "sdd-models"
+SDD_MODELS = ROOT / "scripts" / "swingle-models"
 
 def run_models(*args, **env):
     e = dict(os.environ, XDG_CONFIG_HOME=str(FIX / "no-such-xdg"))
-    e.pop("SDD_DISPATCH_MODELS", None)
+    e.pop("SWINGLE_MODELS", None)
     e.update(env)
     return subprocess.run([sys.executable, str(SDD_MODELS), *args], capture_output=True, text=True, env=e)
 
@@ -218,7 +218,7 @@ def test_sdd_models_init_project_seeds_and_refuses_overwrite(tmp_path):
     proj = tmp_path / "proj"; proj.mkdir()
     r = run_models("init", "alpha", "--root", str(FIX / "good-yaml"), "--project", str(proj))
     assert r.returncode == 0
-    seeded = proj / ".sdd-dispatch" / "models" / "alpha.yaml"
+    seeded = proj / ".swingle" / "models" / "alpha.yaml"
     assert seeded.exists() and "cheap-any-model" in seeded.read_text()
     r2 = run_models("init", "alpha", "--root", str(FIX / "good-yaml"), "--project", str(proj))
     assert r2.returncode == 1 and "exists" in (r2.stdout + r2.stderr)
@@ -229,7 +229,7 @@ def test_sdd_models_init_user_layer(tmp_path):
     r = run_models("init", "alpha", "--root", str(FIX / "good-yaml"), "--user",
                    XDG_CONFIG_HOME=str(tmp_path / "xdg"))
     assert r.returncode == 0
-    assert (tmp_path / "xdg" / "sdd-dispatch" / "models" / "alpha.yaml").exists()
+    assert (tmp_path / "xdg" / "swingle" / "models" / "alpha.yaml").exists()
 
 def test_codex_manifest_version_mismatch_fails(tmp_path):
     root = tmp_path / "ver-drift"; shutil.copytree(FIX / "good-lanes", root)

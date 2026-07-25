@@ -21,6 +21,8 @@ right model tier, then brings back checked, structured work — or tells you pla
 job is blocked. The one-line ask is the surface — the **handoff** underneath is where the
 value is (next section).
 
+
+## Why "Swingle"?
 A *swingletree* is the pivoting crossbar in a draught harness that equalises pull between
 animals of unequal strength — hitch a shire and a pony to one load and the bar rotates so
 neither is over-pulled. That is what Swingle does with coding work: share the load across

@@ -138,7 +138,7 @@ def test_validator_ignores_delegate_workspace():
     import subprocess, tempfile, os
     cmd = ["python3", str(ROOT / "scripts" / "validate-packs"), "--root", str(ROOT)]
     before = subprocess.run(cmd, capture_output=True, text=True)
-    ws = ROOT / ".sdd-dispatch" / "delegate"
+    ws = ROOT / ".swingle" / "delegate"
     ws.mkdir(parents=True, exist_ok=True)
     fd, name = tempfile.mkstemp(prefix="zz-regression-", suffix=".md", dir=ws)
     os.close(fd)

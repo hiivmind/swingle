@@ -29,7 +29,7 @@ The manifest is the YAML front matter of `pack.md`.
 | Field | Values | Meaning |
 | --- | --- | --- |
 | `report-transport` | `report-file` (default) · `captured-output` | How an agent's report gets back to the controller |
-| `list-models-argv` | argv array | How to enumerate an open-catalog harness's live model list (e.g. pi). Surfaced by `sdd-models init`, never auto-executed |
+| `list-models-argv` | argv array | How to enumerate an open-catalog harness's live model list (e.g. pi). Surfaced by `swingle-models init`, never auto-executed |
 
 ## `report-transport`: the field to get right
 

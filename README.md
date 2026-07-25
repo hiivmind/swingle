@@ -18,7 +18,7 @@ run. That buys two things your harness's own subagents cannot: another provider'
 model for a second opinion or an independent review, and delegation to a model whose tokens
 come out of a different quota than the harness you are driving.
 
-**Version:** 2.1.0 · [v2.0.0 release](https://github.com/hiivmind/swingle/releases/tag/v2.0.0)
+**Version:** 3.1.0 · [v2.0.0 release](https://github.com/hiivmind/swingle/releases/tag/v2.0.0) · config/state paths renamed `sdd-dispatch` → `swingle`: [docs/migration-3.0.0.md](docs/migration-3.0.0.md)
 
 ## Vocabulary
 
@@ -65,9 +65,9 @@ End-to-end smoke of the `providers/grok` pack dispatch path...
 ## Files changed
 | File | Action |
 | --- | --- |
-| `.sdd-dispatch/delegate/002-smoke-marker.txt` | created |
+| `.swingle/delegate/002-smoke-marker.txt` | created |
 
-No files outside `.sdd-dispatch/delegate/` were modified. No git commit or push was
+No files outside `.swingle/delegate/` were modified. No git commit or push was
 performed (implementer contract).
 
 ## Self-review
@@ -167,12 +167,15 @@ before your first opencode dispatch. opencode registers skills under bare frontm
 with name-based dedupe; Swingle's skill names are all `swingle-`-prefixed, so they do not
 collide with other skills' generic names on that harness.
 
+After installing, run `swingle-setup` for a guided environment check.
+
 ## Skills
 
 | Skill | Purpose |
 | --- | --- |
 | `swingle-sdd` | Execute an implementation plan through the active harness and harness packs |
 | `swingle-delegate` | Directly dispatch an explicitly requested one-off job or homogeneous batch — no plan required |
+| `swingle-setup` | Environment onboarding and health check — paths, config, registry, CLI auth, harness setup |
 | `swingle-verify` | Re-run the CLI probe suite when versions bump or models release |
 
 Skill names are `swingle-`-prefixed because several harnesses register skills in a flat,
@@ -192,7 +195,7 @@ doctrine — role inference, model tiering, liveness, evidence gates, controller
 session resume — without plan-execution machinery. Levers (`via <harness>`, `floor it` /
 `play it safe`, `with review`, `read-only`, `supervised`) and the full lifecycle are in
 [skills/delegate/SKILL.md](skills/delegate/SKILL.md). Artifacts and the ledger live in
-`.sdd-dispatch/delegate/`. The boundary is semantic: multi-task implementation plans go to
+`.swingle/delegate/`. The boundary is semantic: multi-task implementation plans go to
 the `swingle-sdd` skill regardless of how they arrived; tasks below the triviality floor stay inline
 unless delegation was explicitly requested.
 
@@ -214,8 +217,16 @@ model authored. The full threat model is [docs/safety.md](docs/safety.md); the e
 
 Each task is tiered: a cheap model for a review or trivial edit, the strongest for a hard
 implementation. `floor it` (the cheapest model clearing each task's bar) is the default.
-Model tables, override precedence, and `sdd-models`:
+Model tables, override precedence, and `swingle-models`:
 [docs/model-tiering.md](docs/model-tiering.md).
+
+The tier→model tables ship in each provider pack, and dispatches resolve from those pack
+defaults until you seed an override layer. To stand up the machine-wide registry, run
+`swingle-setup` (or `scripts/swingle-models init --user` directly; no provider argument seeds
+every shipped provider; pass an id for just one), then edit `~/.config/swingle/models/<id>.yaml`.
+For a committable per-project table, `scripts/swingle-models init <id> --project <repo>` seeds
+`.swingle/models/<id>.yaml`. `scripts/swingle-models which` shows which layer each
+provider currently resolves from.
 
 A measured token/cost delta on a real plan has not yet been published; measuring it is
 tracked in [#17](https://github.com/hiivmind/swingle/issues/17). The handoff itself —
@@ -274,3 +285,7 @@ scripts/opencode-skills-path      # opencode skills.paths from installed Claude 
 archive/                          # superseded v1.x pack snapshots (historical)
 references/                       # cross-harness reference material
 ```
+
+## License
+
+[MIT](LICENSE) © 2026 Nathaniel Ramm

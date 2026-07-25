@@ -80,9 +80,10 @@ Read these plugin documents when their policy is needed:
 2. **Detect providers**: read each `<root>/providers/*/pack.md` manifest; a provider is
    INSTALLED iff `command -v -- "<cli>"` succeeds for its validated cli name (data-only
    manifests — never execute manifest strings as shell).
-3. **Layered config** (first found): `$SDD_DISPATCH_CONFIG` →
-   `<project>/.sdd-dispatch.json` →
-   `${XDG_CONFIG_HOME:-~/.config}/sdd-dispatch/config.json` — disable/steer only; the
+3. **Layered config** (first found): `$SWINGLE_CONFIG` →
+   `<project>/.swingle.json` →
+   `${XDG_CONFIG_HOME:-~/.config}/swingle/config.json` (See
+   [docs/config.md](../../docs/config.md) for the schema) — disable/steer only; the
    same malformed-config STOP conditions as the `swingle-sdd` skill. ACTIVE = installed −
    disabled (− incompatible iff require-verified-version).
 4. **Compatibility (advisory)**: compare `version-argv` output to `verified-version`. A
@@ -99,27 +100,30 @@ Read these plugin documents when their policy is needed:
    sole-active-iff-exactly-one → ask. Inactive provider named anywhere → ask, never
    silently reroute.
 6. **Model resolution**: role → (tier, lane) via `core/roles.md` → the provider's
-   layered models.yaml (first found wins whole-file: `$SDD_DISPATCH_MODELS/<id>.yaml` →
-   `<project>/.sdd-dispatch/models/<id>.yaml` →
-   `${XDG_CONFIG_HOME:-~/.config}/sdd-dispatch/models/<id>.yaml` → the pack's
+   layered models.yaml (first found wins whole-file: `$SWINGLE_MODELS/<id>.yaml` →
+   `<project>/.swingle/models/<id>.yaml` →
+   `${XDG_CONFIG_HOME:-~/.config}/swingle/models/<id>.yaml` → the pack's
    `models.yaml`) → ordered candidates (statuses verified/experimental; exact-lane rows
    by priority, then (tier, any) rows by priority); take the first; none → ask, naming
    the winning file. A found-but-malformed override, or set-but-unreadable
-   `$SDD_DISPATCH_MODELS`, is a STOP, never a fall-through.
+   `$SWINGLE_MODELS`, is a STOP, never a fall-through.
    (`scripts/validate-packs --resolve "<role>" <id> --project <repo>` prints the layer
-   and walk; `scripts/sdd-models which|init` inspects and seeds override layers.)
+   and walk; `scripts/swingle-models which|init` inspects and seeds override layers.)
+   Resolving from the pack default is normal — but when no override layer exists at all,
+   mention ONCE per session to run `swingle-setup` to seed the machine-wide registry;
+   never create user config uninvited.
 7. **Readiness**: before the FIRST dispatch to a chosen provider, run its bounded
    preflight per its pack (version + auth/session probe; agy: the headless permission
    baseline check — on miss, STOP and hand the user the pack's baseline section).
-8. **Workspace**: create `.sdd-dispatch/delegate/` at the repo root. Check
-   `git check-ignore -q .sdd-dispatch/delegate/.probe` (a child sentinel, so negation
+8. **Workspace**: create `.swingle/delegate/` at the repo root. Check
+   `git check-ignore -q .swingle/delegate/.probe` (a child sentinel, so negation
    rules cannot silently expose workspace files); if not ignored, append
-   `.sdd-dispatch/delegate/` to the file resolved by `git rev-parse --git-path info/exclude`
+   `.swingle/delegate/` to the file resolved by `git rev-parse --git-path info/exclude`
    (repo-local, never tracked; a literal `.git/info/exclude` path breaks in linked
    worktrees) and tell the user — NEVER edit a tracked `.gitignore` implicitly (it
    dirties the tree right before a gate that requires it clean; a tracked entry is the
-   user's separate commit). `.sdd-dispatch/models/` is committable project config —
-   never ignore `.sdd-dispatch/` at the root. Copy
+   user's separate commit). `.swingle/models/` is committable project config —
+   never ignore `.swingle/` at the root. Copy
    `implementer-contract.md`, `task-reviewer-contract.md`, `design-reviewer-contract.md`,
    and `reader-contract.md` from `<root>/contracts/` into the workspace once per session.
 
@@ -204,7 +208,7 @@ those providers).
 Each **job** gets the next number `NNN` (001, 002, …), allocated durably in the ledger
 BEFORE launch — a crash or compaction never loses the number→task mapping.
 
-1. Write the prompt to `.sdd-dispatch/delegate/NNN-prompt.md`: contract path (per role
+1. Write the prompt to `.swingle/delegate/NNN-prompt.md`: contract path (per role
    class), the task text verbatim, scene (one line: repo, branch, relevant paths), and
    the role's output protocol — branch by role, lane, AND the routed pack's
    `report-transport` per the output-capture rules: implement and unsandboxed read roles
@@ -355,7 +359,7 @@ or hands the answer to a fresh supervisor cycle for the remaining batch.
 ## Workspace and ledger
 
 ```
-.sdd-dispatch/delegate/
+.swingle/delegate/
   implementer-contract.md      # copied once per session from <root>/contracts/
   task-reviewer-contract.md
   reader-contract.md

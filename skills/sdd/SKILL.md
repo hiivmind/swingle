@@ -58,12 +58,13 @@ Read these plugin documents when their policy is needed:
 5. **Detect providers**: read each <root>/providers/*/pack.md manifest; a provider is
    INSTALLED iff `command -v -- "<cli>"` succeeds for its validated cli name (data-only
    manifests — never execute manifest strings as shell; argv[0]==cli is
-   validator-enforced). Apply layered config (first found): $SDD_DISPATCH_CONFIG →
-   <project>/.sdd-dispatch.json → ${XDG_CONFIG_HOME:-~/.config}/sdd-dispatch/config.json
-   — disable/steer only; malformed/wrong-typed config, an unknown provider ID in
+   validator-enforced). Apply layered config (first found): $SWINGLE_CONFIG →
+   <project>/.swingle.json → ${XDG_CONFIG_HOME:-~/.config}/swingle/config.json
+   (See [docs/config.md](../../docs/config.md) for the schema) — disable/steer only;
+   malformed/wrong-typed config, an unknown provider ID in
    `disable`, `default_provider`, or any `providers_by_lane` value, a disabled
    default_provider or providers_by_lane target, or set-but-unreadable
-   $SDD_DISPATCH_CONFIG = STOP with the error. ACTIVE = installed − disabled
+   $SWINGLE_CONFIG = STOP with the error. ACTIVE = installed − disabled
    (− incompatible iff require-verified-version).
 6. **Compatibility (advisory)**: compare `version-argv` output to `verified-version`. A
    mismatch is a WARNING, not a gate — warn (installed X vs verified Y) and PROCEED.
@@ -82,15 +83,18 @@ Read these plugin documents when their policy is needed:
    provider named anywhere → ask, never silently reroute.
 8. **Resolve model within the routed provider**: role → (tier, lane) via core/roles.md →
    the provider's layered models.yaml (first found wins whole-file:
-   `$SDD_DISPATCH_MODELS/<id>.yaml` → `<project>/.sdd-dispatch/models/<id>.yaml` →
-   `${XDG_CONFIG_HOME:-~/.config}/sdd-dispatch/models/<id>.yaml` → the pack's
+   `$SWINGLE_MODELS/<id>.yaml` → `<project>/.swingle/models/<id>.yaml` →
+   `${XDG_CONFIG_HOME:-~/.config}/swingle/models/<id>.yaml` → the pack's
    `models.yaml`) → ordered candidates (eligible statuses verified/experimental;
    exact-lane rows by priority, THEN (tier, any) rows by priority — this order is the
    complete fallback sequence); take the first; none → ask the user, naming the winning
-   file. A found-but-malformed override, or set-but-unreadable `$SDD_DISPATCH_MODELS`,
+   file. A found-but-malformed override, or set-but-unreadable `$SWINGLE_MODELS`,
    is a STOP, never a fall-through.
    (`scripts/validate-packs --resolve "<role>" <provider> --project <repo>` prints the
-   layer and the walk order.)
+   layer and the walk order; `scripts/swingle-models which|init` inspects and seeds
+   override layers.) Resolving from the pack default is normal — but when no override
+   layer exists at all, mention ONCE per session to run `swingle-setup` to seed the
+   machine-wide registry; never create user config uninvited.
 9. **Readiness**: before the FIRST dispatch to a chosen provider, run its bounded
    preflight (version + session-list/auth probe per manifest); failures are
    channel-class → fallback rules.

@@ -259,3 +259,11 @@ The nudge is a **prompt mitigation, not a guarantee** — it lifts this defect c
 reliably in this trial but cannot prove every future case. It is shared doctrine, so it binds
 every provider's reviewer, not only claude; other packs inherit the same floor and their next
 P13 rounds are the check. Patch-bumped 1.9.1 → 1.9.2.
+
+## 2026-07-25 — plugin renamed to Swingle (v2.0.0)
+
+The plugin `sdd-dispatch` is renamed `swingle` at v2.0.0 (`sdd-dispatch-marketplace` →
+`swingle-marketplace`, skill `sdd-dispatch-verify` → `swingle-verify`, repository →
+`discreteds/swingle`). Entries above predate the rename and keep the old names as
+historical record. No pack facts or probe results changed in this release.
+

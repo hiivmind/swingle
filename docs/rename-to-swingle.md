@@ -1,8 +1,15 @@
 # Backlog — rename `sdd-dispatch` → **Swingle**
 
-**Status:** planned, not started
+**Status:** W1–W5 implemented in v2.0.0 (2026-07-25), pending release; W6 (repo rename — a release prerequisite — + external refs) and W7 (visual identity) outstanding
 **Decided:** 2026-07-23
 **Target version:** v2.0.0 (breaking — plugin identity changes)
+
+> **2026-07-25 resolutions:** Q2 — rename the GitHub repo in place (301 redirect).
+> Q4 — resolved by events; Grok shipped as v1.6.0 long before the rename branch. W3
+> amended: instead of a pure no-op it ships the portable self-migration guide in
+> `docs/migration-2.0.0.md`. Branding: the "Greedy Cup" doctrine and milkshake epigraph
+> are dropped — all branding derives from the swingletree concept.
+
 
 ---
 

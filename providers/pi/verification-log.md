@@ -34,3 +34,11 @@ review lane in anger; the review-lane rows are stamped `verified` for *dispatch*
 for *review quality*). Run P13 before relying on pi for adversarial review.
 
 **verified-version stamped 0.81.1** on live end-to-end dispatch evidence above.
+
+## 2026-07-25 — plugin renamed to Swingle (v2.0.0)
+
+The plugin `sdd-dispatch` is renamed `swingle` at v2.0.0 (`sdd-dispatch-marketplace` →
+`swingle-marketplace`, skill `sdd-dispatch-verify` → `swingle-verify`, repository →
+`discreteds/swingle`). Entries above predate the rename and keep the old names as
+historical record. No pack facts or probe results changed in this release.
+

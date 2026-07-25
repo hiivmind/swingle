@@ -98,3 +98,11 @@ quality, *provided the nudged contract (≥ v1.9.2) is in force*. This is a prom
 keep the standing rule that severity adjudication stays in the controller — the nudge raises
 the floor reliably here, it does not remove the need to adjudicate. P4 (unclosed-stdin
 backstop) still open.
+
+## 2026-07-25 — plugin renamed to Swingle (v2.0.0)
+
+The plugin `sdd-dispatch` is renamed `swingle` at v2.0.0 (`sdd-dispatch-marketplace` →
+`swingle-marketplace`, skill `sdd-dispatch-verify` → `swingle-verify`, repository →
+`discreteds/swingle`). Entries above predate the rename and keep the old names as
+historical record. No pack facts or probe results changed in this release.
+

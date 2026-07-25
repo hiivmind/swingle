@@ -4,6 +4,18 @@
 **Target:** `README.md` on `develop` (v2.0.0), plus repo description (done) and hero image wiring
 **Driver:** `docs/swingle-readme-adversarial-review.md` (10 prioritised findings) + owner's convenience-first reframing
 
+## The lead (locked)
+
+The README opens with, and the hero banner carries, this exact tagline lockup:
+
+> **Share the load** *(heavy)*
+> Don't switch coding harnesses to switch models *(lighter weight, second line)*
+
+"Share the load" is the bold anchor; the lighter second line names the friction Swingle
+removes. This is the README lead line, immediately under the `# Swingle` title / banner —
+nothing precedes it but the title and hero image. (Chosen 2026-07-25 after a candidate
+round incl. a grok ideation pass; on-vocabulary — *harness* and *model*, not "provider".)
+
 ## Goal
 
 Reposition the Swingle README around **convenience** — you never leave the coding-agent
@@ -62,6 +74,20 @@ substantial prose rewrite of most sections; sections that held up are preserved.
    (the logo ask is a real, lived example). This is the section that must not undersell the
    framework — the convenience of "just ask" is the doorway; the briefed, contract-bound,
    tiered handoff is the room.
+   **Include a "how you actually say it" block** — real, conversational prompts that show
+   the *range* of operation (name a harness, name a model, or ask for a multi-harness
+   blend), verbatim from how the owner drives it:
+   - *"ask grok for ideas on this"* — one-line delegation to a named harness.
+   - *"review this in GLM 5.2"* — target a specific **model** (in whichever harness serves
+     it), showing model-level selection, not just harness-level.
+   - *"spec this in kimi and codex — blend their best ideas"* — fan out to multiple
+     harnesses/models and synthesise, all from one sentence.
+   These examples carry the convenience argument better than prose: the reader sees the
+   surface is natural language and the depth (tiering, contracts, blending) is automatic.
+   Keep them truthful to what the skills actually do (delegate handles single jobs and
+   homogeneous batches; a "blend two and synthesise" ask is the controller composing two
+   delegate dispatches — describe it as such, don't imply a magic one-call primitive that
+   doesn't exist).
 3. **What Swingle isn't** (~4 sentences) — the `llm`/router fair comparison (endpoint vs
    whole harness) + why cross-harness beats one harness's own subagents. Disambiguation,
    not a headline war (review §4).

@@ -237,10 +237,14 @@ def test_sdd_models_init_user_layer(tmp_path):
     assert r.returncode == 0
     assert (tmp_path / "xdg" / "swingle" / "models" / "alpha.yaml").exists()
 
-
-
-
-
+def test_codex_manifest_version_mismatch_fails(tmp_path):
+    root = tmp_path / "ver-drift"; shutil.copytree(FIX / "good-lanes", root)
+    (root / ".claude-plugin").mkdir(); (root / ".codex-plugin").mkdir()
+    (root / ".claude-plugin" / "plugin.json").write_text(json.dumps({"version": "2.0.0"}))
+    (root / ".codex-plugin" / "plugin.json").write_text(json.dumps({"version": "1.9.9"}))
+    (root / "README.md").write_text("**Version:** 2.0.0\n")
+    r = run("--root", str(root))
+    assert r.returncode == 1 and ".claude-plugin 2.0.0 != .codex-plugin 1.9.9" in r.stdout
 
 def make_health_test_root(tmp_path, providers=("alpha", "beta")):
     root = tmp_path / "root"

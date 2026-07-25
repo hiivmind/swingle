@@ -267,3 +267,18 @@ The plugin `sdd-dispatch` is renamed `swingle` at v2.0.0 (`sdd-dispatch-marketpl
 `discreteds/swingle`). Entries above predate the rename and keep the old names as
 historical record. No pack facts or probe results changed in this release.
 
+## 2026-07-25 — repo moved to the `hiivmind` org; planning/reviews split to swingle-central
+
+`discreteds/swingle` transferred to `hiivmind/swingle` (GitHub 301-redirects the old path).
+Live repo-URL references (README, codex/INSTALL.md, `.codex-plugin/plugin.json`,
+`core/verification-protocol.md`, `skills/sdd/harnesses/pi.md`, `skills/swingle-verify/`,
+`docs/migration-2.0.0.md`) now name `hiivmind/swingle`; the `discreteds/swingle` mentions in
+the entry above and in each pack's verification log are append-only history, left as-is.
+
+Planning and review artifacts (`docs/superpowers/**`, `docs/sol-*.md`,
+`docs/swingle-readme-adversarial-review.md`, `docs/rename-to-swingle.md`) relocated to the new
+private docs repo `hiivmind/swingle-central` (clean copy, `mountainash-central` layout). The
+plugin's `docs/` now ships only `images/` and `migration-*.md`. The validator's two
+`docs/`-specific link-scan skips were removed as dead code. No pack facts or probe results
+changed.
+

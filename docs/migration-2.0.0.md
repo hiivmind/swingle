@@ -9,8 +9,8 @@ repositions; it does **not** alter dispatch behaviour, state layout, or config p
   `swingle-marketplace`.
 - One skill invocation: `/sdd-dispatch-verify` → `/swingle-verify`. `/sdd` and
   `/delegate` are unchanged.
-- Repository: `discreteds/sdd-dispatch-plugin` → `discreteds/swingle` (GitHub
-  301-redirects the old URL).
+- Repository: `discreteds/sdd-dispatch-plugin` → `hiivmind/swingle` (renamed to `swingle`
+  at v2.0.0, then moved to the `hiivmind` org; GitHub 301-redirects the old URLs).
 
 ## What did NOT change
 
@@ -25,10 +25,10 @@ repositions; it does **not** alter dispatch behaviour, state layout, or config p
 Bring this checklist to any repo or machine that installed the plugin as
 `sdd-dispatch`; an agent (or human) there can execute it directly.
 
-> **Timing:** run this guide only after the upstream repository rename
-> (`discreteds/sdd-dispatch-plugin` → `discreteds/swingle`) has happened — it is a
-> release prerequisite for v2.0.0. Before then the new URL does not resolve; afterwards
-> the old URL 301-redirects.
+> **Timing:** run this guide only after the upstream repository rename and org move
+> (`discreteds/sdd-dispatch-plugin` → `hiivmind/swingle`) have happened. The old URLs
+> 301-redirect, so the commands below work regardless, but they name the canonical
+> `hiivmind/swingle` location.
 
 1. **Remove the v1 install FIRST, then add the v2 source.** The old and new plugins
    both export `sdd` and `delegate`, so letting them coexist creates duplicate skill
@@ -38,11 +38,11 @@ Bring this checklist to any repo or machine that installed the plugin as
    `--help` if your version differs — the remove-before-add ordering is the requirement.)
    - Claude Code: `/plugin uninstall sdd-dispatch@sdd-dispatch-marketplace`, then
      `/plugin marketplace remove sdd-dispatch-marketplace`, then
-     `/plugin marketplace add discreteds/swingle` and
+     `/plugin marketplace add hiivmind/swingle` and
      `/plugin install swingle@swingle-marketplace`.
    - Codex: `codex plugin remove sdd-dispatch@sdd-dispatch-marketplace`, then
      `codex plugin marketplace remove sdd-dispatch-marketplace`, then
-     `codex plugin marketplace add discreteds/swingle` and
+     `codex plugin marketplace add hiivmind/swingle` and
      `codex plugin add swingle@swingle-marketplace`.
    - opencode Route A: rerun `scripts/opencode-skills-path --merge <config>` after the
      Claude Code remove/reinstall. Route B / pi / symlink installs: update the checkout
@@ -52,7 +52,7 @@ Bring this checklist to any repo or machine that installed the plugin as
    settings, replace `/sdd-dispatch-verify` with `/swingle-verify`. Leave `/sdd`,
    `/delegate`, and every `.sdd-dispatch/` path exactly as they are.
 3. **Update pinned URLs — inspect before rewriting.** Git remotes keep working via the
-   301, but pins should move to `https://github.com/discreteds/swingle`. Run
+   301, but pins should move to `https://github.com/hiivmind/swingle`. Run
    `git remote -v` first and rewrite **only** a remote whose URL is the old upstream
    (`discreteds/sdd-dispatch-plugin`, with or without `.git`). In a fork checkout,
    `origin` is your fork — leave it alone and update (or add) the `upstream` remote

@@ -5,7 +5,7 @@
   "author": {
     "name": "Nathaniel Ramm"
   },
-  "repository": "https://github.com/discreteds/swingle",
+  "repository": "https://github.com/hiivmind/swingle",
   "keywords": [
     "swingle",
     "harness",
@@ -27,6 +27,6 @@
       "Read",
       "Write"
     ],
-    "websiteURL": "https://github.com/discreteds/swingle"
+    "websiteURL": "https://github.com/hiivmind/swingle"
   }
 }

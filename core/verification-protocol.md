@@ -117,7 +117,7 @@ This applies equally to mid-run incident notes appended by the `sdd` skill.
 When no writable source exists (no checkout on the machine, or no push rights), **raise a
 GitHub issue on the upstream project instead of dropping the finding** — one issue per
 independent finding using the repository's "Verification finding" template
-(`gh issue create --repo discreteds/swingle --label verification`). The
+(`gh issue create --repo hiivmind/swingle --label verification`). The
 recording ladder is: writable source → commit; clone-but-no-push → local commit + issue
 or PR; no source tree → issue only. **Deduplicate before filing**: search existing
 `verification` issues (open and closed) first — an equivalent open issue gets a 👍

@@ -17,7 +17,7 @@ them to file-based substitutes rather than to tools that do not exist. Do not fa
 
 ## Install and discovery
 
-`pi install https://github.com/discreteds/swingle` clones the whole repository
+`pi install https://github.com/hiivmind/swingle` clones the whole repository
 as a package and discovers its `skills/` directory automatically, so the layout contract
 (`core/`, `providers/`, `contracts/` as siblings of `skills/`) survives intact. This is the
 preferred route. pi also loads skills from `~/.pi/agent/skills/`, `~/.agents/skills/`,

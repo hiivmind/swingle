@@ -7,18 +7,17 @@
 **Share the load.**
 Don't switch coding harnesses to switch models.
 
-You already drive a coding-agent harness — Claude Code, Codex, Grok, opencode, or Pi.
-Swingle lets you **stay in it** and reach any of the six supported CLIs you have installed —
-Antigravity included (a dispatch target, not yet a driver) — in a sentence:
+You already drive a coding-agent harness. Swingle lets you **stay in it** and reach the other
+CLIs you have installed, in a sentence:
 
 > *"ask Grok for ideas on this."*
 > *"review this in GLM 5.2."*
 > *"spec this in Kimi and Codex — blend their best ideas."*
 
 You don't leave your harness, learn another CLI, or re-auth mid-thought. You say what you
-want; the harness you're driving interprets it and dispatches the right target at the right
-model tier, then brings back checked, structured work — or tells you plainly when a job is
-blocked. The one-line ask is the surface; the **handoff** underneath is where the value is.
+want; the harness you're driving briefs the right tool at the right model tier and brings back
+checked, structured work. The one-line ask is the surface; the **handoff** underneath is where
+the value is.
 
 **Version:** 2.0.2 · [v2.0.0 release](https://github.com/hiivmind/swingle/releases/tag/v2.0.0)
 
@@ -49,23 +48,23 @@ the room. [What a dispatch returns](#what-a-dispatch-returns) shows a real one.
 
 ### How you actually drive it
 
-You talk to the harness you're already in; *it* interprets the ask and issues the dispatches.
-The ask Swingle executes deterministically end to end:
+There's no command syntax and no fixed menu of phrases to learn. You describe what you want
+in natural language, in the flow of whatever you're already doing, and your harness handles
+the dispatch. The asks throughout this README are **examples**, not an interface — they only
+sketch the range:
 
-| You say | What happens |
-| --- | --- |
-| *"ask Grok for ideas on this"* | One delegation to a named **harness**: Grok is briefed with a role, a tier, and a return contract, and returns structured ideas. Provider, model, and session are recorded in the ledger. |
+- name a harness — *"ask Grok for ideas on this"*
+- name a model — *"review this in GLM 5.2"*
+- fan out and blend — *"spec this in Kimi and Codex, then merge the best of each"*
+- or just describe the outcome and let your harness choose the tool and tier.
 
-#### What your driving harness composes on top
-
-The other two marquee asks are your **driving harness** improvising with `delegate` as a
-subroutine — interpreting a model name or fanning out and synthesising. Useful, and honest
-about where the work happens:
-
-| You say | What your driving harness does |
-| --- | --- |
-| *"review this in GLM 5.2"* | Names a **model**; your driving harness routes to a CLI that serves it — GLM 5.2 is offered by both opencode and Pi, so it picks one (or asks), and you can pin it with `via opencode`. There is no automatic model-to-CLI discovery inside `delegate`; the pick your harness makes is recorded in the ledger, so the run is reproducible. |
-| *"spec this in Kimi and Codex — blend their best ideas"* | Runs the two as separate `delegate` dispatches — concurrently where the lane allows — then synthesises the results itself. There is no single "blend" primitive; it's your driving harness composing dispatches. (This is exactly how this project's own logo concepts were produced — see below.) |
+Underneath, every ask becomes the same briefed handoff. A single named delegation Swingle
+runs end to end; naming a model or fanning out is your **driving harness** composing
+dispatches on top — routing a model name to a CLI that serves it (there's no automatic
+model-to-CLI discovery inside `delegate`, and you can always pin it with `via opencode`), or
+running several dispatches and synthesising them. Whatever your harness picks is recorded in
+the ledger, so the run reproduces. (The fan-out is exactly how this project's own logo
+concepts were produced — see below.)
 
 ## What a dispatch returns
 

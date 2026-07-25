@@ -6,7 +6,7 @@ description: Directly delegate an explicitly requested, self-contained job or ho
 # Delegate — Direct One-Off Dispatch
 
 **Harness**: identify your controlling harness and read
-`<root>/skills/sdd/harnesses/<harness>.md` (claude-code, codex, grok, opencode, pi) before setup — it
+`<root>/skills/sdd/harnesses/<harness>.md` (claude-code, codex, grok, opencode, pi, agy) before setup — it
 maps skill-loading, native subagent dispatch, background jobs, completion observation,
 and asset-root resolution. `<root>` is this skill directory's grandparent (the directory
 containing `skills/`, `core/`, `providers/`, `contracts/`).

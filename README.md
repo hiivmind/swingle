@@ -19,7 +19,7 @@ want; the harness you're driving briefs the right tool at the right model tier a
 checked, structured work. The one-line ask is the surface; the **handoff** underneath is where
 the value is.
 
-**Version:** 2.0.2 · [v2.0.0 release](https://github.com/hiivmind/swingle/releases/tag/v2.0.0)
+**Version:** 2.0.3 · [v2.0.0 release](https://github.com/hiivmind/swingle/releases/tag/v2.0.0)
 
 ## Why "Swingle"?
 
@@ -150,10 +150,9 @@ harness.
   run in headless CI as-is; Claude and Grok also accept an API key and can.
 
 **Harness support.** Two roles: a harness you **drive from** needs a controller adapter under
-`skills/sdd/harnesses/` (five have one); a harness you **dispatch to** needs a pack under
-`providers/` (six have one). Antigravity is a dispatch target today, not yet a driver. Each
-pack is verified end-to-end against a specific CLI version; re-verify on a bump with
-`swingle-verify <id>`.
+`skills/sdd/harnesses/` (all six have one); a harness you **dispatch to** needs a pack under
+`providers/` (six have one). Each pack is verified end-to-end against a specific CLI version;
+re-verify on a bump with `swingle-verify <id>`.
 
 | Harness | CLI | Verified against | Drive from? | Dispatch to? |
 | --- | --- | --- | --- | --- |
@@ -162,7 +161,7 @@ pack is verified end-to-end against a specific CLI version; re-verify on a bump 
 | opencode | `opencode` | 1.17.18 | ✅ | ✅ |
 | Grok | `grok` | 0.2.111 | ✅ | ✅ |
 | Pi | `pi` | 0.81.1 | ✅ | ✅ |
-| Antigravity | `agy` | 1.1.5 | — | ✅ |
+| Antigravity | `agy` | 1.1.5 | ✅ | ✅ |
 
 Swingle's own packs, contracts, and routing doctrine ship **in this repository**, discovered
 from the repo tree with no machine-specific paths baked into the packs. The external pieces it

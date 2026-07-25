@@ -85,10 +85,12 @@ re-install, explicit "no state-dir migration" statement.
 
 - `README.md` — full rewrite, not a rename. Order: the local-dispatch differentiator up
   top (**a router is a hop; Swingle spawns processes locally** against credentials the
-  user already holds — nothing enters the prompt path), harness vocabulary, the Greedy
-  Cup doctrine section, "share the load" tagline, `"I drink your milkshake"` as a
-  one-line epigraph, `**Version:** 2.0.0` line, install sections pointing at
-  `discreteds/swingle`.
+  user already holds — nothing enters the prompt path), harness vocabulary, "share the
+  load" tagline, `**Version:** 2.0.0` line, install sections pointing at
+  `discreteds/swingle`. **Branding decision (owner, 2026-07-25): the "Greedy Cup
+  doctrine" and the milkshake epigraph are dropped entirely** — they predate the Swingle
+  branding and do not align with it. All branding derives from the swingletree /
+  draught-harness concept only.
 - Repo `CLAUDE.md` — product name, paths, skill names (including the skill table row
   `sdd-dispatch-verify` → `swingle-verify`).
 - `core/roles.md`, `core/playbook.md`, `core/safety-doctrine.md`, `core/liveness.md`,
@@ -139,8 +141,11 @@ docs, git history.
 2. `uv run --with pytest pytest tests/ -q` fully green.
 3. Residual-name sweep: `grep -rI 'sdd-dispatch\|sdd_dispatch\|SDD Dispatch'` returns
    hits **only** in the allowed set — `archive/**`, `docs/sol-*.md`, dated migration
-   docs, verification-log historical entries, and historical prose in
-   `docs/rename-to-swingle.md` / this spec.
+   docs, dated `docs/superpowers/specs+plans/**` artefacts, verification-log historical
+   entries, historical prose in `docs/rename-to-swingle.md` / this spec, and state/config
+   paths that deliberately keep the old name (`.sdd-dispatch/`, `.sdd-dispatch.json`,
+   `~/.config/sdd-dispatch/`, `$SDD_DISPATCH_MODELS` — renaming these is a behaviour
+   change and out of scope).
 4. Every commit on the branch passes the gate (`&&`-chained, never `;`).
 
 ## Execution

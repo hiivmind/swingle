@@ -85,10 +85,11 @@ individually consented.
    layer per provider via the existing `resolve_models` walk. The skill executes no
    manifest argv itself — the script is the single implementation of env inspection,
    shared with the dispatch skills' Step-0.
-3. **Config discovery**: walk `$SWINGLE_CONFIG` → `<project>/.swingle.json` →
-   `${XDG_CONFIG_HOME:-~/.config}/swingle/config.json`. Report which layer (if any)
-   wins, and validate the found file with the existing
-   `validate-packs --check-config` (§7). **Malformed config is a finding with an
+3. **Config discovery**: the winning config layer comes from the same `--health`
+   output (`config-layer=…`, §7 — the walk `$SWINGLE_CONFIG` →
+   `<project>/.swingle.json` → `${XDG_CONFIG_HOME:-~/.config}/swingle/config.json`
+   lives in the script, not skill prose); the found file is validated with the
+   existing `validate-packs --check-config` (§7). **Malformed config is a finding with an
    offered fix, never a STOP** — setup is the tool the dispatch skills' STOP points to.
    Enumerated cases mirror the dispatch STOP list exactly (review finding M2):
    malformed/wrong-typed file, unknown provider id in `disable`/`default_provider`/
@@ -246,16 +247,25 @@ keys, and setup must not elevate them (a config the dispatch skills accept must 
 fail setup). Setup consumes the existing mode as-is; the only change is documentation:
 `docs/config.md` cites it as the validation entry point.
 
-### `validate-packs --health` (new mode; review finding I2)
+### `validate-packs --health` (new mode; review findings I2, N1, P3)
 
 The env-inspection logic Phase A needs, as a script mode rather than skill prose —
 detection (`command -v` per manifest), installed-vs-verified version, bounded readiness
-probe, and resolving registry layer per provider, with **no route selection** (the
-existing `--step0` injects a route-selection finding and exits 1 when no role is given,
-so it cannot serve as a health check). Reuses the existing manifest parsing,
-`resolve_models`, and probe plumbing; covered by unit tests alongside the existing
-resolver tests. The dispatch skills MAY later adopt it, but their Step-0 contract is
-unchanged by this spec.
+probe, resolving registry layer per provider, **and the resolving config layer**
+(`config-layer=<env|project|user|none|env-unreadable>` — the config chain walk lives in
+the script too, so the set-but-unreadable-`$SWINGLE_CONFIG` case is detected by the
+same implementation the report cites, and dispatch Step-0 and setup Phase A cannot
+drift apart on the walk). No route selection (the existing `--step0` injects a
+route-selection finding and exits 1 when no role is given, so it cannot serve as a
+health check).
+
+**Implementation mandate (N1)**: the detection / version-drift / readiness /
+layer-resolution body currently written inline in the `--step0` branch is refactored
+into named helpers consumed by BOTH `--step0` and `--health` — one implementation, two
+modes. `--health` must compose with `--check-config <file>` in a single invocation.
+Covered by unit tests alongside the existing resolver tests; `--step0`'s external
+behavior is unchanged. The dispatch skills MAY later adopt `--health`, but their Step-0
+contract is unchanged by this spec.
 
 ## 8. Skill layout and distribution
 
@@ -315,3 +325,9 @@ verdict at `.sdd-dispatch/delegate/017-review.md` (session workspace). Key
 adjudications: I1 verified against `scripts/validate-packs` (`--check-config`
 pre-exists; unknown-keys-as-warning preserved); I3's open assumption closed by
 inspecting every shipped pack's baseline section (all local-state-only).
+
+Round 2 (same reviewer session, 2026-07-25): all 13 round-1 findings CLOSED; new
+finding N1 (single-implementation goal required factoring `--step0`'s inline body into
+helpers shared with `--health`) and plan finding P3 (config-layer walk centralized into
+`--health`) folded into §7 above; plan findings P1–P8 folded into
+[swingle-setup-plan.md](swingle-setup-plan.md).

@@ -15,31 +15,46 @@ T3; T7 is last.
 **Files:** `scripts/validate-packs`, `tests/test_validate_packs.py`.
 
 Add a `--health` flag (with optional repeated `--provider <id>` scoping and the existing
-`--root`/`--project`). For each pack manifest, emit one line to stdout:
+`--root`/`--project`). For each pack manifest, emit one line to stdout, plus one
+trailing config line:
 
 ```
 <id>: installed=<yes|no> version=<v|-> verified=<v> drift=<yes|no> readiness=<ok|fail|timeout|skipped> registry-layer=<env|project|user|default|->
+config-layer=<env|project|user|none|env-unreadable>
 ```
 
-- Reuses existing plumbing only: manifest parsing, `command -v` detection,
-  `version-argv` execution, `readiness-argv` execution, `resolve_models` for the layer
-  column. **No route selection, no role argument, exit 0 even when CLIs are missing**
+- **Refactor first (review finding N1)**: extract the detection / version-drift /
+  readiness / layer-resolution body currently inline in the `--step0` branch into named
+  module-level helpers; `--step0` and `--health` both consume them — one
+  implementation, two modes. `--step0`'s external behavior (output, findings, exit
+  codes) is unchanged; existing `--step0` tests must pass unmodified.
+- **Config-layer emission (review finding P3)**: `--health` walks the config chain
+  (`$SWINGLE_CONFIG` → project → user) in the script and emits the winning layer,
+  including the `env-unreadable` case (set-but-unreadable `$SWINGLE_CONFIG`) — the
+  dispatch STOP-equivalent is detected by the script, not skill prose.
+- **No route selection, no role argument, exit 0 even when CLIs are missing**
   (missing CLIs are data, not findings) — exit non-zero only for the existing manifest
   findings.
-- Readiness/version probes are timeout-bounded (reuse or add a single constant, ~30s);
-  a timeout reports `readiness=timeout`, never hangs the mode.
+- Readiness/version probes are timeout-bounded via a module-level constant
+  `HEALTH_PROBE_TIMEOUT_SECONDS = 30`, referenced (not inlined) at the call sites so
+  tests can override it with `monkeypatch.setattr` (review finding P1); a timeout
+  reports `readiness=timeout`, never hangs the mode.
 - Uninstalled provider: `readiness=skipped`, `version=-`.
-- `--health` composes with `--check-config <file>` in one invocation (setup Phase A
-  calls both).
+- **Argparse composition (review finding P2)**: `main()`'s existing mutually-exclusive
+  branch structure is extended so `--health` + `--check-config <file>` run in ONE
+  invocation (setup Phase A calls both together); dedicated test
+  `test_health_composes_with_check_config` asserts both outputs appear in a single
+  argv run.
 
 **Tests** (fixture-driven, no real CLIs): a fake pack whose `cli` is a stub script on a
 temp PATH — installed/uninstalled, drift yes/no, readiness ok/fail/timeout (stub sleeps
-past a test-shortened timeout), layer column agrees with `resolve_models` fixtures.
-Assert `--health` never exits non-zero for environment states, only for manifest
-findings.
+past a `monkeypatch`-shortened `HEALTH_PROBE_TIMEOUT_SECONDS`), registry-layer column
+agrees with `resolve_models` fixtures, config-layer cases (none / project / user /
+env / env-unreadable), the composition test above. Assert `--health` never exits
+non-zero for environment states, only for manifest findings.
 
-**Acceptance:** spec §7 `--health` paragraph satisfied; `--step0` behavior untouched
-(existing tests unchanged and green).
+**Acceptance:** spec §7 `--health` section satisfied (including the N1 helper mandate);
+`--step0` behavior untouched (existing tests unchanged and green).
 
 ## T2 — `docs/config.md` (canonical config schema)
 
@@ -50,6 +65,10 @@ Write the schema doc: the four keys (`disable`, `default_provider`,
 walk and whole-file-wins rule; the dispatch STOP conditions verbatim (quoted as the
 consumers enforce them); unknown-keys-are-warnings semantics (I1); the neutral template
 JSON block (§6.2); `validate-packs --check-config` as the validation entry point.
+**STOP-wording canonicality (review finding P5)**: the sdd skill's inline statement is
+the canonical source; `docs/config.md` quotes it verbatim; the delegate skill's
+existing cross-reference ("the same malformed-config STOP conditions as the
+`swingle-sdd` skill") stays; the sdd skill's inline copy remains load-bearing.
 
 In both dispatch SKILL.md files: add a link to `docs/config.md` at the config step
 (`See docs/config.md for the schema`) — **inline STOP conditions stay verbatim**; only
@@ -90,7 +109,10 @@ prompt "Check and set up this machine's swingle environment with the swingle-set
 skill."
 
 **Acceptance:** spec §2–§6 traceable line-by-line; existing purity glob tests pass over
-the new files.
+the new files; **and the new SKILL.md is run through the `_cli_invocation` discriminator
+from `tests/test_delegate_skill.py` standalone before T3 closes** (review finding P6 —
+Phase B's sample report rows naming CLIs sit near the heuristic's boundary; verify
+deliberately, don't discover in T4).
 
 ## T4 — structural tests for the setup skill
 
@@ -98,10 +120,16 @@ the new files.
 
 - Frontmatter: `^name: swingle-setup$`; description present; explicit-only wording.
 - Boundary guard (I7, precisely scoped): no line matches a probe label regex
-  (`^#+ P\d+\b|P\d+ —`) and no line contains a timeout-bounded probe invocation
-  (reuse/adapt the `_cli_invocation` discriminator from `tests/test_delegate_skill.py`);
-  the bare recommendation string `swingle-verify <id>` is asserted PRESENT (the Phase D
-  hand-off must survive the guard).
+  (`^#+ P\d+\b|P\d+\s+—` — spell the em-dash as an explicit `—` escape and
+  declare the test file UTF-8, review finding P4) and no line contains a
+  timeout-bounded probe invocation (reuse/adapt the `_cli_invocation` discriminator
+  from `tests/test_delegate_skill.py`); the bare recommendation string
+  `swingle-verify <id>` is asserted PRESENT (the Phase D hand-off must survive the
+  guard).
+- **Guard-strength fixtures (review finding P8)**: commit two deliberately-violating
+  SKILL.md snippets under `tests/fixtures/setup-skill/` (one embedding a P-label probe
+  step, one embedding a probe invocation) and assert the boundary guard FAILS on each —
+  the self-audit becomes a committed regression test.
 - No-superpowers: setup's SKILL.md never mentions a superpowers skill invocation,
   `scripts/sdd-workspace`, or `.superpowers/` except (if needed) a single negative
   disclaimer — mirror the delegate suite's exact-count pattern only if the disclaimer
@@ -115,8 +143,8 @@ fails the matching test.
 
 ## T5 — docs & distribution surfaces
 
-**Files:** `README.md`, `CLAUDE.md`, `codex/INSTALL.md`, `skills/sdd/SKILL.md`,
-`skills/delegate/SKILL.md`.
+**Files:** `README.md`, `CLAUDE.md`, `codex/INSTALL.md`, `scripts/codex-smoke`,
+`skills/sdd/SKILL.md`, `skills/delegate/SKILL.md`.
 
 - README: Skills table row for `swingle-setup`; one install-section line ("after
   installing, run `swingle-setup` for a guided environment check"); Model-tiering
@@ -125,6 +153,9 @@ fails the matching test.
   `swingle-setup` (spec §2 last line) — keep "never create user config uninvited".
 - CLAUDE.md: skills table row (name | `skills/swingle-setup/` | owns).
 - `codex/INSTALL.md`: mention in Prerequisites.
+- `scripts/codex-smoke`: add existence checks for `skills/swingle-setup/SKILL.md` and
+  `skills/swingle-setup/agents/openai.yaml` (the smoke script is presence-checks only —
+  verified at plan time — so the new skill must be added to be covered at all).
 
 **Acceptance:** validator link scan green; README/CLAUDE/codex surfaces list all four
 skills consistently.
@@ -133,19 +164,23 @@ skills consistently.
 
 **Files:** `docs/migration-3.0.0.md`.
 
-Add the both-directories-exist guard to the runbook's step 2: check for an existing
-`.swingle/` before `mv` (a bare `mv` nests the source inside the target); provide the
-guarded form:
+Add the both-exist guard to ALL THREE moves in the runbook (review finding P7 — the
+directory move nests, and the config-**file** rename silently *replaces* an existing
+`.swingle.json` with the old file, which is just as destructive):
 
 ```bash
+# step 1 (config file): guard before git mv / mv
+[ -f .swingle.json ] && echo "BOTH config files exist — reconcile manually or run swingle-setup" || <existing rename>
+# step 2 (directory): a bare mv into an existing target NESTS the source inside it
 [ -d .sdd-dispatch ] && { [ -e .swingle ] && echo "BOTH exist — merge manually or run swingle-setup" || mv .sdd-dispatch .swingle; }
+# per-machine (~/.config): same both-exist guard
 ```
 
-and the same guard for the `~/.config` move. This is a correction to live migration
-instructions, not a rewrite of a historical doc (3.0.0 is the current migration).
+This is a correction to live migration instructions, not a rewrite of a historical doc
+(3.0.0 is the current migration).
 
-**Acceptance:** runbook commands are copy-paste safe under partial-prior-migration
-state.
+**Acceptance:** every runbook move is copy-paste safe under partial-prior-migration
+state (target-exists → explicit message, never a silent nest or replace).
 
 ## T7 — version, gate, review
 
@@ -172,7 +207,15 @@ unless a reviewer is explicitly requested. T7 includes the final review by defin
 - **`--health` probe execution**: readiness/version argv come from manifests;
   the mode must keep the validator's data-only discipline (argv arrays executed
   directly, never via shell). Test with a stub CLI, never a live one.
+- **T1 is a restructure, not an addition** (review findings N1/P2): factoring
+  `--step0`'s inline body into shared helpers and making the argparse branches
+  compose touches the dispatch skills' one load-bearing script — `--step0`'s
+  external behavior is pinned by existing tests; run the full validator suite after
+  the refactor commit, before building `--health` on top.
 - **Nudge rewording** touches the dispatch skills' Step-0 prose; the delegate
   structural suite pins several exact strings — run it after T5, not just at T7.
+- **`_cli_invocation` boundary on Phase B sample rows** (review finding P6): the
+  skill's illustrative report table names CLIs; verify against the discriminator at
+  T3 close, not first at T4.
 - **Stacked branch**: if `develop` moves under the stack (3.0.0 PR merged with
   changes), rebase before T7's final review so the review covers what will merge.

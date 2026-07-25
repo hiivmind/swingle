@@ -29,6 +29,8 @@
 - Modify: `.codex-plugin/plugin.json`
 - Modify: `.agents/plugins/marketplace.json`
 - Modify: `README.md:12` (version line ONLY — full rewrite is Task 4)
+- Modify: `scripts/validate-packs` (Step 5b — extend version-sync to the Codex manifest)
+- Test: `tests/test_validate_packs.py` (Step 5c — negative mismatch test)
 
 **Interfaces:**
 - Produces: plugin name `swingle`, marketplace name `swingle-marketplace`, version `2.0.0`, repo URL `https://github.com/discreteds/swingle`. Tasks 2–5 use these exact strings.
@@ -159,13 +161,29 @@ def check_repo_docs(root):
 
 (Everything from the `banned = re.compile(...)` line down is unchanged.) The gate run in Step 6 proves the extended check passes with the new manifests.
 
+- [ ] **Step 5c: Add the negative test for the new check.** Append to `tests/test_validate_packs.py` (matches the file's existing copytree-mutate-run pattern):
+
+```python
+def test_codex_manifest_version_mismatch_fails(tmp_path):
+    root = tmp_path / "ver-drift"; shutil.copytree(FIX / "good-lanes", root)
+    (root / ".claude-plugin").mkdir(); (root / ".codex-plugin").mkdir()
+    (root / ".claude-plugin" / "plugin.json").write_text(json.dumps({"version": "2.0.0"}))
+    (root / ".codex-plugin" / "plugin.json").write_text(json.dumps({"version": "1.9.9"}))
+    (root / "README.md").write_text("**Version:** 2.0.0\n")
+    r = run("--root", str(root))
+    assert r.returncode == 1 and ".claude-plugin 2.0.0 != .codex-plugin 1.9.9" in r.stdout
+```
+
+Run: `uv run --with pytest pytest tests/test_validate_packs.py::test_codex_manifest_version_mismatch_fails -q`
+Expected: PASS (and it must FAIL if run before Step 5b — that ordering check is optional but cheap).
+
 - [ ] **Step 6: Gate + tests + commit**
 
 ```bash
 python3 scripts/validate-packs --root . && ./scripts/codex-smoke && \
 uv run --with pytest pytest tests/ -q && \
-git add .claude-plugin .codex-plugin .agents README.md && \
-git commit -m "feat(identity)!: rename plugin to swingle, v2.0.0 manifests"
+git add .claude-plugin .codex-plugin .agents README.md scripts/validate-packs tests/test_validate_packs.py && \
+git commit -m "feat(identity)!: rename plugin to swingle, v2.0.0 manifests; validator syncs codex manifest version"
 ```
 
 Expected: gate PASS lines, pytest all green. If the validator complains about a name/version sync rule beyond these five files, read its message and fix within this task — do not defer.
@@ -692,13 +710,18 @@ git grep -nI -e 'sdd-dispatch' -e 'sdd_dispatch' -e 'SDD Dispatch' -- \
 
 Expected: `SWEEP-CLEAN`. Any surviving line is a missed rename — fix it per Rule 0 and re-run. The exclusions are exactly the allowed set: historical artefacts, the migration docs (whose old-name mentions are their content), verification logs (historical entries + H1 identity lines, plus Task 5's appended entry which names the old names deliberately), and the two filter lines for deliberately-kept state/config paths (`.gitignore`'s `.sdd-dispatch/` line included).
 
-Then separately confirm the NEW migration guide says what it must — both names, correct direction:
+Then separately confirm the NEW migration guide says what it must — enforced thresholds AND at least one exact old→new mapping in each direction of the flow:
 
 ```bash
-grep -c 'sdd-dispatch' docs/migration-2.0.0.md && grep -c 'swingle' docs/migration-2.0.0.md
+old=$(grep -c 'sdd-dispatch' docs/migration-2.0.0.md); new=$(grep -ci 'swingle' docs/migration-2.0.0.md); \
+test "$old" -ge 5 && test "$new" -ge 5 && \
+grep -q 'swingle@swingle-marketplace' docs/migration-2.0.0.md && \
+grep -q 'sdd-dispatch@sdd-dispatch-marketplace' docs/migration-2.0.0.md && \
+grep -q 'sdd-dispatch-verify.*swingle-verify' docs/migration-2.0.0.md && \
+echo MIGRATION-DOC-OK
 ```
 
-Expected: both counts ≥ 5 (the guide maps old → new; a guide missing either vocabulary is broken).
+Expected: `MIGRATION-DOC-OK`. This asserts the old install command being removed, the new install command being added, and the skill-rename mapping — not just word counts.
 
 - [ ] **Step 2: Confirm the state-dir strings survived UNCHANGED** (renaming them would be a behaviour break):
 
@@ -735,7 +758,7 @@ Renames sdd-dispatch → Swingle per docs/superpowers/specs/2026-07-25-rename-to
 - W2: skills/sdd-dispatch-verify → skills/swingle-verify (/sdd and /delegate unchanged)
 - W3: portable self-migration guide for v1 workspaces (docs/migration-2.0.0.md) — .sdd-dispatch/ state and config paths deliberately unchanged
 - W4: README rewritten for local harness-to-harness dispatch positioning; doctrine + install docs renamed; verification logs get appended rename entries only
-- W5: validator docstring; tests untouched and green
+- W5: validator docstring + version-sync extended to the codex manifest (with negative test); remaining tests untouched and green
 
 Out of scope: W6 (GitHub repo rename + external refs), W7 (visual identity), any behaviour change.
 

@@ -112,7 +112,7 @@ caches (Claude Code `~/.claude/plugins/cache/...`, Codex `~/.codex/plugins/cache
 `~/.codex/.tmp/marketplaces/...`) are throwaway snapshots clobbered by the next upgrade.
 If the running skill's root is an installed copy, resolve the git source checkout first
 (swingle-verify Procedure step 0), write and commit there, then refresh installs.
-This applies equally to mid-run incident notes appended by the `sdd` skill.
+This applies equally to mid-run incident notes appended by the `swingle-sdd` skill.
 
 When no writable source exists (no checkout on the machine, or no push rights), **raise a
 GitHub issue on the upstream project instead of dropping the finding** — one issue per
@@ -125,7 +125,7 @@ reaction, not a duplicate; a new angle or wrinkle on an existing finding gets a 
 with only the new evidence; only a genuinely distinct finding gets a new issue.
 
 **Drift-triggered findings (the common real-world trigger).** The version gate is
-advisory: the `sdd` / `delegate` skills warn on `installed ≠ verified-version` and proceed
+advisory: the `swingle-sdd` / `swingle-delegate` skills warn on `installed ≠ verified-version` and proceed
 — re-verification is maintenance, not a per-dispatch tax. When a dispatch then fails with a
 **channel-class** signature (auth/permission failure, silent no-op = exit 0 + zero work +
 missing/empty report, a rejected or unknown flag, a transport/startup failure surviving the

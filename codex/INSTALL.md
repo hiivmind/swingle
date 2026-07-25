@@ -27,14 +27,15 @@ codex plugin marketplace upgrade swingle-marketplace
 codex plugin add swingle@swingle-marketplace
 ```
 
-The plugin bundles the whole repository, so the `sdd` skill's sibling directories
+The plugin bundles the whole repository, so the `swingle-sdd` skill's sibling directories
 (`core/`, `providers/`, `contracts/`) ship with it and root resolution works unchanged.
 
 ## Route B — Manual skills symlink
 
 Codex scans skills from `.agents/skills` (working dir, parents, repo root),
 `$HOME/.agents/skills` (user), and `/etc/codex/skills` (admin), following symlinks.
-The `sdd` skill requires its sibling directories; copying only `SKILL.md` is unsupported.
+The `swingle-sdd` skill (in `skills/sdd/`) requires its sibling directories; copying only
+`SKILL.md` is unsupported.
 Clone and symlink — the followed symlink preserves the physical sibling layout:
 
 ```bash

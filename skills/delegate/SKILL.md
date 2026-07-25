@@ -82,7 +82,8 @@ Read these plugin documents when their policy is needed:
    manifests — never execute manifest strings as shell).
 3. **Layered config** (first found): `$SWINGLE_CONFIG` →
    `<project>/.swingle.json` →
-   `${XDG_CONFIG_HOME:-~/.config}/swingle/config.json` — disable/steer only; the
+   `${XDG_CONFIG_HOME:-~/.config}/swingle/config.json` (See
+   [docs/config.md](../../docs/config.md) for the schema) — disable/steer only; the
    same malformed-config STOP conditions as the `swingle-sdd` skill. ACTIVE = installed −
    disabled (− incompatible iff require-verified-version).
 4. **Compatibility (advisory)**: compare `version-argv` output to `verified-version`. A

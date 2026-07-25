@@ -55,6 +55,11 @@ reference.
 Not everything is Critical. **Important** = this task cannot be trusted until fixed:
 incorrect/fragile behavior, a missed requirement, or merge-blocking maintainability
 damage (verbatim duplicated logic, swallowed errors, tests that assert nothing).
+An uncaught exception or crash on **plausible user input** is Important, not Minor — even
+when the brief names only the happy path or a narrower failure. A spec that promises a clean
+error (a message plus an exit code) for bad input is violated by *any* bad-input class that
+instead yields a traceback or the wrong exit code; do not down-rate it to Minor because the
+brief's wording enumerated only one such class.
 "Coverage could be broader" and polish are **Minor**. If the plan/brief explicitly
 mandates something this rubric calls a defect, that IS a finding — Important, labeled
 **plan-mandated**; the plan does not grade its own work. Acknowledge what was done well —

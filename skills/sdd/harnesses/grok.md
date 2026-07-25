@@ -2,7 +2,7 @@
 
 | Concern | Grok mapping |
 | --- | --- |
-| Skill load | Skills are session-discovered (plugins + Claude/Cursor compat). There is **no** Claude `Skill(...)` tool. To load superpowers SDD: read and follow the loaded skill **`subagent-driven-development`** (plugin: superpowers). To run this plugin: read and follow **`sdd`** (plugin: sdd-dispatch). Same pattern for `delegate` / `sdd-dispatch-verify`. Announce the skill name, then follow its body. |
+| Skill load | Skills are session-discovered (plugins + Claude/Cursor compat). There is **no** Claude `Skill(...)` tool. To load superpowers SDD: read and follow the loaded skill **`subagent-driven-development`** (plugin: superpowers). To run this plugin: read and follow **`sdd`** (plugin: swingle). Same pattern for `delegate` / `swingle-verify`. Announce the skill name, then follow its body. |
 | Native subagents | `spawn_subagent` tool — built-in types include `general-purpose`, `explore`, `plan` (see Grok user-guide 16-subagents). Use a cheap/general child for supervised pack dispatch. |
 | Task tracking | `todo_write` |
 | Background jobs | Run the self-reaping wrapper from `core/liveness.md` (detached `setsid nohup` form when the parent session may reap children). Observe completion via the wrapper marker file / process exit; use the session `monitor` tool when available for long watches. Do not rely on Claude-style `run_in_background` task notifications. |

@@ -245,3 +245,11 @@ implementer dispatch both branch on the manifest field. A `report-file` request 
 `captured-output` provider is what silently lost `task-1-report.md` earlier in this same
 session — the reviewer ran without an implementer report and the gap went unnoticed until
 the transcript was read.
+
+## 2026-07-25 — plugin renamed to Swingle (v2.0.0)
+
+The plugin `sdd-dispatch` is renamed `swingle` at v2.0.0 (`sdd-dispatch-marketplace` →
+`swingle-marketplace`, skill `sdd-dispatch-verify` → `swingle-verify`, repository →
+`discreteds/swingle`). Entries above predate the rename and keep the old names as
+historical record. No pack facts or probe results changed in this release.
+

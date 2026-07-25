@@ -1,20 +1,24 @@
 {
-  "name": "sdd-dispatch",
-  "version": "1.6.0",
-  "description": "Subagent-driven development via external CLIs (codex/opencode/agy/grok): plan execution with token-efficient dispatch, model tiering, liveness protocol, and a CLI-behavior verification suite",
+  "name": "swingle",
+  "version": "2.0.0",
+  "description": "Share the load: dispatch implementation and review work across coding-agent harnesses (codex/opencode/agy/grok/pi/claude), locally — model tiering, token thrift, liveness protocol, and a verified per-harness knowledge base",
   "author": {
     "name": "Nathaniel Ramm",
     "email": "nathaniel.ramm@discretedatascience.com"
   },
   "license": "MIT",
   "keywords": [
-    "sdd",
-    "subagents",
+    "swingle",
+    "harness",
     "dispatch",
+    "subagents",
+    "model-tiering",
+    "sdd",
     "codex",
     "opencode",
     "antigravity",
-    "model-tiering",
-    "grok"
+    "grok",
+    "llm-router",
+    "llm-gateway"
   ]
 }

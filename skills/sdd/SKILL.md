@@ -1,12 +1,18 @@
 ---
 name: sdd
-description: Execute an implementation plan via subagent-driven development with external-CLI dispatch (codex/opencode/agy/grok). Use whenever executing a written plan with SDD — wraps superpowers:subagent-driven-development and applies the external-dispatch optimizations mechanically. Triggers: "run this plan with SDD", "/sdd", "execute the plan via subagents", the Standard Delivery Flow reaching its execute step.
+description: >-
+  Execute an implementation plan via subagent-driven development with
+  external-CLI dispatch (codex/opencode/agy/grok/pi/claude). Use whenever executing a
+  written plan with SDD — wraps superpowers:subagent-driven-development and
+  applies the external-dispatch optimizations mechanically. Triggers: "run this
+  plan with SDD", "/sdd", "execute the plan via subagents", the Standard
+  Delivery Flow reaching its execute step.
 ---
 
 # SDD with Provider Packs
 
 **Harness**: identify your controlling harness and read `harnesses/<harness>.md`
-(claude-code, codex, grok) before Step 0 — it maps skill-loading, native subagent
+(claude-code, codex, grok, opencode, pi) before Step 0 — it maps skill-loading, native subagent
 dispatch, task tracking, background jobs, and asset-root resolution. All paths below
 are relative to the plugin tree root `<root>` (the directory containing `skills/`,
 `core/`, `providers/`).
@@ -29,7 +35,7 @@ Read these plugin documents when their policy is needed:
 - `<root>/core/liveness.md` — required background and stall protocol
 - `<root>/core/safety-doctrine.md` — containment and controller-gate doctrine
 - `<root>/core/verification-protocol.md` and `<root>/core/verification-log.md` — verification policy and history
-- `<root>/providers/<id>/pack.md` and `models.md` — validated provider behavior, canonical dispatch, and model candidates
+- `<root>/providers/<id>/pack.md`, `models.yaml`, and `models.md` — validated provider behavior, canonical dispatch, and model candidates (models.yaml is the table of record; models.md is narrative)
 
 ## Step 0 — Setup (once per session, before Task 1)
 
@@ -60,7 +66,7 @@ Read these plugin documents when their policy is needed:
    $SDD_DISPATCH_CONFIG = STOP with the error. ACTIVE = installed − disabled
    (− incompatible iff require-verified-version).
 6. **Compatibility**: compare `version-argv` output to `verified-version`; mismatch →
-   warn and suggest `sdd-dispatch-verify <id>` (block iff config require-verified-version).
+   warn and suggest `swingle-verify <id>` (block iff config require-verified-version).
 7. **Provider routing (before any model resolution)**: FIRST, if the `native-subagents`
    lever (or per-task native directive) is in effect → bypass external dispatch entirely
    (harness-native subagents per adapter; no provider is selected). Otherwise: per-task
@@ -68,10 +74,16 @@ Read these plugin documents when their policy is needed:
    default_provider → codex-if-active else sole-active-iff-exactly-one → ask. Inactive
    provider named anywhere → ask, never silently reroute.
 8. **Resolve model within the routed provider**: role → (tier, lane) via core/roles.md →
-   ordered candidates in the pack's models.md (eligible statuses verified/experimental;
+   the provider's layered models.yaml (first found wins whole-file:
+   `$SDD_DISPATCH_MODELS/<id>.yaml` → `<project>/.sdd-dispatch/models/<id>.yaml` →
+   `${XDG_CONFIG_HOME:-~/.config}/sdd-dispatch/models/<id>.yaml` → the pack's
+   `models.yaml`) → ordered candidates (eligible statuses verified/experimental;
    exact-lane rows by priority, THEN (tier, any) rows by priority — this order is the
-   complete fallback sequence); take the first; none → ask the user.
-   (`scripts/validate-packs --resolve "<role>" <provider>` prints the walk and order.)
+   complete fallback sequence); take the first; none → ask the user, naming the winning
+   file. A found-but-malformed override, or set-but-unreadable `$SDD_DISPATCH_MODELS`,
+   is a STOP, never a fall-through.
+   (`scripts/validate-packs --resolve "<role>" <provider> --project <repo>` prints the
+   layer and the walk order.)
 9. **Readiness**: before the FIRST dispatch to a chosen provider, run its bounded
    preflight (version + session-list/auth probe per manifest); failures are
    channel-class → fallback rules.

@@ -1,6 +1,6 @@
-# CLAUDE.md — sdd-dispatch plugin
+# CLAUDE.md — swingle plugin
 
-Harness-neutral plugin for SDD execution via external CLIs (codex / opencode / agy / grok).
+Harness-neutral plugin for SDD execution via external CLIs (codex / opencode / agy / grok / pi / claude).
 This repository is simultaneously a **Claude Code plugin** (`.claude-plugin/`), a
 **Codex plugin** (`.codex-plugin/` + `.agents/plugins/marketplace.json`), and a plain
 skills tree — treat all three distribution surfaces as first-class.
@@ -48,7 +48,7 @@ because the shell used `;`. The gate is a precondition, not a preceding step.
 - **Pack facts changed ⇒ bump the plugin patch version** and keep `plugin.json`,
   `.codex-plugin/plugin.json`, and the README `**Version:**` line in sync.
 - **On any CLI version bump**: read the pack's `Changelog` row FIRST (verify skill step
-  2b), then re-verify with `sdd-dispatch-verify <id>`. Never assume permission or sandbox
+  2b), then re-verify with `swingle-verify <id>`. Never assume permission or sandbox
   behavior survived a patch release — agy has flipped permission behavior on every one.
 - `verified-version` in a pack manifest is stamped only by live end-to-end dispatch
   evidence, recorded in that pack's verification log.
@@ -67,7 +67,7 @@ The three skills and what they own:
 | --- | --- |
 | `sdd` | executing a written multi-task plan (task reviews, ledger, final review) |
 | `delegate` | an explicitly requested one-off job or homogeneous batch — no plan, no superpowers dependency; workspace `.sdd-dispatch/delegate/` |
-| `sdd-dispatch-verify` | re-probing a CLI on version bumps and model releases |
+| `swingle-verify` | re-probing a CLI on version bumps and model releases |
 
 `delegate` must stay free of any *operational* superpowers dependency: it never invokes a
 superpowers skill, never runs `scripts/sdd-workspace`, and never touches `.superpowers/`.
@@ -91,9 +91,13 @@ commit doc fixes directly to `main`: that exception is withdrawn, because the ru
 enforces the PR path and a documented exception that only an admin bypass can satisfy is
 worse than no exception at all.
 
-- Any change: `feature/*` / `bugfix/*` / `docs/*` / `chore/*` branch → PR to `main` →
-  merge on the owner's instruction. `main` also blocks force-pushes, deletion, and
-  non-linear history; conversation resolution is required.
+- **`develop` is the integration branch (adopted 2026-07-24).** Any change:
+  `feature/*` / `bugfix/*` / `docs/*` / `chore/*` branch → PR to `develop` → merge on the
+  owner's instruction. Releases go `develop` → `release/*` → PR to `main` → tag.
+- `main` remains protected and release-only: it blocks force-pushes, deletion, and
+  non-linear history; conversation resolution is required. The ruleset currently protects
+  `main` only — `develop` has no equivalent ruleset yet, so branch protection there is
+  convention, not enforcement, until an admin adds one.
 - The ruleset lists **repo admin as a bypass actor**, so a direct push to `main` will
   succeed for the owner. That is an emergency escape hatch, not the flow — using it
   silently reintroduces the conflict this section exists to remove.

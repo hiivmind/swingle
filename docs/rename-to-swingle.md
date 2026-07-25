@@ -1,18 +1,25 @@
-# Backlog — rename `sdd-dispatch` → **Swingletree**
+# Backlog — rename `sdd-dispatch` → **Swingle**
 
-**Status:** planned, not started
+**Status:** W1–W5 implemented in v2.0.0 (2026-07-25), pending release; W6 (repo rename — a release prerequisite — + external refs) and W7 (visual identity) outstanding
 **Decided:** 2026-07-23
 **Target version:** v2.0.0 (breaking — plugin identity changes)
+
+> **2026-07-25 resolutions:** Q2 — rename the GitHub repo in place (301 redirect).
+> Q4 — resolved by events; Grok shipped as v1.6.0 long before the rename branch. W3
+> amended: instead of a pure no-op it ships the portable self-migration guide in
+> `docs/migration-2.0.0.md`. Branding: the "Greedy Cup" doctrine and milkshake epigraph
+> are dropped — all branding derives from the swingletree concept.
+
 
 ---
 
 ## The decision
 
-The plugin is renamed **Swingletree**, tagline **"share the load"**.
+The plugin is renamed **Swingle**, tagline **"share the load"**.
 
-A swingletree is the pivoting crossbar in a horse harness that equalises pull between
+'Swingle' is derived from 'Swingletree' - a swingletree is the pivoting crossbar in a horse harness that equalises pull between
 draft animals of unequal strength. Hitch a shire and a pony to one load and the bar
-rotates until neither is over-pulled. That is this plugin, one abstraction up.
+rotates until neither is over-pulled. That is the role of this plugin, for coding agent harnesses.
 
 The rename is not cosmetic. It marks a scope change that already happened: the plugin
 began as a wrapper for subagent-driven development and is now a **local harness-to-harness
@@ -31,7 +38,7 @@ and token thrift as the point. `sdd-dispatch` describes the origin, not the prod
 in prose.
 
 The differentiator to lead the README with: **a router is a hop** (OpenRouter, LiteLLM,
-Portkey proxy your traffic and hold your keys); **Swingletree spawns processes locally**
+Portkey proxy your traffic and hold your keys); **Swingle spawns processes locally**
 against credentials the user already holds. Nothing enters the prompt path.
 
 ---
@@ -40,7 +47,7 @@ against credentials the user already holds. Nothing enters the prompt path.
 
 `sdd` currently means **two different things** and only one of them is renaming:
 
-1. **`sdd-dispatch` — the product name.** → becomes `swingletree`. Rename freely.
+1. **`sdd-dispatch` — the product name.** → becomes `swingle`. Rename freely.
 2. **`SDD` — subagent-driven development, a methodology** (cf. the upstream
    `superpowers:subagent-driven-development` skill). A real domain term that exists
    independently of this plugin. It **stays**, everywhere, unchanged.
@@ -50,12 +57,12 @@ methodology, not the product. Prose like "applies the SDD optimizations mechanic
 survives the rename intact, and the `/sdd` skill keeps its name (Q1, resolved).
 
 **The rename resolves an overloading rather than creating one.** Today `sdd` is doing
-two jobs and the reader has to infer which. Afterwards: *Swingletree* is the thing,
+two jobs and the reader has to infer which. Afterwards: *Swingle* is the thing,
 *SDD* is the method it applies. The relationship to superpowers' SDD becomes explicit
 instead of implied by a shared prefix.
 
 Mechanically: rename the hyphenated compound `sdd-dispatch` (and `sdd_dispatch`,
-`SDD Dispatch`). Leave bare `sdd` / `SDD` alone. A naive `sed s/sdd/swingletree/g`
+`SDD Dispatch`). Leave bare `sdd` / `SDD` alone. A naive `sed s/sdd/swingle/g`
 corrupts the doctrine — every hit gets read.
 
 ---
@@ -77,7 +84,7 @@ corrupts the doctrine — every hit gets read.
 Renaming a skill changes what the user types. Decide each deliberately (see Open
 Questions).
 
-- [ ] `skills/sdd-dispatch-verify/` → `skills/swingletree-verify/` (product-named, clear
+- [ ] `skills/sdd-dispatch-verify/` → `skills/swingle-verify/` (product-named, clear
       rename) — directory, `SKILL.md` frontmatter `name`/`description`, `agents/openai.yaml`
 - [x] `skills/sdd/` — **keeps its name.** It executes a plan via SDD-the-methodology,
       which is exactly what `/sdd` should mean. Update its prose where it refers to the
@@ -131,7 +138,7 @@ change at any later point.
 
 ## Workstream 6 — Repo, distribution, and the world outside this repo
 
-- [ ] Rename GitHub repo `discreteds/sdd-dispatch-plugin` → `discreteds/swingletree`.
+- [ ] Rename GitHub repo `discreteds/sdd-dispatch-plugin` → `discreteds/swingle`.
       GitHub 301-redirects the old path, so existing git remotes keep working — but the
       marketplace cache dir (`~/.claude/plugins/cache/sdd-dispatch-marketplace`) is
       keyed on the old name and users must re-add the marketplace.
@@ -159,7 +166,7 @@ change at any later point.
 ## Breaking changes (for the migration doc)
 
 1. Plugin name changes → re-install; existing marketplace entry goes stale.
-2. One skill invocation changes → `/sdd-dispatch-verify` becomes `/swingletree-verify`.
+2. One skill invocation changes → `/sdd-dispatch-verify` becomes `/swingle-verify`.
    `/sdd` and `/delegate` are unaffected.
 3. Repo URL changes → 301-redirected, but update remotes and any pinned marketplace source.
 
@@ -192,7 +199,7 @@ narrative but abandons all of it. Rename is the obvious call unless there's a re
 **Q4. Branch and sequencing.**
 `feature/grok-provider` is currently checked out with a clean tree and unmerged work
 (v1.6.0 Grok pack design). Does the rename land **before** Grok (so Grok ships as
-Swingletree) or **after** (so the rename is a clean isolated diff)? Recommendation:
+Swingle) or **after** (so the rename is a clean isolated diff)? Recommendation:
 after — merge Grok first, then rename as its own v2.0.0 PR with nothing else in it.
 
 ---

@@ -1,8 +1,8 @@
-# SDD Dispatch Verification Protocol
+# Swingle Verification Protocol
 
 The repeatable probe suite for (re)verifying provider-pack behavior. Run it for a pack when a
 trigger fires (see README.md), then append results to the pack's verification log and update
-its pack.md / models.md.
+its pack.md / models.yaml / models.md.
 
 The invocable form of this process is the plugin's verification skill; the active harness
 adapter supplies the command details.
@@ -25,7 +25,7 @@ pack-specific dispatch template and command surface.
 ### P1 — Version & surface
 
 Record the pack version and inspect its supported dispatch surface and model inventory. Diff
-the findings against the pack's pack.md and models.md.
+the findings against the pack's pack.md / models.yaml / models.md.
 
 ### P2 — Trivial dispatch + exit code (success path)
 
@@ -111,13 +111,13 @@ the candidate for review lanes.
 caches (Claude Code `~/.claude/plugins/cache/...`, Codex `~/.codex/plugins/cache/...` /
 `~/.codex/.tmp/marketplaces/...`) are throwaway snapshots clobbered by the next upgrade.
 If the running skill's root is an installed copy, resolve the git source checkout first
-(sdd-dispatch-verify Procedure step 0), write and commit there, then refresh installs.
+(swingle-verify Procedure step 0), write and commit there, then refresh installs.
 This applies equally to mid-run incident notes appended by the `sdd` skill.
 
 When no writable source exists (no checkout on the machine, or no push rights), **raise a
 GitHub issue on the upstream project instead of dropping the finding** — one issue per
 independent finding using the repository's "Verification finding" template
-(`gh issue create --repo discreteds/sdd-dispatch-plugin --label verification`). The
+(`gh issue create --repo discreteds/swingle --label verification`). The
 recording ladder is: writable source → commit; clone-but-no-push → local commit + issue
 or PR; no source tree → issue only. **Deduplicate before filing**: search existing
 `verification` issues (open and closed) first — an equivalent open issue gets a 👍
@@ -137,7 +137,7 @@ Append to the appropriate verification log:
 
 Then:
 
-1. Update the active pack's pack.md and models.md.
+1. Update the active pack's pack.md and models.yaml (models.md for narrative).
 2. If findings change how SDD should dispatch, update the relevant harness adapter and
    contracts in the same round.
 3. Clean up `$SCRATCH` artifacts, including any test writes outside the workspace.

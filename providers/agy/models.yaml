@@ -1,0 +1,21 @@
+schema: 1
+provider: agy
+models:
+  - tier: cheapest
+    lane: any
+    priority: 1
+    model: gemini-3.6-flash-low
+    status: verified
+    rationale: "current Flash workhorse; cheapest dispatch lane"
+  - tier: standard
+    lane: any
+    priority: 1
+    model: gemini-3.6-flash-medium
+    status: verified
+    rationale: "verified 2026-07-23: implement + 2 task reviews + resume, all clean gates"
+  - tier: most-capable
+    lane: any
+    priority: 1
+    model: gemini-3.1-pro-high
+    status: verified
+    rationale: "agy's only Pro; verified 2026-07-23 final whole-branch review"

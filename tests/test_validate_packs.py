@@ -79,10 +79,10 @@ def test_step0_invalid_manifest_never_detects_or_executes_provider_argv(tmp_path
     assert r.returncode == 1 and "interpreter" in r.stdout
     assert "installed:" not in r.stdout
     assert not marker.exists()
-def test_resolvable_table_rejects_bad_tier(tmp_path):
+def test_yaml_rejects_bad_tier(tmp_path):
     root = tmp_path / "bad-tier"; shutil.copytree(FIX / "good-lanes", root)
-    models = root / "providers" / "alpha" / "models.md"
-    models.write_text(models.read_text() + "| premium | review | 2 | invalid-tier | verified | - | test |\n")
+    models = root / "providers" / "alpha" / "models.yaml"
+    models.write_text(models.read_text() + "  - tier: premium\n    lane: review\n    priority: 2\n    model: invalid-tier\n    status: verified\n")
     r = run("--root", str(root))
     assert r.returncode == 1 and "bad tier premium" in r.stdout
 def test_link_scan_checks_relative_target_beginning_with_p(tmp_path):
@@ -96,3 +96,147 @@ def test_step0_native_bypass_ignores_malformed_config():
             "--path-dir", str(FIX / "bins-alpha"), "--lever", "native-subagents",
             "--config", str(FIX / "config-malformed.json"))
     assert r.returncode == 0 and "native-subagents: bypass" in r.stdout
+
+def test_yaml_pack_valid_and_resolvable():
+    r = run("--root", str(FIX / "good-yaml"), "--resolve", "per-task reviewer", "alpha")
+    assert r.returncode == 0 and "review-model-exact" in r.stdout
+
+def test_yaml_unknown_row_key_fails():
+    r = run("--root", str(FIX / "bad-yaml-unknown-key"))
+    assert r.returncode == 1 and "unknown row key" in r.stdout
+
+def test_yaml_bad_schema_or_provider_fails():
+    r = run("--root", str(FIX / "bad-yaml-schema"))
+    assert r.returncode == 1 and "schema" in r.stdout and "provider" in r.stdout
+
+def test_yaml_pack_clean_tree_passes():
+    r = run("--root", str(FIX / "good-yaml"))
+    assert r.returncode == 0
+
+def test_yaml_eligible_md_row_guard(tmp_path):
+    import shutil as _sh
+    root = tmp_path / "drift"; _sh.copytree(FIX / "good-yaml", root)
+    md = root / "providers" / "alpha" / "models.md"
+    md.write_text(md.read_text() +
+        "\n| cheapest | any | 9 | sneaky-model | verified | - | drift |\n")
+    r = run("--root", str(root))
+    assert r.returncode == 1 and "eligible-row guard" in r.stdout
+
+import os
+
+def run_env(*args, **env):
+    e = dict(os.environ, XDG_CONFIG_HOME=str(FIX / "no-such-xdg"))
+    e.pop("SDD_DISPATCH_MODELS", None)
+    e.update(env)
+    return subprocess.run([sys.executable, str(SCRIPT), *args], capture_output=True, text=True, env=e)
+
+def test_resolve_default_layer_line():
+    r = run_env("--root", str(FIX / "good-yaml"), "--resolve", "per-task reviewer", "alpha")
+    assert r.returncode == 0
+    assert "layer: default path=" in r.stdout and "models.yaml" in r.stdout
+
+def test_resolve_project_layer_wins():
+    r = run_env("--root", str(FIX / "good-yaml"), "--resolve", "per-task reviewer", "alpha",
+                "--project", str(FIX / "proj-override"))
+    assert r.returncode == 0
+    assert "layer: project path=" in r.stdout and "project-review-model" in r.stdout
+
+def test_resolve_env_layer_beats_project(tmp_path):
+    env_dir = tmp_path / "envmodels"; env_dir.mkdir()
+    (env_dir / "alpha.yaml").write_text(
+        "schema: 1\nprovider: alpha\nmodels:\n"
+        "  - tier: standard\n    lane: review\n    priority: 1\n"
+        "    model: env-review-model\n    status: experimental\n")
+    r = run_env("--root", str(FIX / "good-yaml"), "--resolve", "per-task reviewer", "alpha",
+                "--project", str(FIX / "proj-override"), SDD_DISPATCH_MODELS=str(env_dir))
+    assert r.returncode == 0
+    assert "layer: env path=" in r.stdout and "env-review-model" in r.stdout
+
+def test_env_layer_unreadable_stops(tmp_path):
+    r = run_env("--root", str(FIX / "good-yaml"), "--resolve", "per-task reviewer", "alpha",
+                SDD_DISPATCH_MODELS=str(tmp_path / "missing-dir"))
+    assert r.returncode == 1 and "SDD_DISPATCH_MODELS" in r.stdout
+
+def test_override_not_covering_slot_asks_with_path(tmp_path):
+    proj = tmp_path / "proj"; (proj / ".sdd-dispatch" / "models").mkdir(parents=True)
+    (proj / ".sdd-dispatch" / "models" / "alpha.yaml").write_text(
+        "schema: 1\nprovider: alpha\nmodels: []\n")
+    r = run_env("--root", str(FIX / "good-yaml"), "--resolve", "per-task reviewer", "alpha",
+                "--project", str(proj))
+    assert r.returncode == 1
+    assert "no eligible model" in r.stdout and "does not cover" in r.stdout
+
+def test_malformed_override_stops_never_falls_through(tmp_path):
+    proj = tmp_path / "proj"; (proj / ".sdd-dispatch" / "models").mkdir(parents=True)
+    (proj / ".sdd-dispatch" / "models" / "alpha.yaml").write_text("models: {broken\n")
+    r = run_env("--root", str(FIX / "good-yaml"), "--resolve", "per-task reviewer", "alpha",
+                "--project", str(proj))
+    assert r.returncode == 1 and "layer: default" not in r.stdout
+
+def test_yaml_accepts_apostrophe_in_double_quoted_scalar(tmp_path):
+    root = tmp_path / "apos"; shutil.copytree(FIX / "good-yaml", root)
+    yaml = root / "providers" / "alpha" / "models.yaml"
+    text = yaml.read_text()
+    yaml.write_text(text.replace('"test row"', '"it\'s fine"'))
+    r = run("--root", str(root))
+    assert r.returncode == 0
+
+def test_yaml_rejects_single_quoted_scalar(tmp_path):
+    root = tmp_path / "sq"; shutil.copytree(FIX / "good-yaml", root)
+    yaml = root / "providers" / "alpha" / "models.yaml"
+    text = yaml.read_text()
+    yaml.write_text(text.replace('review-model-exact', "'single-quoted-value'"))
+    r = run("--root", str(root))
+    assert r.returncode == 1 and "single-quoted" in r.stdout
+
+def test_list_models_argv_accepted_and_validated(tmp_path):
+    import shutil as _sh
+    root = tmp_path / "lm"; _sh.copytree(FIX / "good-yaml", root)
+    pack = root / "providers" / "alpha" / "pack.md"
+    pack.write_text(pack.read_text().replace(
+        "sandbox: enforced\n---",
+        'sandbox: enforced\nlist-models-argv: ["alpha", "--list-models"]\n---', 1))
+    assert run("--root", str(root)).returncode == 0
+    pack.write_text(pack.read_text().replace(
+        '["alpha", "--list-models"]', '["wrong-cli", "--list-models"]'))
+    r = run("--root", str(root))
+    assert r.returncode == 1 and "argv[0]" in r.stdout
+
+SDD_MODELS = ROOT / "scripts" / "sdd-models"
+
+def run_models(*args, **env):
+    e = dict(os.environ, XDG_CONFIG_HOME=str(FIX / "no-such-xdg"))
+    e.pop("SDD_DISPATCH_MODELS", None)
+    e.update(env)
+    return subprocess.run([sys.executable, str(SDD_MODELS), *args], capture_output=True, text=True, env=e)
+
+def test_sdd_models_which_default_layer():
+    r = run_models("which", "alpha", "--root", str(FIX / "good-yaml"))
+    assert r.returncode == 0 and "alpha: layer=default path=" in r.stdout
+
+def test_sdd_models_init_project_seeds_and_refuses_overwrite(tmp_path):
+    proj = tmp_path / "proj"; proj.mkdir()
+    r = run_models("init", "alpha", "--root", str(FIX / "good-yaml"), "--project", str(proj))
+    assert r.returncode == 0
+    seeded = proj / ".sdd-dispatch" / "models" / "alpha.yaml"
+    assert seeded.exists() and "cheap-any-model" in seeded.read_text()
+    r2 = run_models("init", "alpha", "--root", str(FIX / "good-yaml"), "--project", str(proj))
+    assert r2.returncode == 1 and "exists" in (r2.stdout + r2.stderr)
+    r3 = run_models("init", "alpha", "--root", str(FIX / "good-yaml"), "--project", str(proj), "--force")
+    assert r3.returncode == 0
+
+def test_sdd_models_init_user_layer(tmp_path):
+    r = run_models("init", "alpha", "--root", str(FIX / "good-yaml"), "--user",
+                   XDG_CONFIG_HOME=str(tmp_path / "xdg"))
+    assert r.returncode == 0
+    assert (tmp_path / "xdg" / "sdd-dispatch" / "models" / "alpha.yaml").exists()
+
+def test_codex_manifest_version_mismatch_fails(tmp_path):
+    root = tmp_path / "ver-drift"; shutil.copytree(FIX / "good-lanes", root)
+    (root / ".claude-plugin").mkdir(); (root / ".codex-plugin").mkdir()
+    (root / ".claude-plugin" / "plugin.json").write_text(json.dumps({"version": "2.0.0"}))
+    (root / ".codex-plugin" / "plugin.json").write_text(json.dumps({"version": "1.9.9"}))
+    (root / "README.md").write_text("**Version:** 2.0.0\n")
+    r = run("--root", str(root))
+    assert r.returncode == 1 and ".claude-plugin 2.0.0 != .codex-plugin 1.9.9" in r.stdout
+

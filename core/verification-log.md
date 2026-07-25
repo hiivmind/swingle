@@ -231,3 +231,39 @@ design-reviewer contract for unimplemented artifacts
 ([contracts/design-reviewer-contract.md](../contracts/design-reviewer-contract.md)), and a
 never-dispatch-from-memory precondition in both skills. None of these carry live-probe
 evidence; they are doctrine, and are not stamped as verified behavior.
+
+## 2026-07-25 — task-reviewer calibration nudge: uncaught-exception severity floor
+
+**Trigger:** P13 review-lane qualification for the `claude` pack surfaced a stable
+calibration miss (providers/claude/verification-log.md, 2026-07-25). Against the P13
+known-defect fixture, claude's standard and most-capable review tiers **found** the latent
+crash every run (no false-clean) but rated it **Minor** rather than the fixture-required
+Important — reading the brief's "does not exist" literally and excusing a directory /
+unreadable / non-UTF-8 path that instead produces a traceback and the wrong exit code.
+
+**Change:** `contracts/task-reviewer-contract.md` Calibration gains a severity floor — an
+uncaught exception or crash on **plausible user input** is Important, not Minor, even when
+the brief names only the happy path or a narrower failure; a clean-error-plus-exit-code
+contract is violated by *any* bad-input class that yields a traceback, regardless of which
+class the brief's wording enumerated. Principled, not fixture-specific.
+
+**Before/after evidence** (same fixture, same brief, `--effort high`, n=4 per side; model-level
+detail in providers/claude/verification-log.md):
+
+| | pre-nudge contract | with the nudge |
+| --- | --- | --- |
+| defect cited | 4/4 (never a false-clean) | 4/4 |
+| severity | 4/4 **Minor**, assessment Approved | 4/4 **Important**, assessment Needs fixes |
+
+The nudge is a **prompt mitigation, not a guarantee** — it lifts this defect class's severity
+reliably in this trial but cannot prove every future case. It is shared doctrine, so it binds
+every provider's reviewer, not only claude; other packs inherit the same floor and their next
+P13 rounds are the check. Patch-bumped 1.9.1 → 1.9.2.
+
+## 2026-07-25 — plugin renamed to Swingle (v2.0.0)
+
+The plugin `sdd-dispatch` is renamed `swingle` at v2.0.0 (`sdd-dispatch-marketplace` →
+`swingle-marketplace`, skill `sdd-dispatch-verify` → `swingle-verify`, repository →
+`discreteds/swingle`). Entries above predate the rename and keep the old names as
+historical record. No pack facts or probe results changed in this release.
+

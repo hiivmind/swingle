@@ -1,11 +1,11 @@
 {
-  "name": "sdd-dispatch-marketplace",
+  "name": "swingle-marketplace",
   "interface": {
-    "displayName": "SDD Dispatch Marketplace"
+    "displayName": "Swingle Marketplace"
   },
   "plugins": [
     {
-      "name": "sdd-dispatch",
+      "name": "swingle",
       "source": {
         "source": "local",
         "path": "./"

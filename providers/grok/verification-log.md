@@ -71,11 +71,13 @@ recorded; `verified-version` remains `0.2.111`.
 | `low` | 0 | accepted |
 | `medium` | 0 | accepted; `--effort` alias also 0 |
 | `high` | 0 | accepted |
-| `none` | 1 | rejected; CLI lists `high, medium, low` |
-| `minimal` | 1 | rejected |
-| `xhigh` | 1 | rejected |
-| `max` | 1 | rejected |
-| `deep` | 1 | rejected |
-| unknown | 1 | rejected |
 
 Matches `models_cache.json` `reasoning_efforts` menu for `grok-4.5`. Product docs list a wider canonical set; only the model menu is dispatchable.
+
+## 2026-07-25 — plugin renamed to Swingle (v2.0.0)
+
+The plugin `sdd-dispatch` is renamed `swingle` at v2.0.0 (`sdd-dispatch-marketplace` →
+`swingle-marketplace`, skill `sdd-dispatch-verify` → `swingle-verify`, repository →
+`discreteds/swingle`). Entries above predate the rename and keep the old names as
+historical record. No pack facts or probe results changed in this release.
+

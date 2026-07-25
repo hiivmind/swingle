@@ -7,14 +7,13 @@ YAML = ROOT / "skills" / "delegate" / "agents" / "openai.yaml"
 READER = ROOT / "contracts" / "reader-contract.md"
 
 def _model_ids():
-    """Every model id declared in any provider's models.md Resolvable table."""
+    """Every model id declared in any provider's models.yaml."""
     ids = set()
-    for models in (ROOT / "providers").glob("*/models.md"):
+    for models in (ROOT / "providers").glob("*/models.yaml"):
         for line in models.read_text().splitlines():
-            cells = [c.strip() for c in line.strip().strip("|").split("|")]
-            # Tier | Lane | Priority | Model id | Status | ...
-            if len(cells) >= 5 and cells[2].isdigit():
-                ids.add(cells[3].strip("`"))
+            m = re.match(r'\s*(?:- )?model:\s*"?([^"\s#]+)"?', line)
+            if m:
+                ids.add(m.group(1))
     return ids
 
 def _pack_clis():

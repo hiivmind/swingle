@@ -1,12 +1,12 @@
 ---
 name: delegate
-description: Directly delegate an explicitly requested, self-contained job or homogeneous batch to an external CLI (codex/opencode/agy/grok) through validated provider packs — role inference, model tiering, liveness, evidence gates, and session resume — without a written implementation plan. Use the sdd skill for multi-task implementation plans; keep sub-triviality-floor tasks inline unless delegation was explicitly requested.
+description: Directly delegate an explicitly requested, self-contained job or homogeneous batch to an external CLI (codex/opencode/agy/grok/pi/claude) through validated provider packs — role inference, model tiering, liveness, evidence gates, and session resume — without a written implementation plan. Use the sdd skill for multi-task implementation plans; keep sub-triviality-floor tasks inline unless delegation was explicitly requested.
 ---
 
 # Delegate — Direct One-Off Dispatch
 
 **Harness**: identify your controlling harness and read
-`<root>/skills/sdd/harnesses/<harness>.md` (claude-code, codex, grok) before setup — it
+`<root>/skills/sdd/harnesses/<harness>.md` (claude-code, codex, grok, opencode, pi) before setup — it
 maps skill-loading, native subagent dispatch, background jobs, completion observation,
 and asset-root resolution. `<root>` is this skill directory's grandparent (the directory
 containing `skills/`, `core/`, `providers/`, `contracts/`).
@@ -45,9 +45,9 @@ Read these plugin documents when their policy is needed:
 - `<root>/core/playbook.md` — dispatch flavours, economics, and controller gates
 - `<root>/core/liveness.md` — required background and stall protocol
 - `<root>/core/safety-doctrine.md` — containment and controller-gate doctrine
-- `<root>/providers/<id>/pack.md` and `models.md` — validated provider behavior,
+- `<root>/providers/<id>/pack.md`, `models.yaml`, and `models.md` — validated provider behavior,
   canonical dispatch, session source, report transport, recovery rules, and
-  model candidates
+  model candidates (models.yaml is the table of record; models.md is narrative)
 
 ## Levers (parsed from anywhere in the request)
 
@@ -55,7 +55,7 @@ Read these plugin documents when their policy is needed:
 - **Tier**: "floor it" (default when silent) = cheapest model clearing the role's bar;
   "play it safe" = one tier up (at most-capable that is already the ceiling — say so
   and proceed); an explicit model id must appear in the resolved role's eligible
-  resolution sequence (the tier/lane candidate walk in the routed pack's models.md) —
+  resolution sequence (the tier/lane candidate walk in the provider's resolved models.yaml) —
   otherwise ask, never silently accept or substitute.
 - **Review**: "with review" — write lane: one reviewer dispatch before commit (see
   Gate). Read lane: a second independent reader WITHIN the resolved provider (next
@@ -86,26 +86,34 @@ Read these plugin documents when their policy is needed:
    same malformed-config STOP conditions as the `sdd` skill. ACTIVE = installed −
    disabled (− incompatible iff require-verified-version).
 4. **Compatibility**: compare `version-argv` output to `verified-version`; mismatch →
-   warn and suggest `sdd-dispatch-verify <id>` (block iff config
+   warn and suggest `swingle-verify <id>` (block iff config
    require-verified-version).
 5. **Routing**: per-request provider directive → session lever → config
    `providers_by_lane[lane-of-role]` / `default_provider` → codex-if-active else
    sole-active-iff-exactly-one → ask. Inactive provider named anywhere → ask, never
    silently reroute.
-6. **Model resolution**: role → (tier, lane) via `core/roles.md` → ordered candidates in
-   the routed pack's models.md (statuses verified/experimental; exact-lane rows by
-   priority, then (tier, any) rows by priority); take the first; none → ask.
+6. **Model resolution**: role → (tier, lane) via `core/roles.md` → the provider's
+   layered models.yaml (first found wins whole-file: `$SDD_DISPATCH_MODELS/<id>.yaml` →
+   `<project>/.sdd-dispatch/models/<id>.yaml` →
+   `${XDG_CONFIG_HOME:-~/.config}/sdd-dispatch/models/<id>.yaml` → the pack's
+   `models.yaml`) → ordered candidates (statuses verified/experimental; exact-lane rows
+   by priority, then (tier, any) rows by priority); take the first; none → ask, naming
+   the winning file. A found-but-malformed override, or set-but-unreadable
+   `$SDD_DISPATCH_MODELS`, is a STOP, never a fall-through.
+   (`scripts/validate-packs --resolve "<role>" <id> --project <repo>` prints the layer
+   and walk; `scripts/sdd-models which|init` inspects and seeds override layers.)
 7. **Readiness**: before the FIRST dispatch to a chosen provider, run its bounded
    preflight per its pack (version + auth/session probe; agy: the headless permission
    baseline check — on miss, STOP and hand the user the pack's baseline section).
 8. **Workspace**: create `.sdd-dispatch/delegate/` at the repo root. Check
    `git check-ignore -q .sdd-dispatch/delegate/.probe` (a child sentinel, so negation
    rules cannot silently expose workspace files); if not ignored, append
-   `.sdd-dispatch/` to the file resolved by `git rev-parse --git-path info/exclude`
+   `.sdd-dispatch/delegate/` to the file resolved by `git rev-parse --git-path info/exclude`
    (repo-local, never tracked; a literal `.git/info/exclude` path breaks in linked
    worktrees) and tell the user — NEVER edit a tracked `.gitignore` implicitly (it
    dirties the tree right before a gate that requires it clean; a tracked entry is the
-   user's separate commit). Copy
+   user's separate commit). `.sdd-dispatch/models/` is committable project config —
+   never ignore `.sdd-dispatch/` at the root. Copy
    `implementer-contract.md`, `task-reviewer-contract.md`, `design-reviewer-contract.md`,
    and `reader-contract.md` from `<root>/contracts/` into the workspace once per session.
 

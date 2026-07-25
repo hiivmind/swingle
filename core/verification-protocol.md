@@ -124,6 +124,19 @@ or PR; no source tree → issue only. **Deduplicate before filing**: search exis
 reaction, not a duplicate; a new angle or wrinkle on an existing finding gets a comment
 with only the new evidence; only a genuinely distinct finding gets a new issue.
 
+**Drift-triggered findings (the common real-world trigger).** The version gate is
+advisory: the `sdd` / `delegate` skills warn on `installed ≠ verified-version` and proceed
+— re-verification is maintenance, not a per-dispatch tax. When a dispatch then fails with a
+**channel-class** signature (auth/permission failure, silent no-op = exit 0 + zero work +
+missing/empty report, a rejected or unknown flag, a transport/startup failure surviving the
+pack's retry) **while that drift is in effect**, the failure is evidence the pack is stale
+on the running CLI version — an `anomaly` trigger. The controller does NOT file
+automatically: it runs the dedup search above and **recommends** the appropriate action
+(👍 / comment / new issue) to the user, with the fields below pre-filled — installed CLI
+version vs `verified-version`, plugin version, the controlling harness + its version, and
+the verbatim failure signature. **Quality failures are excluded** (a reviewer rejecting the
+work is not drift evidence). The user decides whether to file.
+
 Append to the appropriate verification log:
 
 ```markdown

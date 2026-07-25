@@ -85,9 +85,15 @@ Read these plugin documents when their policy is needed:
    `${XDG_CONFIG_HOME:-~/.config}/sdd-dispatch/config.json` — disable/steer only; the
    same malformed-config STOP conditions as the `sdd` skill. ACTIVE = installed −
    disabled (− incompatible iff require-verified-version).
-4. **Compatibility**: compare `version-argv` output to `verified-version`; mismatch →
-   warn and suggest `swingle-verify <id>` (block iff config
-   require-verified-version).
+4. **Compatibility (advisory)**: compare `version-argv` output to `verified-version`. A
+   mismatch is a WARNING, not a gate — warn (installed X vs verified Y) and PROCEED.
+   Re-verifying a bumped CLI is maintenance (`swingle-verify <id>`), never a per-dispatch
+   stop; block only under config `require-verified-version`. Note that **drift is in
+   effect** for the session: if a later dispatch fails with a channel-class signature
+   (Failure handling), that failure IS a verification finding — recommend recording it
+   per the existing recording ladder and dedup (`core/verification-protocol.md`
+   Recording), capturing plugin + CLI versions. Never file automatically; never block the
+   user pre-dispatch on drift alone.
 5. **Routing**: per-request provider directive → session lever → config
    `providers_by_lane[lane-of-role]` / `default_provider` → codex-if-active else
    sole-active-iff-exactly-one → ask. Inactive provider named anywhere → ask, never
@@ -251,6 +257,15 @@ BEFORE launch — a crash or compaction never loses the number→task mapping.
      automatic.
    - Quality failure → stops ALL automatic recovery; any tier escalation requires
      user approval (tier moves are never the controller's unilateral call).
+   - **Channel-class failure while version drift is in effect** (setup warned installed ≠
+     `verified-version`): after applying the pack's recovery, treat the failure as a
+     verification finding — the pack is a candidate for being stale on this CLI version.
+     **Recommend** (do not auto-file) recording it via the existing recording ladder and
+     dedup in `core/verification-protocol.md` Recording: search existing `verification`
+     issues first, then 👍 / comment / new-issue as the evidence warrants. The finding
+     captures plugin version, installed CLI version vs `verified-version`, the controlling
+     harness + its version, and the failure signature. Maintenance signal, not a user
+     block; quality failures are excluded (they are not drift evidence).
    - Every attempt appends:
      `model-attempt: job=NNN phase=<worker|review|reader2> attempt=<n> role=<role> provider=<id> model=<id> class=<scope> outcome=<failed|ok>`.
 

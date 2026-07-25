@@ -28,7 +28,7 @@ animals of unequal strength — hitch a shire and a pony to one load and the bar
 neither is over-pulled. That is what Swingle does with coding work: share the load across
 the harnesses you already run.
 
-**Version:** 2.0.0
+**Version:** 2.0.1
 
 ## The delegation handoff
 

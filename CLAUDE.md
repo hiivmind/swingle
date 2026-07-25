@@ -47,9 +47,14 @@ because the shell used `;`. The gate is a precondition, not a preceding step.
   p = 0.21 and could not support the claim a single green run had seemed to).
 - **Pack facts changed ⇒ bump the plugin patch version** and keep `plugin.json`,
   `.codex-plugin/plugin.json`, and the README `**Version:**` line in sync.
-- **On any CLI version bump**: read the pack's `Changelog` row FIRST (verify skill step
-  2b), then re-verify with `swingle-verify <id>`. Never assume permission or sandbox
-  behavior survived a patch release — agy has flipped permission behavior on every one.
+- **On any CLI version bump** (a *maintenance* activity, NOT a per-dispatch gate): read
+  the pack's `Changelog` row FIRST (verify skill step 2b), then re-verify with
+  `swingle-verify <id>`. Never assume permission or sandbox behavior survived a patch
+  release — agy has flipped permission behavior on every one. The `sdd`/`delegate` skills
+  do not stop a user on drift: the version gate is advisory (warn + proceed), and a
+  channel-class dispatch failure *while drift is in effect* is what surfaces a
+  drift-triggered verification finding to recommend recording — the real-world trigger for
+  a re-verify round.
 - `verified-version` in a pack manifest is stamped only by live end-to-end dispatch
   evidence, recorded in that pack's verification log.
 

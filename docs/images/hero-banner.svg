@@ -90,12 +90,13 @@
       <!-- Accent Line (clean, no stray dot beneath 'g') -->
       <path d="M 4 120 L 325 120" stroke="url(#wordmark-grad)" stroke-width="3.5" stroke-linecap="round"/>
 
-      <!-- Byline (Fix 1: Heavy Line 1 + Lighter Sub-line 2) -->
-      <text x="0" y="152" fill="#f8fafc" font-family="ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="22" font-weight="800" letter-spacing="0.2">Share the load</text>
-      <text x="0" y="178" fill="#94a3b8" font-family="ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13.5" font-weight="400" letter-spacing="0.1">Don't switch coding harnesses to switch models</text>
+      <!-- Byline: set over two lines so it keeps 22px rather than shrinking to clear the divider at x=570 -->
+      <text x="0" y="150" fill="#f8fafc" font-family="ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="22" font-weight="800" letter-spacing="0.2">Don't switch harnesses</text>
+      <text x="0" y="176" fill="#f8fafc" font-family="ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="22" font-weight="800" letter-spacing="0.2">to switch models</text>
+      <text x="0" y="202" fill="#94a3b8" font-family="ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13.5" font-weight="400" letter-spacing="0.1">Dispatch to the agent CLIs on your machine</text>
 
       <!-- Direct Descriptor Line -->
-      <text x="0" y="216" fill="#7f9bad" font-family="ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13.5" font-weight="600" letter-spacing="0.3">Local CLI · harness-to-harness connections</text>
+      <text x="0" y="238" fill="#7f9bad" font-family="ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13.5" font-weight="600" letter-spacing="0.3">Local CLI · harness-to-harness connections</text>
     </g>
 
   </g>

@@ -59,39 +59,59 @@
     <!-- Hexagonal Hitch Shield Emblem -->
     <g transform="translate(10, 40)">
       <!-- Regular hexagons: centre (85,95), circumradius == side length (86.603 outer, 77.365 inner) -->
-      <polygon points="85,8.4 160,51.7 160,138.3 85,181.6 10,138.3 10,51.7" fill="#0f172a" fill-opacity="0.7" stroke="url(#emblem-grad)" stroke-width="2" filter="url(#neon-glow)"/>
+      <polygon points="85,8.4 160,51.7 160,138.3 85,181.6 10,138.3 10,51.7" fill="#0f172a" fill-opacity="0.7" stroke="url(#emblem-grad)" stroke-width="2.6"/>
       <polygon points="85,17.64 152,56.32 152,133.68 85,172.36 18,133.68 18,56.32" fill="#07090e" stroke="#334155" stroke-width="1" opacity="0.8"/>
 
-      <!-- Two-layer swingletree: one load in, a doubletree, two singletrees, four hitch points -->
-      <!-- Load: draught ring and trace to the doubletree's pivot -->
-      <circle cx="45" cy="95" r="5.5" fill="none" stroke="#9aa7b8" stroke-width="1.5"/>
-      <line x1="50.5" y1="95" x2="71" y2="95" stroke="#9aa7b8" stroke-width="1.8"/>
+      <!-- Three-layer swingletree: one load in, doubletree, two singletrees, two more bars,
+           six hitch points. Bars get dimmer and thinner with depth, so the hierarchy reads
+           without another hue. The third layer hangs off the INNER ends: the hexagon only
+           carries full width between y=56.3 and y=133.7, and narrows too fast above and
+           below that to take a bar at the outer ends. -->
+
+      <!-- Load: draught ring and trace into the doubletree's pivot -->
+      <circle cx="34" cy="95" r="5.5" fill="none" stroke="#cbd5e1" stroke-width="1.5"/>
+      <line x1="39.5" y1="95" x2="68" y2="95" stroke="#cbd5e1" stroke-width="1.8"/>
 
       <!-- Layer 1: doubletree, pivoting on the load -->
       <!-- solid, not url(#emblem-grad): a vertical line has a zero-width bounding box, so an
            objectBoundingBox gradient stroke renders nothing -->
-      <line x1="71" y1="62" x2="71" y2="128" stroke="#9aa7b8" stroke-width="4.5" stroke-linecap="round"/>
-      <circle cx="71" cy="95" r="3.5" fill="#9aa7b8"/>
+      <line x1="68" y1="60" x2="68" y2="130" stroke="#cbd5e1" stroke-width="4.5" stroke-linecap="round"/>
+      <circle cx="68" cy="95" r="3.5" fill="#cbd5e1"/>
 
-      <!-- Couplings from each end of the doubletree to a singletree's pivot -->
-      <line x1="71" y1="62" x2="97" y2="62" stroke="#7d8ba0" stroke-width="1.5"/>
-      <line x1="71" y1="128" x2="97" y2="128" stroke="#7d8ba0" stroke-width="1.5"/>
+      <!-- Couplings to the singletree pivots -->
+      <line x1="68" y1="60" x2="92" y2="60" stroke="#9aa7b8" stroke-width="1.5"/>
+      <line x1="68" y1="130" x2="92" y2="130" stroke="#9aa7b8" stroke-width="1.5"/>
 
-      <!-- Layer 2: two singletrees, each pivoting on its own coupling -->
-      <line x1="97" y1="44" x2="97" y2="80" stroke="#7d8ba0" stroke-width="3" stroke-linecap="round"/>
-      <circle cx="97" cy="62" r="2.5" fill="#9aa7b8"/>
-      <line x1="97" y1="110" x2="97" y2="146" stroke="#7d8ba0" stroke-width="3" stroke-linecap="round"/>
-      <circle cx="97" cy="128" r="2.5" fill="#9aa7b8"/>
+      <!-- Layer 2: two singletrees -->
+      <line x1="92" y1="42" x2="92" y2="78" stroke="#9aa7b8" stroke-width="3" stroke-linecap="round"/>
+      <circle cx="92" cy="60" r="2.6" fill="#cbd5e1"/>
+      <line x1="92" y1="112" x2="92" y2="148" stroke="#9aa7b8" stroke-width="3" stroke-linecap="round"/>
+      <circle cx="92" cy="130" r="2.6" fill="#cbd5e1"/>
 
-      <!-- Four hitch points -->
-      <line x1="97" y1="44" x2="120" y2="44" stroke="#7fa392" stroke-width="1.2"/>
-      <circle cx="123" cy="44" r="3" fill="#16211f" stroke="#7fa392" stroke-width="1.2"/>
-      <line x1="97" y1="80" x2="120" y2="80" stroke="#7fa392" stroke-width="1.2"/>
-      <circle cx="123" cy="80" r="3" fill="#16211f" stroke="#7fa392" stroke-width="1.2"/>
-      <line x1="97" y1="110" x2="120" y2="110" stroke="#7fa392" stroke-width="1.2"/>
-      <circle cx="123" cy="110" r="3" fill="#16211f" stroke="#7fa392" stroke-width="1.2"/>
-      <line x1="97" y1="146" x2="120" y2="146" stroke="#7fa392" stroke-width="1.2"/>
-      <circle cx="123" cy="146" r="3" fill="#16211f" stroke="#7fa392" stroke-width="1.2"/>
+      <!-- Layer 2 outer ends terminate directly -->
+      <line x1="92" y1="42" x2="112" y2="42" stroke="#7fa392" stroke-width="1.1"/>
+      <circle cx="115" cy="42" r="3" fill="#16211f" stroke="#7fa392" stroke-width="1.2"/>
+      <line x1="92" y1="148" x2="112" y2="148" stroke="#7fa392" stroke-width="1.1"/>
+      <circle cx="115" cy="148" r="3" fill="#16211f" stroke="#7fa392" stroke-width="1.2"/>
+
+      <!-- Layer 2 inner ends couple to a third layer: a delegate that delegates again -->
+      <line x1="92" y1="78" x2="116" y2="78" stroke="#7d8ba0" stroke-width="1.2"/>
+      <line x1="92" y1="112" x2="116" y2="112" stroke="#7d8ba0" stroke-width="1.2"/>
+
+      <!-- Layer 3 -->
+      <line x1="116" y1="68" x2="116" y2="88" stroke="#7d8ba0" stroke-width="2.2" stroke-linecap="round"/>
+      <circle cx="116" cy="78" r="2.2" fill="#9aa7b8"/>
+      <line x1="116" y1="102" x2="116" y2="122" stroke="#7d8ba0" stroke-width="2.2" stroke-linecap="round"/>
+      <circle cx="116" cy="112" r="2.2" fill="#9aa7b8"/>
+
+      <line x1="116" y1="68" x2="134" y2="68" stroke="#7fa392" stroke-width="1.1"/>
+      <circle cx="137" cy="68" r="2.6" fill="#16211f" stroke="#7fa392" stroke-width="1.1"/>
+      <line x1="116" y1="88" x2="134" y2="88" stroke="#7fa392" stroke-width="1.1"/>
+      <circle cx="137" cy="88" r="2.6" fill="#16211f" stroke="#7fa392" stroke-width="1.1"/>
+      <line x1="116" y1="102" x2="134" y2="102" stroke="#7fa392" stroke-width="1.1"/>
+      <circle cx="137" cy="102" r="2.6" fill="#16211f" stroke="#7fa392" stroke-width="1.1"/>
+      <line x1="116" y1="122" x2="134" y2="122" stroke="#7fa392" stroke-width="1.1"/>
+      <circle cx="137" cy="122" r="2.6" fill="#16211f" stroke="#7fa392" stroke-width="1.1"/>
     </g>
 
     <!-- Wordmark & Left Text Stack -->

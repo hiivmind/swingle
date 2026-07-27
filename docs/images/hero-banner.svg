@@ -58,28 +58,40 @@
     
     <!-- Hexagonal Hitch Shield Emblem -->
     <g transform="translate(10, 40)">
-      <polygon points="85,0 160,42 160,148 85,190 10,148 10,42" fill="#0f172a" fill-opacity="0.7" stroke="url(#emblem-grad)" stroke-width="2" filter="url(#neon-glow)"/>
-      <polygon points="85,10 150,47 150,143 85,180 20,143 20,47" fill="#07090e" stroke="#334155" stroke-width="1" opacity="0.8"/>
+      <!-- Regular hexagons: centre (85,95), circumradius == side length (86.603 outer, 77.365 inner) -->
+      <polygon points="85,8.4 160,51.7 160,138.3 85,181.6 10,138.3 10,51.7" fill="#0f172a" fill-opacity="0.7" stroke="url(#emblem-grad)" stroke-width="2" filter="url(#neon-glow)"/>
+      <polygon points="85,17.64 152,56.32 152,133.68 85,172.36 18,133.68 18,56.32" fill="#07090e" stroke="#334155" stroke-width="1" opacity="0.8"/>
 
-      <!-- Internal Pivoting Geometry -->
-      <circle cx="85" cy="95" r="18" fill="#191c28" stroke="#7d8ba0" stroke-width="2"/>
-      <circle cx="85" cy="95" r="11" fill="#6b8494" fill-opacity="0.2" stroke="#7f9bad" stroke-width="1.5"/>
-      <circle cx="85" cy="95" r="5" fill="#7fa392" filter="url(#neon-glow)"/>
+      <!-- Two-layer swingletree: one load in, a doubletree, two singletrees, four hitch points -->
+      <!-- Load: draught ring and trace to the doubletree's pivot -->
+      <circle cx="45" cy="95" r="5.5" fill="none" stroke="#9aa7b8" stroke-width="1.5"/>
+      <line x1="50.5" y1="95" x2="71" y2="95" stroke="#9aa7b8" stroke-width="1.8"/>
 
-      <!-- Equalizer Bar Arms -->
-      <line x1="85" y1="95" x2="40" y2="62" stroke="url(#emblem-grad)" stroke-width="5" stroke-linecap="round"/>
-      <circle cx="40" cy="62" r="11" fill="#1a1a24" stroke="#7d8ba0" stroke-width="1.5"/>
-      <circle cx="40" cy="62" r="4" fill="#9aa7b8"/>
+      <!-- Layer 1: doubletree, pivoting on the load -->
+      <!-- solid, not url(#emblem-grad): a vertical line has a zero-width bounding box, so an
+           objectBoundingBox gradient stroke renders nothing -->
+      <line x1="71" y1="62" x2="71" y2="128" stroke="#9aa7b8" stroke-width="4.5" stroke-linecap="round"/>
+      <circle cx="71" cy="95" r="3.5" fill="#9aa7b8"/>
 
-      <line x1="85" y1="95" x2="130" y2="128" stroke="url(#emblem-grad)" stroke-width="5" stroke-linecap="round"/>
-      <circle cx="130" cy="128" r="10" fill="#16211f" stroke="#7fa392" stroke-width="1.5"/>
-      <circle cx="130" cy="128" r="3.5" fill="#7fa392"/>
+      <!-- Couplings from each end of the doubletree to a singletree's pivot -->
+      <line x1="71" y1="62" x2="97" y2="62" stroke="#7d8ba0" stroke-width="1.5"/>
+      <line x1="71" y1="128" x2="97" y2="128" stroke="#7d8ba0" stroke-width="1.5"/>
 
-      <line x1="130" y1="128" x2="145" y2="116" stroke="#7fa392" stroke-width="1.5" stroke-dasharray="2,2"/>
-      <circle cx="145" cy="116" r="3.5" fill="#7fa392"/>
+      <!-- Layer 2: two singletrees, each pivoting on its own coupling -->
+      <line x1="97" y1="44" x2="97" y2="80" stroke="#7d8ba0" stroke-width="3" stroke-linecap="round"/>
+      <circle cx="97" cy="62" r="2.5" fill="#9aa7b8"/>
+      <line x1="97" y1="110" x2="97" y2="146" stroke="#7d8ba0" stroke-width="3" stroke-linecap="round"/>
+      <circle cx="97" cy="128" r="2.5" fill="#9aa7b8"/>
 
-      <!-- Force Equalization Arc -->
-      <path d="M 40 62 Q 85 30 130 128" fill="none" stroke="#7f9bad" stroke-width="1.2" stroke-dasharray="2,2" opacity="0.6"/>
+      <!-- Four hitch points -->
+      <line x1="97" y1="44" x2="120" y2="44" stroke="#7fa392" stroke-width="1.2"/>
+      <circle cx="123" cy="44" r="3" fill="#16211f" stroke="#7fa392" stroke-width="1.2"/>
+      <line x1="97" y1="80" x2="120" y2="80" stroke="#7fa392" stroke-width="1.2"/>
+      <circle cx="123" cy="80" r="3" fill="#16211f" stroke="#7fa392" stroke-width="1.2"/>
+      <line x1="97" y1="110" x2="120" y2="110" stroke="#7fa392" stroke-width="1.2"/>
+      <circle cx="123" cy="110" r="3" fill="#16211f" stroke="#7fa392" stroke-width="1.2"/>
+      <line x1="97" y1="146" x2="120" y2="146" stroke="#7fa392" stroke-width="1.2"/>
+      <circle cx="123" cy="146" r="3" fill="#16211f" stroke="#7fa392" stroke-width="1.2"/>
     </g>
 
     <!-- Wordmark & Left Text Stack -->

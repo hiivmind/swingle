@@ -18,10 +18,11 @@ contracts, and the same gates.
 
 **Version:** 3.1.0 · [v2.0.0 release](https://github.com/hiivmind/swingle/releases/tag/v2.0.0) · config/state paths renamed `sdd-dispatch` → `swingle`: [docs/migration-3.0.0.md](docs/migration-3.0.0.md)
 
-## Why Swingle
+## Why "Swingle"
 
-A *swingletree* is the pivoting crossbar in a draught harness that spreads one load across
-more than one animal. Swingle does the same for coding work: one harness holds the reins,
+On a horse-drawn carriage, the *swingletree* is the pivoting crossbar between the carriage
+and the harness that spreads the weight of one load across a whole team of animals. Swingle
+does the same for coding work: one harness holds the reins,
 and the load is spread across the agent CLIs you already run. That buys two things your
 harness's own subagents cannot:
 

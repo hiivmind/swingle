@@ -16,7 +16,7 @@ a CLI you already installed and signed into.
 dispatched to — all thirty-six pairings run through the same provider packs, the same
 contracts, and the same gates.
 
-**Version:** 3.1.0 · [v2.0.0 release](https://github.com/hiivmind/swingle/releases/tag/v2.0.0) · config/state paths renamed `sdd-dispatch` → `swingle`: [docs/migration-3.0.0.md](docs/migration-3.0.0.md)
+**Version:** 3.1.1 · [v2.0.0 release](https://github.com/hiivmind/swingle/releases/tag/v2.0.0) · config/state paths renamed `sdd-dispatch` → `swingle`: [docs/migration-3.0.0.md](docs/migration-3.0.0.md)
 
 ## Why "Swingle"
 

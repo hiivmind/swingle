@@ -14,14 +14,28 @@ a CLI you already installed and signed into.
 
 **The symmetry is the point.** Any of the six harnesses can drive, and any of the six can be
 dispatched to — all thirty-six pairings run through the same provider packs, the same
-contracts, and the same gates. Swingle is not an LLM router (it dispatches complete,
-already-authenticated harnesses, scaffolding intact) and it is more than built-in subagents
-(which can only run their own harness's model). What it buys you: a second frontier opinion
-from a different vendor, and delegation to a model whose tokens come out of a different
-quota. (A *swingletree* is the crossbar that spreads one draught load across several
-animals.)
+contracts, and the same gates.
 
 **Version:** 3.1.0 · [v2.0.0 release](https://github.com/hiivmind/swingle/releases/tag/v2.0.0) · config/state paths renamed `sdd-dispatch` → `swingle`: [docs/migration-3.0.0.md](docs/migration-3.0.0.md)
+
+## Why Swingle
+
+A *swingletree* is the pivoting crossbar in a draught harness that spreads one load across
+more than one animal. Swingle does the same for coding work: one harness holds the reins,
+and the load is spread across the agent CLIs you already run. That buys two things your
+harness's own subagents cannot:
+
+- **Another provider's frontier model** — a genuinely independent second opinion or review,
+  from weights your harness cannot run.
+- **A different quota** — delegated work burns the target CLI's subscription tokens, not the
+  budget of the session you are driving.
+
+Swingle is not an LLM router or model-endpoint aggregator. A router hands you an endpoint,
+and you still author the harness around it — agent loop, tools, sandbox, session resume.
+Swingle dispatches complete harnesses you have already installed and authenticated, with
+their own scaffolding intact. And it is distinct from built-in subagents, which run their
+own harness's model inside its own loop: Swingle covers exactly the case those cannot — a
+different vendor's CLI, a different model, without leaving the harness you are driving.
 
 ## Install
 

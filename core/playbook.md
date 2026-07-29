@@ -144,8 +144,11 @@ These are the only places swingle substitutes its own mechanism for the stock sk
 Each is stated as a swingle rule with its rationale — never as a claim about what the
 stock skill currently does, which this document does not track:
 
-- **The controller commits; external agents never commit** (safety doctrine; on
-  sandbox-enforced packs the agent structurally cannot). This replaces any stock
+- **In session-tree dispatch, the controller commits; external agents never
+  commit there** (safety doctrine; on sandbox-enforced packs a session-tree
+  agent commit is structurally blocked when the workspace excludes the gitdir).
+  In worktree dispatch, the agent's commits on the named run branch ARE the
+  deliverable; landing remains controller-only. This replaces any stock
   commit-ownership arrangement.
 - **Questions, fixes, and re-reviews ride the provider resume channel** (E3) — the
   pack's validated continuation mechanism against the recorded session id — in place of

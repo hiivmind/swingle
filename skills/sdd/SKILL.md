@@ -126,9 +126,52 @@ For native-subagent routing, use the adapter's native subagent mechanism instead
 controller still supplies the applicable contract, brief, scene, interface list, and report
 path; provider routing and model resolution do not apply.
 
+### Worktree dispatch
+
+Levers: `"in a worktree"` runs the plan isolated; `"in my tree"` forces
+session-tree dispatch; both in one request = STOP and ask. When the session
+tree is dirty and no lever was given, OFFER this lane (one question — never a
+silent switch). Prerequisite: the routed provider's record under the
+`superpowers` config key, read directly from the USER-layer config file;
+`installed: true` → proceed, otherwise one-line warning and ask (dispatch
+without isolation, or run the swingle-setup probe first).
+
+One branch per plan run: `swingle/sdd-<plan-run-id>`. The FIRST task dispatch
+appends this block (substituting the branch):
+
+> Workspace isolation: your harness has the superpowers skill set installed.
+> Before touching any file, use superpowers:using-git-worktrees to create an
+> isolated worktree on a new branch named `<branch>`, and do ALL work there,
+> following your normal process — committing as your skills direct. Do not
+> modify the main checkout. Your report must state the branch name and the
+> final commit SHA.
+
+Every LATER task dispatch (and every fix-round resume) appends the
+continuation form instead — the branch already exists:
+
+> Workspace isolation: continue on the existing branch `<branch>` in its
+> existing worktree (created by an earlier task via
+> superpowers:using-git-worktrees — do not create a new worktree or branch).
+> Do ALL work there, committing as your skills direct; do not modify the main
+> checkout. Your report must state the final commit SHA.
+
+Gates move to the session tree: after each dispatch, the session checkout's
+HEAD and porcelain must be unchanged; the task's evidence is its commits on
+the branch (report SHA verified present). In this lane implementer commits on
+the branch ARE the deliverable — the controller-commits-after-gating rule
+applies to LANDING only. Task review packages come from the branch
+(`git diff` of the task's commit range); the final review targets the full
+branch diff before landing. Landing is a controller act via
+superpowers:finishing-a-development-branch. On NEEDS_CONTEXT/BLOCKED the
+branch and worktree are retention; resume rides the pack's resume channel.
+The wrapped skill's process (task loop, reviews, fix rounds, ledger) is
+otherwise unchanged and unrestated.
+
 **Implementer:** use the implement role and selected tier/lane. The prompt references the
 implementer contract and task brief by path, states the scene and prior interfaces, and
-requires the report path. Record BASE before dispatch; implementers do not commit.
+requires the report path. Record BASE before dispatch; implementers do not commit
+(session-tree dispatch only; in worktree dispatch, task commits land on the run branch
+and the controller commits nothing until landing).
 
 **Every dispatch prompt states the status vocabulary inline** — contracts move by path
 (playbook E1), the four status tokens do not (E1a). Append verbatim: “End with a status

@@ -236,3 +236,9 @@ def test_worktree_lane_keeps_operational_independence():
     # The existing independence counts must survive unchanged.
     text = (ROOT / "skills" / "delegate" / "SKILL.md").read_text()
     assert text.count("scripts/sdd-workspace") == 1 and text.count(".superpowers/sdd") == 1
+def test_sdd_worktree_lane_present():
+    text = (ROOT / "skills" / "sdd" / "SKILL.md").read_text()
+    assert "superpowers:using-git-worktrees" in text          # literal skill string
+    assert "swingle/sdd-" in text
+    assert text.count('"in a worktree"') == 1 and text.count('"in my tree"') == 1
+    assert "continue on the existing branch" in text          # continuation form

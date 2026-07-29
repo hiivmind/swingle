@@ -118,6 +118,14 @@ but setup is how you catch a CLI that isn't authenticated yet, version drift aga
 verified pairings (handed off to `swingle-verify`), a malformed config file, or an
 unmigrated pre-3.0 layout, before your first dispatch fails on one of them.
 
+It is also how you set up customization. Setup seeds the model-registry override layers —
+your own copy of a pack's tier → model table, at the user or project layer — and confirms
+the seeded layer actually wins the resolution walk; edit the seeded file's rows to remap
+which model serves each tier ([docs/model-tiering.md](docs/model-tiering.md)). It likewise
+scaffolds the config file and walks you through its keys: disabling providers, setting a
+default, per-lane routing ([docs/config.md](docs/config.md)). Re-seeding over a customized
+file always requires an explicit, per-item confirmation.
+
 **Where the files it changes live.** Every write is outside your project's tracked files:
 
 | File | Purpose |

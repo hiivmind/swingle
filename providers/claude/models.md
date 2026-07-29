@@ -1,4 +1,4 @@
-# claude models (Anthropic seat) — verified dispatching 2026-07-24
+# claude models (Anthropic seat) — verified dispatching 2026-07-29
 
 > The table of record is [models.yaml](models.yaml) (layered overrides: see README
 > "Model tables and overrides"). This file carries the documentary layer only —
@@ -6,8 +6,10 @@
 
 Model keys are **aliases** (`haiku` / `sonnet` / `opus`), not pinned snapshot ids: the CLI
 resolves each alias to the latest model, so the table tracks releases automatically. The
-resolved snapshot at verification time was `haiku`→claude-haiku-4-5, `sonnet`→claude-sonnet-5,
-`opus`→claude-opus-4-8.
+resolved snapshot as of the 2026-07-29 re-verification (claude 2.1.220) was
+`haiku`→claude-haiku-4-5-20251001, `sonnet`→claude-sonnet-5, `opus`→claude-opus-5 (was
+claude-opus-4-8 at the 2026-07-24 initial verification — Anthropic shipped Opus 5 as the
+default Opus model in claude-code 2.1.219).
 
 Effort: `--effort low|medium|high|xhigh|max` — locally validated (bogus → warn + default, exit 0).
 
@@ -27,3 +29,9 @@ Effort: `--effort low|medium|high|xhigh|max` — locally validated (bogus → wa
   P13 with the current contract. It remains a prompt mitigation, not a guarantee — keep
   severity adjudication in the controller. Full before/after in the two 2026-07-25 entries of
   [verification-log.md](verification-log.md). haiku (cheapest) is not a review tier.
+- **`opus` now resolves to claude-opus-5, not the claude-opus-4-8 snapshot P13 qualified
+  against (2026-07-29).** The alias-not-pinned-id design means the review-lane P13 pass
+  above was earned by a now-superseded snapshot. `models.yaml` keeps `status: verified`
+  for dispatch (unaffected), but the review-lane qualification should be re-run against
+  claude-opus-5 before leaning on it for adversarial review — see the 2026-07-29
+  verification-log follow-up.

@@ -40,8 +40,9 @@ different vendor's CLI, a different model, without leaving the harness you are d
 
 ## Install
 
-Swingle installs on **all six harnesses**. Pick yours, run the commands, then run the
-`swingle-setup` skill in a session for a guided environment check.
+Swingle installs on **all six harnesses**. Pick yours, run the commands, then finish with
+the [post-install step](#after-installing-run-swingle-setup) — it is the same on every
+harness.
 
 ### Claude Code
 
@@ -96,6 +97,40 @@ agy plugin install http://github.com/hiivmind/swingle
 Then add a one-time `command(<cli>)` permission rule for each CLI you will dispatch to
 (a missing rule silently no-ops the dispatch). Details:
 [skills/sdd/harnesses/agy.md](skills/sdd/harnesses/agy.md).
+
+### After installing: run `swingle-setup`
+
+Whichever harness you installed on, the post-install step is the same: open a session and
+run the `swingle-setup` skill — `/swingle-setup`, or just ask (*"set up swingle"*, *"check
+my swingle install"*). It never runs automatically, so this is the one step the install
+commands above don't cover.
+
+**What it does.** Setup starts with a read-only health check of the whole dispatch
+environment: it validates the installed packs, then for each target CLI checks presence on
+`PATH`, installed version against the verified version, and authentication readiness, and
+it discovers your configuration layers and any pre-3.0 `sdd-dispatch` residue. It reports
+everything as a status table, then offers fixes **one at a time, each requiring your
+explicit consent** — it never writes anything uninvited, never commits, and never touches
+project-tracked files.
+
+**Why run it.** Dispatch works without setup — the dispatch skills are self-sufficient —
+but setup is how you catch a CLI that isn't authenticated yet, version drift against the
+verified pairings (handed off to `swingle-verify`), a malformed config file, or an
+unmigrated pre-3.0 layout, before your first dispatch fails on one of them.
+
+**Where the files it changes live.** Every write is outside your project's tracked files:
+
+| File | Purpose |
+| --- | --- |
+| `${XDG_CONFIG_HOME:-~/.config}/swingle/config.json` | user-level config (provider disable/default, lanes) |
+| `${XDG_CONFIG_HOME:-~/.config}/swingle/models/<id>.yaml` | machine-wide model-registry overrides |
+| `<project>/.swingle.json` | project config — scaffolded for **you** to commit |
+| `<project>/.swingle/models/<id>.yaml` | project model overrides — scaffolded for **you** to commit |
+| provider settings files | pack-documented baselines (e.g. persisted permissions), always outside the repo |
+
+`XDG_CONFIG_HOME` is usually unset, so in practice the user-level paths are under
+`~/.config/swingle/`. Re-running is always safe: on a healthy environment setup is purely
+a status report.
 
 ### Prerequisites
 

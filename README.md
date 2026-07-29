@@ -89,8 +89,12 @@ above, or point Grok at a checkout. Details:
 
 ### Antigravity
 
-Use a repo checkout or symlink, then add a one-time `command(<cli>)` permission rule for
-each CLI you will dispatch to (a missing rule silently no-ops the dispatch). Details:
+```bash
+agy plugin install http://github.com/hiivmind/swingle
+```
+
+Then add a one-time `command(<cli>)` permission rule for each CLI you will dispatch to
+(a missing rule silently no-ops the dispatch). Details:
 [skills/sdd/harnesses/agy.md](skills/sdd/harnesses/agy.md).
 
 ### Prerequisites

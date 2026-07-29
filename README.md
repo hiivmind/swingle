@@ -98,7 +98,7 @@ Then add a one-time `command(<cli>)` permission rule for each CLI you will dispa
 (a missing rule silently no-ops the dispatch). Details:
 [skills/sdd/harnesses/agy.md](skills/sdd/harnesses/agy.md).
 
-### After installing: run `swingle-setup`
+### After installing: run the `swingle-setup` skill
 
 Whichever harness you installed on, the post-install step is the same: open a session and
 run the `swingle-setup` skill — `/swingle-setup`, or just ask (*"set up swingle"*, *"check

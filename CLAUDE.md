@@ -108,10 +108,15 @@ worse than no exception at all.
 - The ruleset lists **repo admin as a bypass actor**, so a direct push to `main` will
   succeed for the owner. That is an emergency escape hatch, not the flow — using it
   silently reintroduces the conflict this section exists to remove.
-- Tag releases `v<plugin-version>` when the owner asks.
+- Releases are tagged automatically: `.github/workflows/release.yml` runs on every push to
+  `main`, reads the version from `.claude-plugin/plugin.json`, and — if `v<version>` is not
+  already tagged — validates packs, tags the release head, and creates the GitHub release
+  with generated notes. A push that doesn't bump the version is a no-op. Never hand-tag a
+  release; bumping the version on the `release/*` branch is what cuts it.
 
 **CI does not replace the hard gate.** `.github/workflows/ci.yml` runs `pytest` only, as
-the `tests` required status check. `pytest` drives `scripts/validate-packs` via subprocess
+the `tests` required status check; `.github/workflows/release.yml` tags and publishes the
+GitHub release on pushes to `main` (see the git-flow section). `pytest` drives `scripts/validate-packs` via subprocess
 (`tests/test_validate_packs.py`), so the validator IS enforced on GitHub — but
 `./scripts/codex-smoke` is **not** in CI by deliberate choice: it asserts developer-workspace
 layout, not repo correctness. Run the full gate locally, chained with `&&`, as above.

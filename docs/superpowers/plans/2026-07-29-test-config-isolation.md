@@ -108,7 +108,17 @@ If instead it fails on `layer: default path=` or passes outright, stop and repor
 
 Run: `uv run --with pytest pytest tests/ -q`
 
-Expected: exactly one failure — `test_run_ignores_ambient_swingle_config`. Every other test passes.
+Expected: the new test fails. **How many other tests fail depends on the machine** — corrected
+during execution, 2026-07-29. On a developer with no Swingle user config, this is the only
+failure. On a developer who *does* have `~/.config/swingle/config.json` — the exact condition
+the spec is about — three pre-existing tests fail too, because they call plain `run` and
+observe `config-layer=user` instead of `config-layer=none`:
+`test_health_installed_and_uninstalled`, `test_health_composes_with_check_config`, and
+`test_health_provider_scoping`.
+
+Those three failures are the bug, not collateral damage, and Task 2 must fix them without
+being edited. Record which of the two baselines you saw; Task 2 Step 7 expects a clean suite
+either way.
 
 - [ ] **Step 4: Commit the red test**
 

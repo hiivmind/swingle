@@ -40,7 +40,7 @@ different vendor's CLI, a different model, without leaving the harness you are d
 
 ## Install
 
-Swingle installs on **all six harnesses**. Pick yours, run the commands, then finish with
+Swingle installs on **six supported harnesses**. Pick yours, run the commands, then finish with
 the [post-install step](#after-installing-run-swingle-setup) — it is the same on every
 harness.
 

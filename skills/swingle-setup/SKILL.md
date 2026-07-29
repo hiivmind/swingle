@@ -47,6 +47,7 @@ The setup skill operates in strictly ordered phases. Phase A is always read-only
 5. **Legacy namespace residue**: check for presence of `<project>/.sdd-dispatch.json`, `<project>/.sdd-dispatch/`, `${XDG_CONFIG_HOME:-~/.config}/sdd-dispatch/`, and set `$SDD_DISPATCH_CONFIG` / `$SDD_DISPATCH_MODELS` environment variables. For a legacy project directory, classify its contents: **pure-untracked vs contains-tracked-files** (`git ls-files .sdd-dispatch/` non-empty), and whether the new-name target (`.swingle/`) already exists.
 6. **Harness/provider baselines**: inspect each installed provider's pack-declared, local-state-only setup preconditions read from pack manifests at run time. Inspect the driving harness's own install state (e.g. opencode `skills.paths` pinning) per its harness adapter.
 7. **Workspace ignore state**: check whether `.swingle/` scratch directory is covered by `.git/info/exclude` or `.gitignore` in the current repository (informational; dispatch skills self-heal this).
+8. **Superpowers availability records**: read the `superpowers` key from the USER-layer config file directly (environment facts ignore the layered precedence walk): report each provider's recorded `installed`/`version`/`probed` fact and flag providers with no record. These facts gate the dispatch skills' worktree-dispatch lever.
 
 ### Phase B — Report
 
@@ -71,6 +72,29 @@ config: none found (dispatch uses built-in defaults)      legacy paths: ~/.confi
 - "yes to all" is acceptable input for non-destructive items, but **never covers a destructive option** (`--force` overwrites, any file deletion or overwrite).
 - After applying a consented change, re-run the relevant Phase A check and display the before → after result. A write is confirmed by re-inspection, never assumed.
 
+### Superpowers probe (per provider, one dispatch each)
+
+Offer per installed provider (consent — each probe costs one live dispatch).
+Dispatch mechanics, provider-neutral [r1-3]: the pack's canonical dispatch
+template; model = the cheapest-tier read lane per the roles table; readiness
+checked first via the pack's readiness/version argv (skip and report if not
+ready); output collected per the pack's `report-transport` (`captured-output`
+packs: the captured final message; `report-file` packs: STILL request no file —
+the reply line is the entire deliverable, read it from the captured/streamed
+output); no resume, no retries beyond one. Prompt, verbatim, with no file
+request:
+
+> State whether the superpowers skill set is available to you, and its version.
+> Reply exactly `superpowers: <version>` or `superpowers: none`.
+
+Parse the last matching `superpowers: …` line; on `superpowers: <version>`
+record `{"installed": true, "version": "<version>", "probed": "<today>"}`, on
+`superpowers: none` record `{"installed": false, "version": null, "probed":
+"<today>"}`, on anything else record nothing and report the raw reply as an
+inconclusive probe. Write the record under the `superpowers` key of the USER
+config layer (create the file via the config-scaffolding path if absent) — this
+is an environment fact and never belongs in a pack manifest.
+
 ### Phase D — Hand-offs (never performed by the skill)
 
 The skill never performs the following operations directly:
@@ -83,7 +107,7 @@ The skill never performs the following operations directly:
 
 ## What setup must never do
 
-- No model dispatches.
+- No model dispatches. Exception (the ONLY one): the consented superpowers probe below — a read-only, no-file, single-turn dispatch whose sole purpose is recording an environment fact. Every other model dispatch remains prohibited and routes to Phase D.
 - No git commits.
 - **No writes to project-tracked files** (offer the `git mv`/diff for the user's own commit instead). Consented writes *outside* the project repo, such as a provider's persisted settings file or user-level config (`~/.config/swingle/config.json`), are legitimate Phase C writes, not exceptions to this rule.
 - No uninvited writes of any kind — every filesystem change is individually consented in Phase C.
@@ -104,6 +128,7 @@ Offers are computed against the Phase A layer record: **only offer to seed a lay
 
 - Offer user layer (`${XDG_CONFIG_HOME:-~/.config}/swingle/config.json`) or project layer (`<project>/.swingle.json`), scaffolded from the canonical template in [docs/config.md](../../docs/config.md) with all keys present but neutral (empty `disable`, no `default_provider`, `require-verified-version: false`), then walk the user through keys they asked about.
 - A malformed existing file is shown verbatim alongside the schema; the fix is applied only after the user picks the corrected content.
+- **Superpowers availability record**: write probed provider status under the `superpowers` key (`{"<provider-id>": {"installed": bool, "version": str|null, "probed": "YYYY-MM-DD"}}`) of the USER config layer (`${XDG_CONFIG_HOME:-~/.config}/swingle/config.json`).
 
 ### Migration (§6.3)
 

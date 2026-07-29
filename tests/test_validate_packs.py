@@ -1,9 +1,32 @@
-import json, shutil, subprocess, sys
+import json, os, shutil, subprocess, sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "validate-packs"
 FIX = Path(__file__).parent / "fixtures"
+
+def isolated_env(**overrides):
+    """Build a subprocess environment with ambient Swingle config removed.
+
+    Starts from the current process environment, redirects XDG_CONFIG_HOME at a
+    path that deliberately does not exist, drops any inherited SWINGLE_CONFIG
+    and SWINGLE_MODELS, then applies caller overrides. An override whose value
+    is None removes that variable rather than putting a non-string in the
+    environment.
+    """
+    e = dict(os.environ, XDG_CONFIG_HOME=str(FIX / "no-such-xdg"))
+    e.pop("SWINGLE_CONFIG", None)
+    e.pop("SWINGLE_MODELS", None)
+    for name, value in overrides.items():
+        if value is None:
+            e.pop(name, None)
+        else:
+            e[name] = value
+    return e
+
+def test_no_such_xdg_fixture_stays_absent():
+    """isolated_env's XDG redirect only isolates while this path does not exist."""
+    assert not (FIX / "no-such-xdg").exists()
 
 import importlib.machinery, importlib.util, io, contextlib
 loader = importlib.machinery.SourceFileLoader("validate_packs", str(SCRIPT))
@@ -12,7 +35,8 @@ vp = importlib.util.module_from_spec(vp_spec)
 vp_spec.loader.exec_module(vp)
 
 def run(*args):
-    return subprocess.run([sys.executable, str(SCRIPT), *args], capture_output=True, text=True)
+    return subprocess.run([sys.executable, str(SCRIPT), *args],
+                          capture_output=True, text=True, env=isolated_env())
 
 def test_real_tree_valid():
     r = run("--root", str(ROOT)); assert r.returncode == 0, r.stdout + r.stderr
@@ -128,13 +152,9 @@ def test_yaml_eligible_md_row_guard(tmp_path):
     r = run("--root", str(root))
     assert r.returncode == 1 and "eligible-row guard" in r.stdout
 
-import os
-
 def run_env(*args, **env):
-    e = dict(os.environ, XDG_CONFIG_HOME=str(FIX / "no-such-xdg"))
-    e.pop("SWINGLE_MODELS", None)
-    e.update(env)
-    return subprocess.run([sys.executable, str(SCRIPT), *args], capture_output=True, text=True, env=e)
+    return subprocess.run([sys.executable, str(SCRIPT), *args],
+                          capture_output=True, text=True, env=isolated_env(**env))
 
 def test_resolve_default_layer_line():
     r = run_env("--root", str(FIX / "good-yaml"), "--resolve", "per-task reviewer", "alpha")
@@ -211,10 +231,8 @@ def test_list_models_argv_accepted_and_validated(tmp_path):
 SDD_MODELS = ROOT / "scripts" / "swingle-models"
 
 def run_models(*args, **env):
-    e = dict(os.environ, XDG_CONFIG_HOME=str(FIX / "no-such-xdg"))
-    e.pop("SWINGLE_MODELS", None)
-    e.update(env)
-    return subprocess.run([sys.executable, str(SDD_MODELS), *args], capture_output=True, text=True, env=e)
+    return subprocess.run([sys.executable, str(SDD_MODELS), *args],
+                          capture_output=True, text=True, env=isolated_env(**env))
 
 def test_sdd_models_which_default_layer():
     r = run_models("which", "alpha", "--root", str(FIX / "good-yaml"))

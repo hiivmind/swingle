@@ -16,7 +16,7 @@ a CLI you already installed and signed into.
 dispatched to — all thirty-six pairings run through the same provider packs, the same
 contracts, and the same gates.
 
-**Version:** 3.1.2 · [v2.0.0 release](https://github.com/hiivmind/swingle/releases/tag/v2.0.0) · config/state paths renamed `sdd-dispatch` → `swingle`: [docs/migration-3.0.0.md](docs/migration-3.0.0.md)
+**Version:** 3.1.3 · [v2.0.0 release](https://github.com/hiivmind/swingle/releases/tag/v2.0.0) · config/state paths renamed `sdd-dispatch` → `swingle`: [docs/migration-3.0.0.md](docs/migration-3.0.0.md)
 
 ## Why "Swingle"
 
@@ -158,7 +158,7 @@ bump with the `swingle-verify` skill.
 | --- | --- | --- | --- | --- |
 | Claude Code | `claude` | 2.1.218 | ✅ | ✅ |
 | Codex | `codex` | 0.144.3 | ✅ | ✅ |
-| opencode | `opencode` | 1.17.18 | ✅ | ✅ |
+| opencode | `opencode` | 1.18.9 | ✅ | ✅ |
 | Grok | `grok` | 0.2.111 | ✅ | ✅ |
 | Pi | `pi` | 0.81.1 | ✅ | ✅ |
 | Antigravity | `agy` | 1.1.5 | ✅ | ✅ |

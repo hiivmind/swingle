@@ -368,6 +368,43 @@ def test_health_config_layers(tmp_path):
     r = run_env("--health", "--root", str(root), SWINGLE_CONFIG=str(tmp_path / "missing.json"))
     assert r.returncode == 0 and "config-layer=env-unreadable" in r.stdout
 
+
+def test_run_ignores_ambient_swingle_config(tmp_path, monkeypatch):
+    """A developer's real Swingle config must not reach subprocess tests.
+
+    Sets valid-looking ambient config at all three inputs the production layer
+    walk reads, then invokes plain `run`. The subprocess must still report the
+    built-in model layer and config-layer=none.
+    """
+    root = make_health_test_root(tmp_path, ("alpha",))
+
+    ambient_xdg = tmp_path / "ambient-xdg"
+    (ambient_xdg / "swingle").mkdir(parents=True)
+    (ambient_xdg / "swingle" / "config.json").write_text("{}")
+
+    ambient_cfg = tmp_path / "ambient-config.json"
+    ambient_cfg.write_text("{}")
+
+    ambient_models = tmp_path / "ambient-models"; ambient_models.mkdir()
+    (ambient_models / "alpha.yaml").write_text(
+        "schema: 1\nprovider: alpha\nmodels:\n"
+        "  - tier: standard\n    lane: review\n    priority: 1\n"
+        "    model: ambient-review-model\n    status: experimental\n")
+
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(ambient_xdg))
+    monkeypatch.setenv("SWINGLE_CONFIG", str(ambient_cfg))
+    monkeypatch.setenv("SWINGLE_MODELS", str(ambient_models))
+
+    r = run("--health", "--root", str(root))
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "config-layer=none" in r.stdout
+
+    r2 = run("--root", str(FIX / "good-yaml"), "--resolve", "per-task reviewer", "alpha")
+    assert r2.returncode == 0, r2.stdout + r2.stderr
+    assert "layer: default path=" in r2.stdout
+    assert "ambient-review-model" not in r2.stdout
+
+
 def test_health_composes_with_check_config(tmp_path):
     root = make_health_test_root(tmp_path, ("alpha",))
     cfg = tmp_path / "bad.json"; cfg.write_text('{"disable": ["unknown-provider"]}')

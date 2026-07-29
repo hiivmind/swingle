@@ -197,5 +197,5 @@ For the economics and the detailed controller loop, read `<root>/core/playbook.m
   implementers or re-dispatch a ledgered task.
 - Keep adjudication in the controller: statuses, cannot-verify-from-diff items, and plan
   contradictions go to the human when needed.
-- Perform the final whole-branch review with the most-capable review tier and one
-  consolidated fix cycle for findings.
+- Perform the final whole-branch review with the most-capable review tier; the wrapped
+  skill's final-review policy governs the fix cadence.

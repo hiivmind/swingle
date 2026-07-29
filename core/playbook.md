@@ -1,38 +1,25 @@
 # Mapping superpowers:subagent-driven-development onto Provider Packs
 
-> How the SDD skill actually operates, and the token-efficient way to run its subagent roles
-> through provider packs instead of the harness's native subagent mechanism (see harness adapter).
+> The token-efficient way to run the SDD skill's subagent roles through provider packs
+> instead of the harness's native subagent mechanism (see harness adapter).
 > Companion to [core/roles.md](roles.md) and the active provider's resolved models.yaml.
-> Skill source: superpowers 6.1.1 `skills/subagent-driven-development/`.
 
-## How the skill operates (compressed)
+## Process authority: the invoked skill, not this document
 
-Controller loop, per task from a written plan:
+The wrapped skill — `superpowers:subagent-driven-development`, invoked at Step 0 of the
+`swingle-sdd` skill — is the **sole authority on process**: the task loop, briefs and
+review packages, status vocabulary and its handling, fix rounds and their caps, review
+verdicts, the ledger, the pre-flight scan, and the final review. This document never
+restates that content, and it binds to whatever version of the skill is installed at run
+time. A summary here would be a staleness footgun: it drifts silently the moment
+superpowers ships a change, and a controller trusting the summary would follow a process
+the skill no longer runs. Read the skill itself; this document adds only what swingle
+owns — dispatch mechanics, economics, and the controller gates below.
 
-1. `scripts/task-brief PLAN N` → extracts the task text to `.superpowers/sdd/task-N-brief.md`
-   (bulk never enters controller context).
-2. Record BASE (= current HEAD). Dispatch **implementer** with: brief path, one line of
-   scene-setting, interfaces from prior tasks, report-file path, and the report contract
-   (status ≤15 lines back; detail in `task-N-report.md`). Status ∈ DONE /
-   DONE_WITH_CONCERNS / NEEDS_CONTEXT / BLOCKED.
-3. `scripts/review-package BASE HEAD` → commit list + stat + `-U10` diff in one file.
-   Dispatch **task reviewer** (read-only) with brief + report + diff paths + verbatim
-   global constraints. Two verdicts: spec compliance, code quality.
-4. Critical/Important findings → **fix** dispatch (same report file, appends) → re-review.
-   Minor findings → ledger, triaged by the final review.
-5. Append to the progress ledger (`.superpowers/sdd/progress.md`) — the compaction-proof
-   recovery map. Never re-dispatch a ledgered task.
-6. After all tasks: **final whole-branch review** on `review-package MERGE_BASE HEAD`,
-   most-capable tier; one consolidated fix dispatch if findings.
-
-Controller-only judgment (never offloaded): pre-flight plan conflict scan, status
-adjudication, ⚠️ cannot-verify-from-diff resolution, plan-contradiction escalation to the
-human, ledger, and the hard gate (re-run test gates, inspect diffs).
-
-**The key structural fact:** the skill is already file-centric — briefs, reports, and diffs
-move as paths, not pasted text. That is exactly the shape a provider-pack dispatch needs, so
-the mapping is natural; the wins below come from pushing the last pasted things (the prompt
-templates, the dispatch stdout) out of controller context too.
+**Why the mapping works:** the stock skill moves its bulk artifacts (briefs, reports,
+diffs) as file paths, which is exactly the shape a provider-pack dispatch needs. The wins
+below come from pushing the remaining pasted things (prompt templates, dispatch stdout)
+out of controller context too.
 
 ## Role → dispatch mapping
 
@@ -151,16 +138,26 @@ post-compaction recovery can still resume a half-finished agent instead of resta
 foreground-stdout alternative runs 15–40k per task and grows with task size. The offload
 target — controller as thin adjudicator, provider agents as the working mass — is met.
 
-## Divergences from the stock skill (deliberate)
+## Deliberate overrides (swingle's rules, stated as swingle's rules)
 
-| Stock skill | Provider-pack adaptation | Why |
-| --- | --- | --- |
-| Implementer commits its own work | Controller commits after gating | Controller-commits doctrine |
-| Fix subagent = fresh dispatch | Resume implementer's session | context already paid for; the efficient fix path |
-| Templates pasted per dispatch | Contract files in workspace, referenced by path | E1 — the single largest controller saving |
-| Subagent questions answered inline | NEEDS_CONTEXT status → resume with answers | continuation keeps agent context |
-| “Controller reads every diff” | Stat + verdicts always; full diff on findings/risk/contest | E6 — gate power at a fraction of the spend |
+These are the only places swingle substitutes its own mechanism for the stock skill's.
+Each is stated as a swingle rule with its rationale — never as a claim about what the
+stock skill currently does, which this document does not track:
 
-Everything else — pre-flight scan, two-verdict reviews, fix→re-review loops, ⚠️ handling,
-ledger, never-parallel implementers, final most-capable review, plan contradictions go to
-the human — carries over unchanged.
+- **The controller commits; external agents never commit** (safety doctrine; on
+  sandbox-enforced packs the agent structurally cannot). This replaces any stock
+  commit-ownership arrangement.
+- **Questions, fixes, and re-reviews ride the provider resume channel** (E3) — the
+  pack's validated continuation mechanism against the recorded session id — in place of
+  whatever dispatch mechanics the stock skill uses for its fix and question flows. The
+  stock skill's *cadence* rules (rounds, caps, escalation, adjudication) still govern;
+  only the transport is swingle's.
+- **Swingle's operating contracts, copied to the workspace and referenced by path** (E1),
+  replace the stock skill's dispatch prompt templates — the contracts carry the
+  pack-dispatch specifics (report transport, status protocol, containment) the stock
+  templates cannot know.
+- **Gate depth scales with risk** (E6): stat + verdicts always, full package on
+  findings/risk/contest — swingle's controller-spend rule for its own gate reads.
+
+Everything not overridden here is governed by the invoked skill as it ships at run
+time — read it there, never from a summary.

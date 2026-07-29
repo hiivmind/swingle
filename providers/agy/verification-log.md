@@ -284,3 +284,32 @@ enumerations; flipped the README support table Drive-from cell to ✅. Patch bum
 `verified-version` (target-side) unchanged — this probe verified the driver role, not a new CLI
 version.
 
+## 2026-07-29 — agy 1.1.8 (trigger: anomaly; read-lane dispatch blocked by the command permission)
+
+Drift was in effect (installed 1.1.8 vs `verified-version` 1.1.5) when a final-review
+dispatch died channel-class: banner-only stdout, exit 0, no report. The captured signature:
+
+```
+jetski: no output produced — a tool required the "command" permission that headless mode cannot prompt for
+```
+
+| Probe | Assertion under test | Verdict | Evidence |
+| --- | --- | --- | --- |
+| P7 | headless dispatch completes without an interactive permission prompt | Refuted | banner-only stdout at exit 0; report file absent |
+| P7a | a read-lane prompt that *invites* shell use trips the permission gate | Confirmed | the two task reviewers that forbade shell ran clean on the same CLI version |
+
+**Root cause.** Not a new 1.1.8 regression: the same permission behaviour recorded for 1.1.7
+in [#15](https://github.com/hiivmind/swingle/issues/15) and [#27](https://github.com/hiivmind/swingle/issues/27).
+The dispatch prompt offered the reviewer read-only shell commands; the agent took the offer
+and the command permission cannot be granted headlessly.
+
+**Structural fix, not a prompt nudge.** Re-dispatched with shell forbidden outright and the
+evidence the reviewer would otherwise have gathered inlined into the prompt. Clean first try.
+Forbidding the capability removes the failure mode; asking the agent not to use it only
+lowers the rate.
+
+**Recording.** Evidence added as a comment on #15 (2026-07-29) rather than a duplicate issue,
+per the dedup ladder. `verified-version` stays "1.1.5" — this round verified nothing
+end-to-end; it recorded a failure.
+
+

@@ -91,3 +91,35 @@ The plugin `sdd-dispatch` is renamed `swingle` at v2.0.0 (`sdd-dispatch-marketpl
 `discreteds/swingle`). Entries above predate the rename and keep the old names as
 historical record. No pack facts or probe results changed in this release.
 
+## 2026-07-29 — opencode 1.18.9 (trigger: version bump, drift from stamped 1.17.18)
+
+Changelog reviewed: https://github.com/sst/opencode/releases, all entries 1.17.19–1.18.9.
+Relevant Core entries: v1.18.2 "stopped subagents from launching nested subagents by
+default"; v1.18.4 "respect provider-defined reasoning options instead of falling back to
+the wrong reasoning controls"; v1.18.5 "fix MiniMax M3 thinking variant selection". No
+entry touches stdin/TTY handling, permission defaults, or `-p`/positional argument
+parsing. Auth mode this round: OpenCode Go (not Zen) — all six table models are already
+`opencode-go/`-namespaced, so the table needed no auth-mode migration.
+
+| Probe | Assertion under test | Verdict | Evidence |
+| --- | --- | --- | --- |
+| P1 | Version/surface | New | 1.17.18 → 1.18.9; `opencode models` lists 16 `opencode-go/*` ids, up from 6 known-tracked; new since 2026-07-22: `glm-5.1`, `hy3`, `kimi-k2.6`, `mimo-v2.5`, `mimo-v2.5-pro`, `minimax-m2.7`, `qwen3.6-plus` (watch-list candidates, not benchmarked this round — trigger was version bump, not model release) |
+| P2 | Trivial dispatch | Confirmed | `opencode-go/deepseek-v4-flash` → PONG, exit 0, `build · deepseek-v4-flash` banner |
+| P3 | Bogus model | Confirmed | `{"name":"UnknownError","data":{"message":"Unexpected server error...","ref":"err_9c9fe1f2"}}`, exit 1 |
+| **P4** | **`< /dev/null` optional (2026-07-22 finding)** | **Refuted** | a TRUE never-closing stdin (mkfifo, held open) hung 60s with zero output, 2/2 reproductions; 3/3 control runs with `< /dev/null` completed normally in the same harness, ruling out the documented backgrounded-startup flakiness as the cause. The 2026-07-22 "no hang" finding was evidently tested against a stdin source that reached EOF, not a genuinely open one. **`< /dev/null` (or equivalent) is mandatory**, not optional — canonical dispatch template updated below. |
+| P5 | Read, no flags | Confirmed | read `readtest.txt`, reported XYZZY42, exit 0 |
+| P6 | Write (file tool), no flags | Confirmed | `writetest.txt` = `HELLO.` on disk, exit 0, narration accurate |
+| P6 | Write (shell command), no flags | Confirmed | `cmdtest.txt` = `P6CMD` on disk, exit 0, narration accurate (contrast: claude 2.1.220 narrated false success on this same probe, issue #44) |
+| P8 | Git commit in sandbox | Confirmed | `git log` shows `test commit` (3744e1f) on top of the seeded initial commit, exit 0 |
+| P9 | `--variant` reasoning knob | Confirmed | `minimax-m3` (had a variant-selection fix in v1.18.5) accepted `--variant high` and silently accepted `--variant bogusvariantxyz` alike — both PONG, exit 0, no warning either way. The 1.18.5 fix appears to affect whether a valid variant takes effect, not validation; "never assume it took effect" stands. |
+| **P11** | **`-p` collision "silently misfires" (2026-07-22 wording)** | **Refined** | `--help` still lists `-p, --password`; dispatching with `-p "<prompt text>"` now fails loudly — `Error: You must provide a message or a command`, exit 1 — rather than the ambiguous "silently misfires" the prior entry implied. It is a footgun (wrong prompt swallowed into an auth field) but the failure mode is a clean, catchable error, not a silent wrong-behavior success. |
+| P10 | Output contract (report-file) | Confirmed | task-specified `REPORT.md` held the full 6-line content; stdout stayed to banner + `DONE` (109 bytes total) — matches `report-transport: report-file` |
+| P12 | Tier-table model dispatch | Confirmed | all 6 current table models (`deepseek-v4-flash`, `minimax-m3`, `qwen3.7-plus`, `deepseek-v4-pro`, `kimi-k2.7-code`, `glm-5.2`) dispatched PONG, exit 0 |
+| P13 | Reviewer known-defect benchmark | Not run | trigger was version bump, not model release; review-lane models (`deepseek-v4-pro`, `glm-5.2`) are provider-pinned ids, not CLI-version-dependent aliases (contrast claude's `opus`), so this CLI bump does not put their P13 qualification (2026-07-22) in question |
+
+**Net**: pack re-stamped to 1.18.9. One genuine refutation (P4 — stdin protection is
+mandatory, not optional; canonical dispatch template updated to always redirect stdin)
+and one wording refinement (P11 — loud error, not silent misfire). No push rights on
+`hiivmind/swingle`; committed locally and opening an upstream issue for the P4 finding
+(dispatch-template-affecting, the substantive one) per the recording ladder.
+

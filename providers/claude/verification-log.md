@@ -106,3 +106,43 @@ The plugin `sdd-dispatch` is renamed `swingle` at v2.0.0 (`sdd-dispatch-marketpl
 `discreteds/swingle`). Entries above predate the rename and keep the old names as
 historical record. No pack facts or probe results changed in this release.
 
+## 2026-07-29 — claude 2.1.220 (trigger: version bump, drift from stamped 2.1.218)
+
+Vendor changelog (2.1.218→2.1.220, https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md)
+read first: 2.1.219 added Claude Opus 5 (`claude-opus-5`) as "now the default Opus model"
+and a `sandbox.network.strictAllowlist` setting (opt-in, not exercised — pack stays
+`sandbox: none` by default); 2.1.220 is "bug fixes and reliability improvements" with no
+itemized entries. Probed from a Claude Code controller session; self-dispatch trap
+(`--dangerously-skip-permissions` blocked by the parent auto-mode Bash classifier,
+documented in pack.md) did **not** trigger this round even with `CLAUDECODE=1` set —
+the nested bypass dispatch ran unblocked under this session's permission mode. Recorded
+as a refinement, not a refutation: the block is permission-mode-dependent, not universal.
+
+| Probe | Assertion under test | Verdict | Evidence |
+| --- | --- | --- | --- |
+| P1 | Version + surface | Confirmed | `claude --version` = 2.1.220; all headless flags exercised below still present, no new/removed flags observed |
+| P2 | Trivial dispatch | Confirmed | PONG, exit 0 |
+| P3 | Bogus model error path | Confirmed | same clean local error text, exit 1 |
+| P4 | stdin protection mandatory | **Refined** | fed from a never-closing named pipe under a manual 60s backstop: did **not** hang — completed in 10s with `Warning: no stdin data received in 3s, proceeding without it. If piping from a slow command, redirect stdin explicitly...`, then PONG, exit 0. The CLI has its own built-in ~3s stdin-absence timeout; an adapter-side end-of-input protection is confirmed **not mandatory** (closes the item left open since 2026-07-24) |
+| P5 | Read, no flags | Confirmed | XYZZY42 returned, exit 0 |
+| P6 (no flags, write) | Silent no-op without bypass | Confirmed | narrated "need your permission... please approve", exit 0, file MISSING on disk |
+| P6 (no flags, shell) | Silent no-op without bypass | **Refined** | narrated "🟢 Echo command executed successfully" with the command's stdout shown — **falsely claiming success** — while `cmdtest.txt` was MISSING on disk. More deceptive than the write-path narration (which at least asks for permission); sharpens the controller-must-verify-on-disk doctrine for the shell sub-case specifically |
+| P6 (bypass, write) | `--dangerously-skip-permissions` enables headless write | Confirmed directly | `writetest.txt`=HELLO on disk, exit 0 — first direct (non-operator-relayed) confirmation |
+| P6 (bypass, shell) | `--dangerously-skip-permissions` enables headless shell | Confirmed directly | `cmdtest.txt`=P6CMD on disk, exit 0 |
+| P8 | Git commit inside workspace | **Confirmed directly** (was Inferred 2026-07-24) | throwaway repo, seed commit present; dispatched create+add+commit; `git log` shows `test commit` on top of `seed commit`, file content correct |
+| P9 | `--effort` knob | Confirmed | valid `low` → PONG exit 0; invalid `bogus` → same warning text, proceeds, exit 0 |
+| P11 | Argument-parsing footguns | Confirmed | `-p "<prompt>" --model haiku` (flags after prompt) still parses correctly |
+| P12 | Tier models dispatch | **Refuted (opus only)** | `--output-format json` `modelUsage` keys: `haiku`→`claude-haiku-4-5-20251001` (unchanged), `sonnet`→`claude-sonnet-5` (unchanged), `opus`→**`claude-opus-5`** (was `claude-opus-4-8`) — matches the changelog's Opus 5 default-model change |
+| P13 | Reviewer known-defect benchmark | Not re-run | `opus`'s underlying snapshot changed generation (4.8→5) via the same alias; the fixture requires reconstructing a faithful Task-2 brief/report pair not preserved in this checkout. Flagged as a follow-up below rather than re-run on a low-fidelity reconstruction |
+
+**verified-version stamped 2.1.220.** All facts confirmed except the opus alias resolution,
+which is corrected below and in `models.yaml`/`models.md`. P4 closed as non-mandatory
+(CLI self-recovers from absent stdin after ~3s). P6 shell no-op narration sharpened per
+above. P8 upgraded from Inferred to Confirmed.
+
+**Follow-up (not applied here):** re-run P13 for `opus` now that it resolves to
+`claude-opus-5` rather than the `claude-opus-4-8` snapshot the 2026-07-25 qualification
+ran against — a full generation bump on the same alias warrants re-confirming the review
+lane still clears the ≥ v1.9.2 contract before leaning on it for adversarial review of
+opus's own generation.
+

@@ -21,4 +21,4 @@ models:
     model: opus
     status: verified
     pricing: "seat"
-    rationale: "alias resolves to claude-opus-4-8; final/design review and hardest implement. A machine ANTHROPIC_DEFAULT_OPUS_MODEL setting overrides what opus points at"
+    rationale: "alias resolves to claude-opus-5 (was claude-opus-4-8 as of 2026-07-24; bumped 2026-07-29 verification); final/design review and hardest implement. A machine ANTHROPIC_DEFAULT_OPUS_MODEL setting overrides what opus points at"

@@ -275,8 +275,8 @@ BEFORE launch — a crash or compaction never loses the number→task mapping.
      captures plugin version, installed CLI version vs `verified-version`, the controlling
      harness + its version, and the failure signature. Maintenance signal, not a user
      block; quality failures are excluded (they are not drift evidence).
-    - Every attempt appends:
-      `model-attempt: job=NNN phase=<worker|review|reader2> attempt=<n> role=<role> provider=<id> model=<id> class=<scope> outcome=<failed|ok>`.
+   - Every attempt appends:
+     `model-attempt: job=NNN phase=<worker|review|reader2> attempt=<n> role=<role> provider=<id> model=<id> class=<scope> outcome=<failed|ok>`.
 
 ## Worktree dispatch (the delegate's own superpowers)
 

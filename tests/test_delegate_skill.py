@@ -232,10 +232,14 @@ def test_worktree_dispatch_lane_present():
     assert "superpowers:using-git-worktrees" in text
     assert "swingle/" in text                       # branch naming pattern
     assert "final commit SHA" in text               # report requirement
+
+
 def test_worktree_lane_keeps_operational_independence():
     # The existing independence counts must survive unchanged.
     text = (ROOT / "skills" / "delegate" / "SKILL.md").read_text()
     assert text.count("scripts/sdd-workspace") == 1 and text.count(".superpowers/sdd") == 1
+
+
 def test_sdd_worktree_lane_present():
     text = (ROOT / "skills" / "sdd" / "SKILL.md").read_text()
     assert "superpowers:using-git-worktrees" in text          # literal skill string

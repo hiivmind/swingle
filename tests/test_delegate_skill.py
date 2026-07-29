@@ -224,3 +224,15 @@ def test_explicit_model_rule_is_stated_in_roles():
     text = " ".join((ROOT / "core" / "roles.md").read_text().split())
     assert "always passed explicitly" in text
     assert "inherits whatever model the caller's own session is running" in text
+
+
+def test_worktree_dispatch_lane_present():
+    text = (ROOT / "skills" / "delegate" / "SKILL.md").read_text()
+    assert text.count('"in a worktree"') == 1 and text.count('"in my tree"') == 1
+    assert "superpowers:using-git-worktrees" in text
+    assert "swingle/" in text                       # branch naming pattern
+    assert "final commit SHA" in text               # report requirement
+def test_worktree_lane_keeps_operational_independence():
+    # The existing independence counts must survive unchanged.
+    text = (ROOT / "skills" / "delegate" / "SKILL.md").read_text()
+    assert text.count("scripts/sdd-workspace") == 1 and text.count(".superpowers/sdd") == 1

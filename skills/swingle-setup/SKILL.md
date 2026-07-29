@@ -75,7 +75,7 @@ config: none found (dispatch uses built-in defaults)      legacy paths: ~/.confi
 ### Superpowers probe (per provider, one dispatch each)
 
 Offer per installed provider (consent — each probe costs one live dispatch).
-Dispatch mechanics, provider-neutral [r1-3]: the pack's canonical dispatch
+Dispatch mechanics, provider-neutral: the pack's canonical dispatch
 template; model = the cheapest-tier read lane per the roles table; readiness
 checked first via the pack's readiness/version argv (skip and report if not
 ready); output collected per the pack's `report-transport` (`captured-output`
@@ -107,7 +107,7 @@ The skill never performs the following operations directly:
 
 ## What setup must never do
 
-- No model dispatches. Exception (the ONLY one): the consented superpowers probe below — a read-only, no-file, single-turn dispatch whose sole purpose is recording an environment fact. Every other model dispatch remains prohibited and routes to Phase D.
+- No model dispatches. Exception (the ONLY one): the consented superpowers probe above — a read-only, no-file, single-turn dispatch whose sole purpose is recording an environment fact. Every other model dispatch remains prohibited and routes to Phase D.
 - No git commits.
 - **No writes to project-tracked files** (offer the `git mv`/diff for the user's own commit instead). Consented writes *outside* the project repo, such as a provider's persisted settings file or user-level config (`~/.config/swingle/config.json`), are legitimate Phase C writes, not exceptions to this rule.
 - No uninvited writes of any kind — every filesystem change is individually consented in Phase C.

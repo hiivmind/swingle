@@ -63,7 +63,8 @@ Read these plugin documents when their policy is needed:
    (See [docs/config.md](../../docs/config.md) for the schema) — disable/steer only;
    malformed/wrong-typed config, an unknown provider ID in
    `disable`, `default_provider`, or any `providers_by_lane` value, a disabled
-   default_provider or providers_by_lane target, or set-but-unreadable
+   default_provider or providers_by_lane target, a malformed `superpowers` block
+   (including an unknown provider ID within it), or set-but-unreadable
    $SWINGLE_CONFIG = STOP with the error. ACTIVE = installed − disabled
    (− incompatible iff require-verified-version).
 6. **Compatibility (advisory)**: compare `version-argv` output to `verified-version`. A

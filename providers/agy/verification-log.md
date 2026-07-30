@@ -312,4 +312,20 @@ lowers the rate.
 per the dedup ladder. `verified-version` stays "1.1.5" — this round verified nothing
 end-to-end; it recorded a failure.
 
+## 2026-07-30 — standing shell-restriction guidance (trigger: convention migration; effective from 1.1.7)
+
+**Guidance (implement, review):** forbid shell outright for reviewers; restrict
+implementers to single simple commands — no pipes, redirection, `&&`/`;`, `$()`,
+heredocs, or loops. A denied command aborts headlessly at exit 0 with no output, so the
+run looks fine and produced nothing. Effective from 1.1.7 forward; 1.1.8 confirmed (see
+the 2026-07-29 entry above). Tracking
+[#15](https://github.com/hiivmind/swingle/issues/15) and
+[#27](https://github.com/hiivmind/swingle/issues/27).
+
+Appended under the guidance convention (`core/verification-protocol.md` Recording,
+plugin 3.2.0): this promotes the standing instruction already spread across the
+1.1.7/1.1.8 evidence in this log into the convention's scannable shape. It is a new
+appended entry, with its effective-from version stated here in prose, because the log
+is append-only and carries no 1.1.7 heading to attach to.
+
 

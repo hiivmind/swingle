@@ -115,6 +115,15 @@ Read these plugin documents when their policy is needed:
 7. **Readiness**: before the FIRST dispatch to a chosen provider, run its bounded
    preflight per its pack (version + auth/session probe; agy: the headless permission
    baseline check — on miss, STOP and hand the user the pack's baseline section).
+   Also read the routed provider's `providers/<id>/verification-log.md` and, if present,
+   the user's local record at `${XDG_CONFIG_HOME:-~/.config}/swingle/verification/<id>.md`
+   (read additively — both are evidence). If an entry at or below the installed version
+   carries an operating instruction covering the lane about to be dispatched, **act on
+   it** — apply prompt- and dispatch-shape restrictions directly and state what changed;
+   version pins and provider changes are **recommended to the user**, never performed
+   silently (cross-provider moves remain a user question, per Failure handling). An
+   instruction applies from its version forward until a later entry lifts it. No
+   applicable instruction ⇒ say nothing — a newer release is not a defect.
 8. **Workspace**: create `.swingle/delegate/` at the repo root. Check
    `git check-ignore -q .swingle/delegate/.probe` (a child sentinel, so negation
    rules cannot silently expose workspace files); if not ignored, append

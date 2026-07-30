@@ -100,6 +100,12 @@ Knowledge base (all paths are relative to the plugin tree root `<root>`):
    `providers/<id>/verification-log.md`. Update only that pack's `pack.md` and `models.yaml`
    when evidence changes facts, versions, or model status (stamps land in models.yaml — the
    table of record; models.md keeps the narrative entry). Never rewrite earlier log entries.
+   If the round produced an **operating instruction** — something a future dispatcher
+   must do differently on this version and forward — record it per the guidance
+   convention in `core/verification-protocol.md` Recording (house style
+   `**Guidance (<lanes>):** …` directly under the entry heading; lifting a standing
+   restriction is itself guidance). A round that found nothing to instruct adds no
+   guidance line — the entry's prose and verdict matrix are the record.
 
 6. **Synthesize only across providers.** If this round supplies a comparison spanning two or
    more packs, append the dated synthesis to `core/verification-log.md`. Otherwise leave the

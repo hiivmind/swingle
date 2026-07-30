@@ -28,6 +28,11 @@ because the shell used `;`. The gate is a precondition, not a preceding step.
   `providers/*/verification-log.md`). Never rewrite a prior entry — a later contradiction
   *dates* a behavior change. Supersede in place only for same-session uncommitted text;
   otherwise strike (`~~…~~`) with a dated correction or append a new entry.
+- **Log entries may carry operating guidance** (`core/verification-protocol.md`
+  Recording): an instruction a future dispatcher must follow from that version forward,
+  house style `**Guidance (<lanes>):** …` under the entry heading. The verify skill
+  writes it; the dispatch skills read the routed provider's log and act on it. Always an
+  instruction, never a verdict — an undiagnosed failure is an open issue, not an entry.
 - **Purity boundary**: provider *names* may appear in `core/`; model ids and invocation
   strings may NOT — they live in `providers/<id>/`. The validator's link scan and the
   purity adjudication (2026-07-23) are the precedent. This binds `core/` prose *and*

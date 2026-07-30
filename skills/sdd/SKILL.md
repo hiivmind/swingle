@@ -137,7 +137,10 @@ silent switch). Prerequisite: the routed provider's record under the
 `installed: true` → proceed, otherwise one-line warning and ask (dispatch
 without isolation, or run the swingle-setup probe first).
 
-One branch per plan run: `swingle/sdd-<plan-run-id>`. The FIRST task dispatch
+One branch per plan run: `swingle/sdd-<plan-run-id>`, where `<plan-run-id>` is
+the plan's workspace directory name (the basename the wrapped skill's
+`scripts/sdd-workspace` derives from the plan file) — the branch carries the
+same run identity as the ledger. The FIRST task dispatch
 appends this block (substituting the branch):
 
 > Workspace isolation: your harness has the superpowers skill set installed.
@@ -229,7 +232,8 @@ report. The same applies to multi-round final reviews.
   Adjudication and commits remain in the main thread.
 - **Sub-dispatch** (native subagent does the work itself): the `native-subagents` lever.
 
-For the economics and the detailed controller loop, read `<root>/core/playbook.md`.
+For the economics and dispatch mechanics, read `<root>/core/playbook.md`; the task
+loop and controller process live in the invoked superpowers skill, not the playbook.
 
 ## Controller rules (the hard gate — never offloaded)
 

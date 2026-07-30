@@ -14,7 +14,8 @@ python3 scripts/validate-packs --root . && ./scripts/codex-smoke && git commit .
 ```
 
 A non-zero exit blocks the commit. The validator enforces manifest grammar, model-table
-shape, resolution order, version sync (plugin.json vs README), and the relative-link scan.
+shape, resolution order, version sync (the two plugin.json files; a README
+`**Version:**` line is checked only if one exists), and the relative-link scan.
 
 **Chain the gate to the commit with `&&`, never `;`.** Written as separate statements the
 gate becomes a neighbouring command whose failure you have to notice, and a failing gate
@@ -45,8 +46,9 @@ because the shell used `;`. The gate is a precondition, not a preceding step.
   fix works, say which kind it is — and do not call a mitigation "verified" off a single
   run when the failure is intermittent (2026-07-23 precedent: a 19-run trial returned
   p = 0.21 and could not support the claim a single green run had seemed to).
-- **Pack facts changed ⇒ bump the plugin patch version** and keep `plugin.json`,
-  `.codex-plugin/plugin.json`, and the README `**Version:**` line in sync.
+- **Pack facts changed ⇒ bump the plugin patch version** and keep `plugin.json` and
+  `.codex-plugin/plugin.json` in sync. (The README no longer carries a `**Version:**`
+  line — retired 2026-07-30; the validator still enforces sync if one is reintroduced.)
 - **On any CLI version bump** (a *maintenance* activity, NOT a per-dispatch gate): read
   the pack's `Changelog` row FIRST (verify skill step 2b), then re-verify with
   `swingle-verify <id>`. Never assume permission or sandbox behavior survived a patch

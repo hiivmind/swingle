@@ -73,7 +73,8 @@ When scaffolding a new configuration file (e.g., via `swingle-setup`), use the n
 {
   "disable": [],
   "providers_by_lane": {},
-  "require-verified-version": false
+  "require-verified-version": false,
+  "superpowers": {}
 }
 ```
 

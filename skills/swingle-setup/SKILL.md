@@ -85,10 +85,14 @@ output); no resume, no retries beyond one. Prompt, verbatim, with no file
 request:
 
 > State whether the superpowers skill set is available to you, and its version.
-> Reply exactly `superpowers: <version>` or `superpowers: none`.
+> Reply exactly `superpowers: <version>`, or `superpowers: unknown-version` if
+> it is available but you cannot determine the version, or `superpowers: none`.
 
 Parse the last matching `superpowers: …` line; on `superpowers: <version>`
 record `{"installed": true, "version": "<version>", "probed": "<today>"}`, on
+`superpowers: unknown-version` record `{"installed": true, "version": null,
+"probed": "<today>"}` (the skill set is present but its version is not
+discoverable from inside a dispatch — a common, valid outcome), on
 `superpowers: none` record `{"installed": false, "version": null, "probed":
 "<today>"}`, on anything else record nothing and report the raw reply as an
 inconclusive probe. Write the record under the `superpowers` key of the USER

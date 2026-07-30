@@ -23,13 +23,13 @@ def check_superpowers_block(path, block, provider_ids=None):
     for provider, rec in block.items():
         if not NAME_RE.match(str(provider)): find(f"{path}: superpowers: bad provider id {provider}"); ok = False; continue
         if provider_ids is not None and provider not in provider_ids:
-            find(f"{path}: superpowers names unknown provider {provider}"); ok = False; continue  # [r1-5], matching the other provider-bearing keys
+            find(f"{path}: superpowers names unknown provider {provider}"); ok = False; continue  # matching the other provider-bearing keys
         if not isinstance(rec, dict): find(f"{path}: superpowers[{provider}] must be an object"); ok = False; continue
         for key in rec:
             if key not in {"installed", "version", "probed"}: find(f"{path}: superpowers[{provider}]: unknown key {key}"); ok = False
         if not isinstance(rec.get("installed"), bool): find(f"{path}: superpowers[{provider}].installed must be a boolean"); ok = False
         if not (rec.get("version") is None or isinstance(rec.get("version"), str)): find(f"{path}: superpowers[{provider}].version must be a string or null"); ok = False
-        if not PROBED_RE.match(str(rec.get("probed", ""))): find(f"{path}: superpowers[{provider}].probed must be YYYY-MM-DD"); ok = False
+        if not (isinstance(rec.get("probed"), str) and PROBED_RE.match(rec["probed"])): find(f"{path}: superpowers[{provider}].probed must be YYYY-MM-DD"); ok = False
     return ok
 
 

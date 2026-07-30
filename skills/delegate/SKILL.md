@@ -227,7 +227,9 @@ BEFORE launch — a crash or compaction never loses the number→task mapping.
    BLOCKED.” Cheapest-tier conformance was 3/3 with the line inline and 0/3 by contract
    reference alone; a missing block is still UNKNOWN, never DONE.
 2. EVERY repository dispatch, both lanes: clean tree, OR offer worktree dispatch
-   (one question — never a silent switch; sometimes the dispatch needs the dirty tree).
+   (one question — never a silent switch; sometimes the dispatch needs the dirty tree;
+   the offer is subject to the worktree-dispatch prerequisite below — a `superpowers`
+   config record for the routed provider).
    Record BASE (= HEAD) and the current branch for both lanes.
 3. Dispatch with the active pack's canonical template inside the self-reaping wrapper
    (`core/liveness.md`), stdout to `NNN-dispatch.log`. Observe completion via the

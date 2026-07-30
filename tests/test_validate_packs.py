@@ -465,5 +465,11 @@ def test_health_detects_cli_on_inherited_path(tmp_path):
     assert r.returncode == 0
     assert "alpha: installed=yes version=1.0.0 verified=1.0.0 drift=no readiness=ok registry-layer=default" in r.stdout
 
-
-
+def test_config_superpowers_block_accepted():
+    r = run("--check-config", str(FIX / "config-superpowers-good.json")); assert r.returncode == 0, r.stdout
+def test_config_superpowers_malformed_stops():
+    r = run("--check-config", str(FIX / "config-superpowers-malformed.json"))
+    assert r.returncode == 1 and "superpowers" in r.stdout
+def test_config_superpowers_unknown_provider_fails():
+    r = run("--root", str(FIX / "good-lanes"), "--check-config", str(FIX / "config-superpowers-ghost.json"))
+    assert r.returncode == 1 and "superpowers names unknown provider ghost" in r.stdout

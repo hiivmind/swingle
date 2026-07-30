@@ -11,9 +11,27 @@ TIERS, LANES = {"cheapest", "standard", "most-capable"}, {"implement", "review",
 STATUSES, ELIGIBLE = {"verified", "experimental", "unavailable", "superseded", "rejected"}, {"verified", "experimental"}
 NAME_RE, META_RE, VER_RE = re.compile(r"^[a-z0-9-]+$"), re.compile(r"[;|&<>$]"), re.compile(r"[0-9]+(?:\.[0-9]+)+")
 LINE_RE = re.compile(r'^([a-z-]+):\s*(".*"|\[.*\]|[^"\[\s][^"]*)?\s*(#.*)?$')
-CONFIG_KEYS = {"disable": list, "default_provider": str, "providers_by_lane": dict, "require-verified-version": bool, "note": str}
+CONFIG_KEYS = {"disable": list, "default_provider": str, "providers_by_lane": dict, "require-verified-version": bool, "note": str, "superpowers": dict}
+PROBED_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 findings = []
 def find(message): findings.append(message)
+
+def check_superpowers_block(path, block, provider_ids=None):
+    """Setup-recorded environment facts (worktree-dispatch spec §4): per-provider
+    superpowers availability. Malformed is a STOP finding, never a silent drop."""
+    ok = True
+    for provider, rec in block.items():
+        if not NAME_RE.match(str(provider)): find(f"{path}: superpowers: bad provider id {provider}"); ok = False; continue
+        if provider_ids is not None and provider not in provider_ids:
+            find(f"{path}: superpowers names unknown provider {provider}"); ok = False; continue  # matching the other provider-bearing keys
+        if not isinstance(rec, dict): find(f"{path}: superpowers[{provider}] must be an object"); ok = False; continue
+        for key in rec:
+            if key not in {"installed", "version", "probed"}: find(f"{path}: superpowers[{provider}]: unknown key {key}"); ok = False
+        if not isinstance(rec.get("installed"), bool): find(f"{path}: superpowers[{provider}].installed must be a boolean"); ok = False
+        if not (rec.get("version") is None or isinstance(rec.get("version"), str)): find(f"{path}: superpowers[{provider}].version must be a string or null"); ok = False
+        if not (isinstance(rec.get("probed"), str) and PROBED_RE.match(rec["probed"])): find(f"{path}: superpowers[{provider}].probed must be YYYY-MM-DD"); ok = False
+    return ok
+
 
 def parse_front_matter(path):
     lines = path.read_text().splitlines()
@@ -187,7 +205,9 @@ def load_config(path, provider_ids=None):
     for lane, provider in cfg.get("providers_by_lane", {}).items():
         if lane not in {"implement", "review"}: find(f"{path}: providers_by_lane bad lane {lane}")
         if not isinstance(provider, str): find(f"{path}: providers_by_lane values must be strings")
+    if "superpowers" in cfg and not check_superpowers_block(path, cfg["superpowers"], provider_ids): return None
     if provider_ids is not None:
+
         for provider in cfg.get("disable", []):
             if provider not in provider_ids: find(f"{path}: disable names unknown provider {provider}")
         default = cfg.get("default_provider")

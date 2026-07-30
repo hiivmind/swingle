@@ -36,9 +36,14 @@ The configuration object supports the following top-level keys:
 - **Default**: `false`
 - **Semantics**: When `true`, enforces strict CLI compatibility. If an installed provider's CLI version does not match the provider pack's `verified-version`, the provider is marked incompatible and excluded.
 
+### `superpowers`
+- **Type**: `object` (mapping `string` provider ID to record `{"installed": boolean, "version": string|null, "probed": "YYYY-MM-DD"}`)
+- **Default**: `{}`
+- **Semantics**: Setup-recorded environment facts written by `swingle-setup`'s probe (hand edits are valid config). This key is consulted directly from the USER-layer config file, independent of the layered precedence walk, and only when the worktree lever is used.
+
 ## Unknown Keys Semantics
 
-Top-level keys not recognized in the schema (keys other than `disable`, `default_provider`, `providers_by_lane`, `require-verified-version`, and `note`) are treated as warnings:
+Top-level keys not recognized in the schema (keys other than `disable`, `default_provider`, `providers_by_lane`, `require-verified-version`, `superpowers`, and `note`) are treated as warnings:
 - A warning is printed to `stderr`.
 - The unknown key is dropped/ignored.
 - Loading **succeeds** (unknown keys do not trigger a STOP condition).
@@ -47,7 +52,7 @@ Top-level keys not recognized in the schema (keys other than `disable`, `default
 
 The `swingle-sdd` skill inline statement is the canonical source for dispatch STOP conditions, which `docs/config.md` quotes verbatim:
 
-> `disable/steer only; malformed/wrong-typed config, an unknown provider ID in disable, default_provider, or any providers_by_lane value, a disabled default_provider or providers_by_lane target, or set-but-unreadable $SWINGLE_CONFIG = STOP with the error.`
+> `disable/steer only; malformed/wrong-typed config, an unknown provider ID in disable, default_provider, or any providers_by_lane value, a disabled default_provider or providers_by_lane target, a malformed superpowers block (including an unknown provider ID within it), or set-but-unreadable $SWINGLE_CONFIG = STOP with the error.`
 
 Dispatch skills (`swingle-sdd` and `swingle-delegate`) enforce a STOP when:
 1. The configuration file is malformed JSON or unreadable.
@@ -56,6 +61,9 @@ Dispatch skills (`swingle-sdd` and `swingle-delegate`) enforce a STOP when:
 4. An unknown provider ID is referenced in `disable`, `default_provider`, or `providers_by_lane`.
 5. `default_provider` or a `providers_by_lane` value names a provider listed in `disable`.
 6. `$SWINGLE_CONFIG` is set but the specified file cannot be read.
+7. A malformed `superpowers` block is present in the configuration file (including
+   an unknown provider ID within it).
+
 
 ## Neutral Template JSON
 
@@ -65,7 +73,8 @@ When scaffolding a new configuration file (e.g., via `swingle-setup`), use the n
 {
   "disable": [],
   "providers_by_lane": {},
-  "require-verified-version": false
+  "require-verified-version": false,
+  "superpowers": {}
 }
 ```
 

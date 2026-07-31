@@ -81,3 +81,42 @@ The plugin `sdd-dispatch` is renamed `swingle` at v2.0.0 (`sdd-dispatch-marketpl
 `discreteds/swingle`). Entries above predate the rename and keep the old names as
 historical record. No pack facts or probe results changed in this release.
 
+---
+
+## 2026-07-31 — grok 0.2.117 (trigger: version bump from 0.2.111)
+
+Run: drift-verify-grok-20260731-071645-3CB2C90C. macOS Darwin 25.4.0.
+Scratch: `/tmp/grok-verify-JpkoZ`.
+
+| Probe | Assertion under test | Verdict | Evidence |
+| --- | --- | --- | --- |
+| P1 | version + models | **Confirmed** | `0.2.117 (f1c06093089f)`; inventory unchanged: only `grok-4.5` |
+| P2 | trivial success | **Confirmed** | stdout `PONG`, exit 0 |
+| P3 | bogus model | **Confirmed** | stderr `unknown model id`; exit 1 |
+| P4 | stdin not required | **Confirmed** | piped stdin → `PONG`, exit 0 |
+| P5 | flagless read | **Confirmed** | `XYZZY42` from `readtest.txt` |
+| P6 | file write under `--always-approve` | **Confirmed** | `writetest.txt` = `HELLO` |
+| P6 | shell under `--always-approve` | **Confirmed** | `cmdtest.txt` = `P6CMD` |
+| P7 | workspace blocks home escape | **Confirmed** | cwd + `/tmp` ok; `$HOME` write blocked (`operation not permitted`) |
+| P8 | git commit under workspace | **Confirmed** | commit landed on macOS without `--no-gpg-sign` (no GPG blocked); controller-commits still doctrine |
+| P9 | effort valid (`low`, `medium`, `high`) | **Confirmed** | all accepted via `--reasoning-effort` and `--effort` alias; exit 0 |
+| P9 | effort invalid | **Confirmed** | exit 1; accepted list `high, medium, low` (docs canonical set wider; model menu is binding) |
+| P10 | report-file | **Confirmed** | `p10-report.md` 9562 bytes; stdout short summary — `report-transport: report-file` |
+| P11 | json `.sessionId` | **Confirmed** | sessionId UUID in json object |
+| P11 | acceptEdits footgun | **Confirmed** | `--permission-mode acceptEdits` shell → exit 0, `ae.txt` MISSING |
+| P11 | resume sandbox mismatch | **Confirmed** | exit 1: "cannot resume this session under sandbox profile 'read-only' — it was created with 'workspace'" |
+| P12 | inventory | **Confirmed** | only `grok-4.5`; no additions or removals |
+| P13 | known-defect reviewer | **Confirmed** | `path.exists()` insufficient guard flagged at Important severity; matches expected-findings.md |
+
+New capabilities confirmed (0.2.117):
+- `streaming-messages-json` output format: Messages API JSONL, exit 0.
+- `--resume` without value: resumes most recent session in cwd, exit 0.
+- `--resume <title>` by name: documented (not probed separately — UUID paths tested).
+- `--output-format streaming-json` `end` event carries `.sessionId` (confirmed; viable log-age-safe alternative to json).
+- JSON output richer: `stopReason`, `usage`, `num_turns`, `total_cost_usd`, `total_cost_usd_ticks`, `requestId`, `thought`, `modelUsage` (key is CLI-internal name e.g. `grok-4.5-build` for dispatch model `grok-4.5`).
+- `--max-turns`, `--tools`, `--disallowed-tools`, `--no-subagents`, `--no-plan`, `--worktree` flags: listed in docs; `--max-turns 1` accepted (exit 0); others not individually smoke-tested.
+- Sandbox hook write-protection: `workspace`/`read-only`/`strict` now kernel-deny `~/.grok/hooks/` and `hooks-paths` writes.
+
+**Issue #26 reconciliation:** `--output-format json` stdout-buffering confirmed on 0.2.117 (log-age stall signal fires prematurely on healthy runs). Resolution path confirmed: `--output-format streaming-json` streams line-by-line and carries `sessionId` on the `end` event. Pack updated with gotcha #10 and revised session-id guidance. Struct fix (manifest-level `stall-signal` transport-dependence) out of scope for this PR — proposal filed as comment on #26 for operator triage.
+
+`verified-version` stamped `0.2.117` (matrix_green: all P1–P13 green; live dispatch included).

@@ -2,7 +2,7 @@
 schema-version: 1
 id: codex
 cli: codex
-verified-version: "0.144.3"
+verified-version: "0.146.0"
 version-argv: ["codex", "--version"]
 resume-argv: ["codex", "exec", "resume", "{session_id}"]
 session-source: exec-output
@@ -13,39 +13,49 @@ sandbox: enforced
 
 ## Cross-CLI comparison — codex cells (from archive/v1.1)
 
-| Property | codex 0.144.3 |
+| Property | codex 0.146.0 |
 | --- | --- |
 | Prompt argument | positional (or stdin) |
 | `< /dev/null>` needed | **Yes** — hangs reading stdin to EOF |
-| Sandbox | **Real**: writes outside workspace blocked; `/tmp` writable; `.git` read-only *by design* |
+| Sandbox | **Real**: writes outside workspace blocked; `/tmp` writable; `.git` writable (changed at 0.146.0 — see #75) |
 | Permission flags | `-s workspace-write -c approval_policy="never"` (bypass flag blocked by auto-mode classifier) |
 | Exit codes | Normal 0/1 |
 | Model validation | **Server-side** — bogus → HTTP 400, exit 1 |
-| Reasoning-effort control | `-c model_reasoning_effort=<low…max>` — **validated** (bogus → 400) |
+| Reasoning-effort control | `-c model_reasoning_effort=<none\|minimal\|low\|medium\|high\|xhigh\|max>` — **validated** (bogus → 400) |
 | Output contract | stdout + `-o <file>` = **last message only** |
 | Auth | ChatGPT account |
 | Changelog | https://github.com/openai/codex/releases — read on every version bump before probing |
 
-## codex (verified v0.144.3, 2026-07-22) (from archive/v1.1)
+## codex (verified v0.146.0, 2026-07-31)
 
-### Dispatch (from archive/v1.1)
+### Dispatch
 ```bash
 codex exec -m <model> -C <repo> -s workspace-write -c approval_policy="never" \
-  -c model_reasoning_effort=<low|medium|high|max> \
+  -c model_reasoning_effort=<none|minimal|low|medium|high|xhigh|max> \
   --add-dir <parent-dir-for-cross-repo> --skip-git-repo-check \
   -o <report-file> "Read <brief-file> — your complete requirements. … Begin." < /dev/null
 ```
 
-### Verified behavior (from archive/v1.1)
-- **Stdin**: with a piped/open stdin, codex prints `Reading additional input from stdin...`
-  and reads to EOF, appending stdin to the prompt. An unclosed pipe hangs it forever →
-  `< /dev/null` is mandatory.
-- **Sandbox is real**: a write to `~/` fails with "read-only file system". Two carve-outs:
+### Verified behavior
+- **Stdin**: codex prints `Reading additional input from stdin...` as a startup banner on
+  every exec invocation (even with `< /dev/null`). Without `< /dev/null`, it reads stdin
+  to EOF and hangs forever → `< /dev/null` is mandatory. The banner is cosmetic; the hang
+  is real. (Refined at 0.146.0: the message appeared only with open stdin in 0.144.x;
+  now it is unconditional — see issue #58.)
+- **Sandbox is real**: a write to `~/` fails with "patch rejected: writing outside of the project".
+  Two carve-outs:
   - `/tmp` **is writable by design** — don't treat the sandbox as total containment, and
     don't let agents stage artifacts there that you'll forget to clean.
-  - **`.git` is read-only by design, not intermittently**: working-tree writes succeed while
-    `git commit` deterministically fails on `.git/index.lock`. Controller-commits is
-    structural, not a flakiness workaround.
+  - **`.git` is now writable** (changed at 0.146.0): working-tree writes succeed AND `git commit`
+    succeeds inside the sandbox (tested in both `/tmp` and non-`/tmp` workspaces). The prior
+    claim that `.git/index.lock` is read-only was true for 0.144.3 and earlier. The
+    controller-commits pattern is still recommended for gate enforcement and commit attribution,
+    but is no longer structurally required by the sandbox. See issue #75 for tracking.
+- **Stdout includes hook lifecycle lines** in 0.146.0: `hook: SessionStart`,
+  `hook: UserPromptSubmit`, `hook: PreToolUse`, `hook: PostToolUse`, `hook: Stop`
+  (with Completed variants) appear between the session header and the final message.
+  The `-o <file>` contract is unaffected — last message only. Token usage summary
+  (`tokens used\n<N>`) follows the Stop hook.
 - `--dangerously-bypass-approvals-and-sandbox` is blocked by the Claude Code auto-mode
   permission classifier — `workspace-write` + `approval_policy="never"` is the working ceiling.
 - **`-s read-only` exists and makes codex the only CLI with an *enforced* read-only
@@ -54,7 +64,8 @@ codex exec -m <model> -C <repo> -s workspace-write -c approval_policy="never" \
 - `-o <file>` contains **only the agent's final message** — verify via `git diff` + your own
   gate re-run, never the report prose.
 - Model IDs and `model_reasoning_effort` are **server-validated**: bogus values → HTTP 400,
-  exit 1, with a clear JSON error.
+  exit 1, with a clear JSON error. Valid effort values (0.146.0): `none`, `minimal`,
+  `low`, `medium`, `high`, `xhigh`, `max`.
 - Model IDs verified dispatching: `gpt-5.6-luna`, `gpt-5.6-terra`, `gpt-5.6-sol`.
 - Known model quirk: **Luna long-context recall ~41%** (Sol/Terra ~90%) — bump Luna→Terra
   the moment a task reasons over a large codebase/diff.

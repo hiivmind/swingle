@@ -54,3 +54,30 @@ The plugin `sdd-dispatch` is renamed `swingle` at v2.0.0 (`sdd-dispatch-marketpl
 `discreteds/swingle`). Entries above predate the rename and keep the old names as
 historical record. No pack facts or probe results changed in this release.
 
+---
+
+## 2026-07-31 — codex 0.146.0 (trigger: version bump from 0.144.4; second drift run after npm dependency refresh)
+
+**Guidance:** `"Reading additional input from stdin..."` is now a startup banner regardless of stdin state. Do not treat its presence as evidence of an open stdin or imminent hang — the message is unconditional in 0.146.0+. `< /dev/null` remains mandatory; without it the process still hangs (P4 confirmed). See issue #58.
+
+**Guidance (sdd, delegate):** `.git` is now writable inside the sandbox. `git commit` succeeds inside `workspace-write` as of 0.146.0 (confirmed in both /tmp and non-/tmp workspaces). The controller-commits pattern is still recommended for gate enforcement and commit attribution but is no longer structurally enforced by the sandbox. See issue #75.
+
+| Probe | Assertion under test | Verdict | Evidence |
+| --- | --- | --- | --- |
+| P1 | Version & surface | **Confirmed** | codex-cli 0.146.0; models gpt-5.6-luna/terra/sol listed and dispatching; exec/review/resume subcommands present |
+| P2 | Trivial dispatch / exit 0 | **Confirmed** | PONG, exit 0; unconditional stdin banner + hook lifecycle lines in stdout; final message PONG |
+| P3 | Bogus model → HTTP 400 exit 1 | **Confirmed + refined** | `gpt-99-bogus-model` → `warning: Model metadata not found` + HTTP 400 exit 1; validation server-side |
+| P4 | `< /dev/null` mandatory | **Confirmed** | without redirect: hung 30s (exit 124); banner printed then stalled on stdin read |
+| P5 | Read without permission flags | **Confirmed** | secret word XYZZY42 returned; no approval prompt with workspace-write |
+| P6-file | Write with workspace-write | **Confirmed** | writetest.txt created on disk (HELLO) |
+| P6-cmd | Shell command with workspace-write | **Confirmed** | `echo P6CMD > cmdtest.txt` executed; cmdtest.txt verified on disk |
+| P7 | Sandbox boundary | **Confirmed** | workspace ✓, `/tmp` ✓, `~/` BLOCKED ("patch rejected: writing outside of the project") |
+| P8 | `.git` read-only by design | **Refuted — git commit now succeeds** | git add + git commit both succeeded in both /tmp and non-/tmp workspaces; commit verified in git log. Prior claim (`.git/index.lock: Read-only file system`) was accurate for 0.144.3; behavior changed at 0.146.0 (likely npm dep refresh 2026-07-31). Earlier 0.146.0 run (run 022733) found git add failed — discrepancy suggests dependency-level sandbox change. Filed #75. |
+| P9 | `model_reasoning_effort` validated | **Confirmed** | `xhigh` accepted (new valid value); `bogus-effort` → HTTP 400 exit 1; enum confirmed: none, minimal, low, medium, high, xhigh, max |
+| P10 | `-o <file>` = last message only | **Confirmed** | report file held final message only (1861 bytes for a multi-sentence response); stdout includes banner + hook lines + message |
+| P11 | Argument footguns | **Confirmed** | prompt before flags handled correctly; hook lifecycle lines do not affect `-o <file>` contract |
+| P12 | Model IDs | **Confirmed** | gpt-5.6-luna, gpt-5.6-terra, gpt-5.6-sol all dispatching on 0.146.0 |
+| P13 | Reviewer benchmark (terra) | **Green** | gpt-5.6-terra cited `path.exists()` insufficient guard + traceback instead of exit 2 at Important severity — passes qualification |
+
+Pack updated: `verified-version` → 0.146.0, stdin banner description refined, reasoning effort enum updated (none/minimal/xhigh added), hook-lines note added, P8 `.git` read-only claim corrected to reflect writable behavior.
+

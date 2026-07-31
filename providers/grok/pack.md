@@ -2,7 +2,7 @@
 schema-version: 1
 id: grok
 cli: grok
-verified-version: "0.2.111"
+verified-version: "0.2.117"
 version-argv: ["grok", "--version"]
 resume-argv: ["grok", "--resume", "{session_id}"]
 fork-flag: "--fork-session"
@@ -16,7 +16,7 @@ readiness-argv: ["grok", "models"]
 
 ## Cross-CLI comparison — grok cells
 
-| Property | grok 0.2.111 (user-guide + smoke) |
+| Property | grok 0.2.117 (user-guide + smoke) |
 | --- | --- |
 | Prompt argument | `-p` / `--single` (also `--prompt-file`, `--prompt-json`) |
 | `< /dev/null>` needed | **No** — headless does not read piped stdin as prompt |
@@ -24,8 +24,8 @@ readiness-argv: ["grok", "models"]
 | Permission flags | **`--always-approve`** ≡ `--yolo` ≡ `bypassPermissions`. Do not use `--permission-mode acceptEdits` headless (flag does not enable that policy) |
 | Exit codes | Docs: 0/1/130/143; live: bogus model exit **1** (2026-07-24) |
 | Model validation | Error text (`unknown model id`); exit 1 |
-| Reasoning-effort control | `--reasoning-effort` / `--effort`; `grok-4.5` accepts `low\|medium\|high` (default `high`) |
-| Output contract | `plain` (default), `json` (`.sessionId` + `.text`), `streaming-json` |
+| Reasoning-effort control | `--reasoning-effort` / `--effort`; `grok-4.5` accepts `low\|medium\|high` (default `high`). Docs list wider canonical set; model menu is the binding constraint |
+| Output contract | `plain` (default), `json` (`.sessionId` + `.text` + richer spend fields), `streaming-json`, `streaming-messages-json` (Messages API JSONL — 4th format, added 0.2.117) |
 | Auth | grok.com OAuth / `XAI_API_KEY`; SuperGrok for higher limits |
 | Docs | `~/.grok/docs/user-guide/` — read 14/17/18/22 on every version bump |
 
@@ -33,10 +33,9 @@ readiness-argv: ["grok", "models"]
 
 | CLI | Resume |
 | --- | --- |
-| grok | `grok --resume <session_id>` (+ skill-appended `-p "<prompt>"`); `-c` for most-recent in cwd; `--fork-session` to branch |
+| grok | `grok --resume <session_id>` (+ skill-appended `-p "<prompt>"`); `--resume` without a value resumes most recent in cwd; `-r <title>` matches by title (case-insensitive) when value is not a UUID; `-c` for most-recent in cwd; `--fork-session` to branch |
 
-Session ids: prefer `--output-format json` → `.sessionId`. Fallback: `grok sessions list`
-(UUID column, cwd-scoped). Working-tree progress survives kill — `git diff` before resuming.
+Session ids: prefer `--output-format streaming-json` → parse `end` event `.sessionId` (keeps log-age signal valid; see gotcha 10). Fallback: `--output-format json` → `.sessionId` (buffers stdout — disables log-age). Last resort: `grok sessions list` (UUID column, cwd-scoped). Working-tree progress survives kill — `git diff` before resuming.
 
 **Assembly rule (matches agy):** `resume-argv` does **not** embed `-p`. The skill appends
 `-p "<continuation>"` (and implement/review flags). Fork form:
@@ -48,7 +47,7 @@ grok --resume <session_id> --fork-session -p "<continuation>" --always-approve -
 Sandbox on resume is **session-fixed** (user-guide 18): omit `--sandbox` on resume or
 pass the same profile; a different profile is refused.
 
-## grok (surface seed 0.2.111, 2026-07-24)
+## grok (surface seed 0.2.111, 2026-07-24; re-verified 0.2.117, 2026-07-31)
 
 Authority: `~/.grok/docs/user-guide/14-headless-mode.md`, `17-sessions.md`,
 `18-sandbox.md`, `22-permissions-and-safety.md`, and `~/.grok/README.md`.
@@ -75,8 +74,12 @@ Authority: `~/.grok/docs/user-guide/14-headless-mode.md`, `17-sessions.md`,
 - **Effort** for `grok-4.5`: `--reasoning-effort` / `--effort` with `low|medium|high`
   (default `high` when omitted). Levels outside that model menu are rejected.
   Tiering: cheapest → `low`, standard → `medium`, most-capable → `high` (see models.md).
-- **Session id**: `--output-format json` → `.sessionId`. Resume + fork work;
-  mismatched sandbox on resume is refused.
+- **Session id**: `--output-format streaming-json` → `end` event `.sessionId` (preferred; keeps log-age signal). `--output-format json` → `.sessionId` (also works but buffers stdout — log-age fails; see gotcha 10). Resume + fork work; mismatched sandbox on resume is refused.
+- **JSON output fields** (0.2.117): `text`, `stopReason`, `sessionId`, `requestId`, `thought`, `usage` (6-bucket token breakdown), `num_turns`, `total_cost_usd`, `total_cost_usd_ticks`, `modelUsage` (key is CLI-internal model name, e.g. `grok-4.5-build` for dispatch model `grok-4.5`).
+- **`streaming-messages-json`** (0.2.117): 4th output format, Messages API JSONL wire format. Compatible with standard Messages stream consumers.
+- **`--resume` without value** (0.2.117): resumes most recent session in cwd. `-r <title>` matches by session title (case-insensitive) when value is not a UUID.
+- **New dispatch flags** (0.2.117): `--max-turns <N>`, `--tools <list>` (allowlist), `--disallowed-tools <list>` (denylist incl. `Agent`/`Agent(type)` entries), `--no-subagents`, `--no-memory`, `--no-plan`, `--disable-web-search`, `--worktree [NAME]`, `--ref <REF>`.
+- **Sandbox hook write-protection** (0.2.117): `workspace`, `read-only`, and `strict` now kernel-deny writes to `~/.grok/hooks/` and `~/.grok/hooks-paths`. Does not affect dispatch behavior.
 
 ### Canonical dispatch template
 
@@ -94,8 +97,7 @@ grok -p "<PROMPT>" -m <model> --cwd <repo> --always-approve \
   --sandbox read-only --output-format plain
 ```
 
-For session-id capture on the same run, use `--output-format json` and parse
-`.sessionId` / `.text`. Alias: `--yolo` ≡ `--always-approve`.
+For session-id capture on the same run: prefer `--output-format streaming-json` and parse the `end` event's `.sessionId` (log-age stays valid); fall back to `--output-format json` only if a single-object response is required (log-age fails — see gotcha 10). Alias: `--yolo` ≡ `--always-approve`.
 
 This is a foreground command. Place it inside the self-reaping wrapper in
 `core/liveness.md`; that wrapper exclusively owns backgrounding, logging, and PID
@@ -115,3 +117,4 @@ tracking. Record `BASE=$(git rev-parse HEAD)` before starting the wrapper.
 8. Re-read `~/.grok/docs/user-guide/{14,17,18,22}-*.md` on every CLI version bump.
 9. Agents can `git commit` under workspace sandbox — controller-commits is doctrine, not
    kernel-enforced.
+10. **`--output-format json` buffers stdout until process exit** — the self-reaping wrapper's `$LOG` stays at 0 bytes throughout the run, making `stall-signal: log-age` fire prematurely on healthy runs (#26). Use `--output-format streaming-json` instead; parse session id from the `end` event: `jq -r 'select(.type=="end").sessionId'`. `streaming-json` streams line-by-line and keeps log-age valid.

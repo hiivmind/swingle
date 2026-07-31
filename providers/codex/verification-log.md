@@ -54,3 +54,27 @@ The plugin `sdd-dispatch` is renamed `swingle` at v2.0.0 (`sdd-dispatch-marketpl
 `discreteds/swingle`). Entries above predate the rename and keep the old names as
 historical record. No pack facts or probe results changed in this release.
 
+---
+
+## 2026-07-31 — codex 0.146.0 (trigger: version bump from 0.144.4)
+
+**Guidance:** `"Reading additional input from stdin..."` is now a startup banner regardless of stdin state. Do not treat its presence as evidence of an open stdin or imminent hang — the message is unconditional in 0.146.0+. `< /dev/null` remains mandatory; without it the process still hangs (P4 confirmed). See issue #58.
+
+| Probe | Assertion under test | Verdict | Evidence |
+| --- | --- | --- | --- |
+| P1 | Version & surface | **Confirmed** | codex-cli 0.146.0; same dispatch surface; `exec`, `review`, `resume` subcommands present |
+| P2 | Trivial dispatch / exit 0 | **Confirmed** | PONG, exit 0; banner + hook lines in stdout (new), then final message |
+| P3 | Bogus model → HTTP 400 exit 1 | **Confirmed + refined** | same error behaviour; now also emits `warning: Model metadata for '...' not found` before connecting |
+| P4 | `< /dev/null` mandatory | **Confirmed** | without redirect: hung 15s (exit 124); banner printed then stalled |
+| P5 | Read without permission flags | **Confirmed** | secret word XYZZY42 returned; no prompt |
+| P6 | Write + shell command with workspace-write | **Confirmed** | writetest.txt created on disk (HELLO); P6CMD> cmdtest.txt on disk via shell |
+| P7 | Sandbox boundary | **Confirmed** | workspace writable, `/tmp` writable, `~/` blocked ("patch rejected: writing outside of the project") |
+| P8 | `.git` read-only by design | **Confirmed** | working-tree write succeeded; `git add` failed on `.git/index.lock`; controller-commits still structural |
+| P9 | `model_reasoning_effort` validated | **Confirmed + refined** | `high` accepted; `bogus-effort` → HTTP 400 exit 1; **valid enum now: none, minimal, low, medium, high, xhigh, max** (`xhigh` and `minimal` and `none` new) |
+| P10 | `-o <file>` = last message only | **Confirmed** | report file held final message only; stdout included session banner + hook lines + final message |
+| P11 | Argument footguns | **New** | Hook lifecycle lines (`hook: SessionStart/Completed`, `hook: UserPromptSubmit/Completed`, `hook: PreToolUse/Completed`, `hook: PostToolUse/Completed`, `hook: Stop/Completed`) now appear in stdout between session header and final message. `tokens used\n<N>` follows Stop hook. Does not affect `-o <file>` contract. Resume still rejects `-C` (exit 2). |
+| P12 | Model IDs | **Confirmed** | `gpt-5.6-luna`/`terra`/`sol` all verified dispatching on 0.146.0 |
+| P13 | Reviewer benchmark (terra) | **Green** | `gpt-5.6-terra` cited `path.exists()` insufficient guard / traceback instead of exit 2 at **Important** severity — passes qualification |
+
+Pack updated: `verified-version` → 0.146.0, stdin banner description refined, reasoning effort enum updated, hook-lines note added.
+

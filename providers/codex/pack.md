@@ -17,7 +17,7 @@ sandbox: enforced
 | --- | --- |
 | Prompt argument | positional (or stdin) |
 | `< /dev/null>` needed | **Yes** — hangs reading stdin to EOF |
-| Sandbox | **Real**: writes outside workspace blocked; `/tmp` writable; `.git` writable (changed at 0.146.0 — see #75) |
+| Sandbox | **Real**: writes outside workspace blocked; `/tmp` writable; `.git` read-only *by design* (user execpolicy allow-rules can bypass — see Verified behavior & #75) |
 | Permission flags | `-s workspace-write -c approval_policy="never"` (bypass flag blocked by auto-mode classifier) |
 | Exit codes | Normal 0/1 |
 | Model validation | **Server-side** — bogus → HTTP 400, exit 1 |
@@ -46,11 +46,18 @@ codex exec -m <model> -C <repo> -s workspace-write -c approval_policy="never" \
   Two carve-outs:
   - `/tmp` **is writable by design** — don't treat the sandbox as total containment, and
     don't let agents stage artifacts there that you'll forget to clean.
-  - **`.git` is now writable** (changed at 0.146.0): working-tree writes succeed AND `git commit`
-    succeeds inside the sandbox (tested in both `/tmp` and non-`/tmp` workspaces). The prior
-    claim that `.git/index.lock` is read-only was true for 0.144.3 and earlier. The
-    controller-commits pattern is still recommended for gate enforcement and commit attribution,
-    but is no longer structurally required by the sandbox. See issue #75 for tracking.
+  - **`.git` is read-only by design** under a default environment: working-tree writes
+    succeed while `git commit` deterministically fails on `.git/index.lock: Operation not
+    permitted`. Controller-commits is structural, not a flakiness workaround.
+    **Machine-local exception — user execpolicy rules**: `~/.codex/rules/*.rules` entries
+    like `prefix_rule(pattern=["git", "commit"], decision="allow")` (accumulated from
+    interactive "always allow" approvals) run matching commands OUTSIDE the sandbox, so on
+    such machines the agent's commit succeeds. Matching is argv-prefix-shaped —
+    `git commit` escapes while `git -C <path> commit` does not — so the effect looks
+    intermittent across runs. Isolated by controller bisect 2026-07-31 (pristine
+    `CODEX_HOME` fails; pristine + `rules/` succeeds; trust entries, `config.toml`, and
+    the npm dep refresh all ruled out). An in-sandbox commit success is an environment
+    signal, never a sandbox-drift finding. See issue #75.
 - **Stdout includes hook lifecycle lines** in 0.146.0: `hook: SessionStart`,
   `hook: UserPromptSubmit`, `hook: PreToolUse`, `hook: PostToolUse`, `hook: Stop`
   (with Completed variants) appear between the session header and the final message.

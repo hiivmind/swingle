@@ -60,7 +60,7 @@ historical record. No pack facts or probe results changed in this release.
 
 **Guidance:** `"Reading additional input from stdin..."` is now a startup banner regardless of stdin state. Do not treat its presence as evidence of an open stdin or imminent hang — the message is unconditional in 0.146.0+. `< /dev/null` remains mandatory; without it the process still hangs (P4 confirmed). See issue #58.
 
-**Guidance (sdd, delegate):** `.git` is now writable inside the sandbox. `git commit` succeeds inside `workspace-write` as of 0.146.0 (confirmed in both /tmp and non-/tmp workspaces). The controller-commits pattern is still recommended for gate enforcement and commit attribution but is no longer structurally enforced by the sandbox. See issue #75.
+**Guidance (sdd, delegate, drift):** an in-sandbox `git commit` success is an **environment signal, not sandbox drift**: user execpolicy rules (`~/.codex/rules/*.rules`, `prefix_rule(..., decision="allow")` accumulated from interactive "always allow" approvals) run matching commands outside the sandbox, and matching is argv-prefix-shaped (`git commit` escapes; `git -C <path> commit` does not), so results vary with the argv the agent emits. Before treating any P8 result as a finding, record the machine's git-related allow rules. Controller-commits remains structural doctrine. See issue #75.
 
 | Probe | Assertion under test | Verdict | Evidence |
 | --- | --- | --- | --- |
@@ -72,12 +72,12 @@ historical record. No pack facts or probe results changed in this release.
 | P6-file | Write with workspace-write | **Confirmed** | writetest.txt created on disk (HELLO) |
 | P6-cmd | Shell command with workspace-write | **Confirmed** | `echo P6CMD > cmdtest.txt` executed; cmdtest.txt verified on disk |
 | P7 | Sandbox boundary | **Confirmed** | workspace ✓, `/tmp` ✓, `~/` BLOCKED ("patch rejected: writing outside of the project") |
-| P8 | `.git` read-only by design | **Refuted — git commit now succeeds** | git add + git commit both succeeded in both /tmp and non-/tmp workspaces; commit verified in git log. Prior claim (`.git/index.lock: Read-only file system`) was accurate for 0.144.3; behavior changed at 0.146.0 (likely npm dep refresh 2026-07-31). Earlier 0.146.0 run (run 022733) found git add failed — discrepancy suggests dependency-level sandbox change. Filed #75. |
+| P8 | `.git` read-only by design | **Confirmed — apparent refutation was environment** | run 104507 observed git commit succeeding in both /tmp and non-/tmp workspaces and initially recorded a refutation (filed #75). Controller bisect (2026-07-31, same day): pristine `CODEX_HOME` (auth only) → commit fails on `.git/index.lock: Operation not permitted`; + project trust entries → fails; + full `config.toml` → fails; + `~/.codex/rules/` only → **succeeds**. Cause: `prefix_rule(pattern=["git", "commit"], decision="allow")` runs the command outside the sandbox. Argv-prefix matching explains the run-022733 vs run-104507 discrepancy (npm dep refresh exonerated). Default-environment claim stands. |
 | P9 | `model_reasoning_effort` validated | **Confirmed** | `xhigh` accepted (new valid value); `bogus-effort` → HTTP 400 exit 1; enum confirmed: none, minimal, low, medium, high, xhigh, max |
 | P10 | `-o <file>` = last message only | **Confirmed** | report file held final message only (1861 bytes for a multi-sentence response); stdout includes banner + hook lines + message |
 | P11 | Argument footguns | **Confirmed** | prompt before flags handled correctly; hook lifecycle lines do not affect `-o <file>` contract |
 | P12 | Model IDs | **Confirmed** | gpt-5.6-luna, gpt-5.6-terra, gpt-5.6-sol all dispatching on 0.146.0 |
 | P13 | Reviewer benchmark (terra) | **Green** | gpt-5.6-terra cited `path.exists()` insufficient guard + traceback instead of exit 2 at Important severity — passes qualification |
 
-Pack updated: `verified-version` → 0.146.0, stdin banner description refined, reasoning effort enum updated (none/minimal/xhigh added), hook-lines note added, P8 `.git` read-only claim corrected to reflect writable behavior.
+Pack updated: `verified-version` → 0.146.0, stdin banner description refined, reasoning effort enum updated (none/minimal/xhigh added), hook-lines note added, P8 `.git` read-only claim retained with a machine-local execpolicy-rules exception documented (controller bisect superseded this run's initial refutation before merge).
 

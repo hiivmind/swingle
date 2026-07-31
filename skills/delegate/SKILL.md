@@ -157,7 +157,7 @@ when it is genuinely ambiguous. Sending an unimplemented design to the task revi
 produces a review that reports the design's own absence as findings — the artifact is
 judged on whether it would work if built, not on whether it has been.
 
-Then announce, in ONE line before dispatching:
+Then announce, in ONE line **in the same execution turn as the background dispatch command** (never a separate turn — a pause between announcement and dispatch delays start and wastes a turn):
 
 ```
 delegate: job=NNN role=<roles.md row> tier=<tier> lane=<lane> provider=<id> model=<model> supervised=<yes: N cycles|no>[ review=yes]

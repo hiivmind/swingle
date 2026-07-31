@@ -94,6 +94,7 @@ opencode run --auto -m <provider/model> --variant <high|max|minimal…> \
   bytes only.
 - **Session ids are NOT in plain-text run logs** — get them from `opencode session list`
   (newest first) for `-s` resume/`--fork`.
+- **`opencode session list` in non-TTY/piped contexts**: may delay before returning output when invoked from a piped subshell without a terminal. Wrap with a short timeout backstop; probe `opencode session --help` for a `--format` or `--no-color` flag at the next `swingle-verify opencode` round — behavior verified from an interactive terminal only.
 
 ## Canonical dispatch template
 

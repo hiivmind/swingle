@@ -2,7 +2,7 @@
 schema-version: 1
 id: agy
 cli: agy
-verified-version: "1.1.5"
+verified-version: "1.1.9"
 version-argv: ["agy", "--version"]
 resume-argv: ["agy", "--conversation", "{session_id}"]
 session-source: conversation-id
@@ -15,14 +15,15 @@ sandbox: none
 
 | Property | agy 1.1.4 |
 | --- | --- |
-| Prompt argument | `-p "<PROMPT>"` — **must be last arg** |
-| `< /dev/null` needed | **Yes** — hangs |
+| Prompt argument | `-p "<PROMPT>"` — ~~must be last arg~~ **position no longer restricted (≥1.1.9)** — flags after `-p` are parsed correctly; the must-be-last rule applied to ≤1.1.8 |
+| `< /dev/null` needed | ~~Yes — hangs~~ **No longer hangs without it (≥1.1.9, confirmed 4/4 runs)** — `< /dev/null` is still harmless and recommended for clarity, but is not required |
 | Sandbox | None — no isolation; file tools pass under default policy, shell commands gated by the permission baseline below |
 | Permission flags | **Headless honors persisted `settings.json` policies since 1.1.4** (per vendor changelog): file read/write passes under default policy, but shell `command` use is auto-denied (exit 0, zero work) unless `permissions.allow` has a `command(<target>)` rule or `--dangerously-skip-permissions` is passed — see 2026-07-23 verification-log entry |
 | Changelog | https://antigravity.google/changelog?tab=cli — read when re-verifying (`swingle-verify`, maintenance) or when triaging a drift-triggered failure; agy's permission behaviour is patch-volatile |
 | Exit codes | Normal 0/1 (≥1.1.4; earlier versions reportedly returned 1 on success) |
 | Model validation | Errors cleanly, lists available models |
-| Reasoning-effort control | Effort-in-name (`-low/-medium/-high` slug or `(Low)` label) **or** base slug + `--effort` — mixing both **errors** |
+| Reasoning-effort control | Effort-in-name (`-low/-medium/-high` slug or `(Low)` label) **or** base slug + `--effort` — mixing **same** effort level (redundant) now succeeds (≥1.1.9); mixing **conflicting** effort levels still errors |
+| Output format | `--output-format text` (default) / `json` / `stream-json` (≥1.1.8): `json` returns `{"conversation_id":…,"status":"SUCCESS","response":…,"usage":{"input_tokens":…,"output_tokens":…,"total_tokens":…},"num_turns":…}` — token telemetry now available via this flag |
 | Output contract | stdout, **but** document tasks divert to brain files (see gotchas) |
 | Auth | OAuth — must run `agy` interactively once; headless fails **silently** if signed out |
 

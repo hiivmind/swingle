@@ -5,6 +5,27 @@ Format per [verification-protocol.md](../../core/verification-protocol.md).
 
 ---
 
+## 2026-07-31 — agy 1.1.9 (trigger: version bump; drift-verify run drift-verify-agy-20260731-063219-8A8D43B3)
+
+**Guidance (implement, review):** shell-restriction guidance from 2026-07-30 carries forward on 1.1.9 — forbid shell outright for reviewers; restrict implementers to single simple commands (no pipes, redirection, `&&`/`;`, `$()`, heredocs, or loops). Confirmed effective via P8: `command(git commit)` denied headlessly, banner-only exit 0. Also: `< /dev/null` is no longer required (P4 — completed 4/4 without it); `-p` flag position is no longer restricted (P11 — flags after `-p` parsed correctly). `--output-format json` (≥1.1.8) exposes token telemetry — token fields in result files are now available for agy dispatches.
+
+| Probe | Assertion under test | Verdict | Evidence |
+| --- | --- | --- | --- |
+| P1 | Version & model inventory | **New** | 1.1.9; 7 new models: `gemini-3.5-flash-{low,medium,high}`, `gemini-3.1-pro-low`, `claude-sonnet-4-6`, `claude-opus-4-6-thinking`, `gpt-oss-120b-medium` — all dispatch cleanly (P12) |
+| P2 | PONG → exit 0 | **Confirmed** | PONG, exit 0, no banner noise |
+| P3 | Bogus model → clean error, exit 1 | **Confirmed** | exit 1, error message lists all valid models |
+| P4 | `< /dev/null` mandatory (hangs without) | **Refuted (≥1.1.9)** | completed 4/4 runs without `< /dev/null`, exit 0 each; protection optional (harmless to keep) |
+| P5 | Read permission (no flags) | **Confirmed** | read succeeded, exit 0 — consistent with pack |
+| P6a | File write (no flags) | **Confirmed** | file written on disk, exit 0 |
+| P6b | Shell command permission (no flags) | **Confirmed** | `echo` executed via `command(echo)` allow rule in `settings.json`; baseline required — unchanged |
+| P8 | Git commit in scratch repo | **Confirmed** | `command(git commit)` in deny list → banner-only exit 0, no commit — permission model unchanged |
+| P9 | Mixing effort-suffixed slug + `--effort` errors | **Refined (≥1.1.9)** | same-effort redundant combos (`-low --effort low`) now succeed; conflicting (`-high --effort low`) still errors — pack claim "mixing both errors" narrowed to "conflicting effort levels error" |
+| P10 | Document task → captured on stdout | **Confirmed** | 2847-byte essay on stdout; `captured-output` transport holds |
+| P11 | `-p` must be last arg | **Refuted (≥1.1.9)** | flags after `-p` parsed correctly; 4/4 runs with flags post-`-p` succeeded — old footgun removed |
+| P11 | `--output-format json` (new, ≥1.1.8) | **New** | returns `{status,response,conversation_id,usage:{input_tokens,output_tokens,total_tokens,cache_read_tokens,thinking_tokens},num_turns}` — token telemetry now machine-readable |
+| P12 | New models dispatch | **Confirmed** | all 7 new models (`gemini-3.5-flash-{low,medium,high}`, `gemini-3.1-pro-low`, `claude-sonnet-4-6`, `claude-opus-4-6-thinking`, `gpt-oss-120b-medium`) return expected output at exit 0 |
+| P13 | `claude-sonnet-4-6` reviewer benchmark | **Passed** | identified required finding (non-file/unreadable paths reach `read_text()` → traceback, not exit 2) at ≥Important severity — qualifies for review lane |
+
 ## 2026-07-22 — agy 1.1.4 (trigger: assertion review; prior notes from ~1.1.1) (from archive/v1.1)
 
 | Probe | Assertion under test | Verdict | Evidence |

@@ -106,3 +106,16 @@ def test_consent_invariants_present():
     assert "consent" in text.lower()
     assert "yes to all" in text.lower()
     assert "never" in text.lower()
+
+
+def test_superpowers_probe_present():
+    text = SKILL.read_text(encoding="utf-8")
+    assert "superpowers: <version>" in text and "superpowers: none" in text   # exact probe reply grammar
+    assert "superpowers: unknown-version" in text                             # installed-but-undiscoverable case
+    assert text.count("worktree-dispatch") >= 1                               # names its consumer
+
+
+def test_superpowers_probe_is_consented_and_recorded():
+    text = SKILL.read_text(encoding="utf-8")
+    assert '"probed"' in text and '"installed"' in text                       # records the validated shape
+

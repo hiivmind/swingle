@@ -14,7 +14,8 @@ python3 scripts/validate-packs --root . && ./scripts/codex-smoke && git commit .
 ```
 
 A non-zero exit blocks the commit. The validator enforces manifest grammar, model-table
-shape, resolution order, version sync (plugin.json vs README), and the relative-link scan.
+shape, resolution order, version sync (the two plugin.json files; a README
+`**Version:**` line is checked only if one exists), and the relative-link scan.
 
 **Chain the gate to the commit with `&&`, never `;`.** Written as separate statements the
 gate becomes a neighbouring command whose failure you have to notice, and a failing gate
@@ -27,6 +28,11 @@ because the shell used `;`. The gate is a precondition, not a preceding step.
   `providers/*/verification-log.md`). Never rewrite a prior entry — a later contradiction
   *dates* a behavior change. Supersede in place only for same-session uncommitted text;
   otherwise strike (`~~…~~`) with a dated correction or append a new entry.
+- **Log entries may carry operating guidance** (`core/verification-protocol.md`
+  Recording): an instruction a future dispatcher must follow from that version forward,
+  house style `**Guidance (<lanes>):** …` under the entry heading. The verify skill
+  writes it; the dispatch skills read the routed provider's log and act on it. Always an
+  instruction, never a verdict — an undiagnosed failure is an open issue, not an entry.
 - **Purity boundary**: provider *names* may appear in `core/`; model ids and invocation
   strings may NOT — they live in `providers/<id>/`. The validator's link scan and the
   purity adjudication (2026-07-23) are the precedent. This binds `core/` prose *and*
@@ -45,8 +51,9 @@ because the shell used `;`. The gate is a precondition, not a preceding step.
   fix works, say which kind it is — and do not call a mitigation "verified" off a single
   run when the failure is intermittent (2026-07-23 precedent: a 19-run trial returned
   p = 0.21 and could not support the claim a single green run had seemed to).
-- **Pack facts changed ⇒ bump the plugin patch version** and keep `plugin.json`,
-  `.codex-plugin/plugin.json`, and the README `**Version:**` line in sync.
+- **Pack facts changed ⇒ bump the plugin patch version** and keep `plugin.json` and
+  `.codex-plugin/plugin.json` in sync. (The README no longer carries a `**Version:**`
+  line — retired 2026-07-30; the validator still enforces sync if one is reintroduced.)
 - **On any CLI version bump** (a *maintenance* activity, NOT a per-dispatch gate): read
   the pack's `Changelog` row FIRST (verify skill step 2b), then re-verify with
   `swingle-verify <id>`. Never assume permission or sandbox behavior survived a patch
@@ -108,10 +115,15 @@ worse than no exception at all.
 - The ruleset lists **repo admin as a bypass actor**, so a direct push to `main` will
   succeed for the owner. That is an emergency escape hatch, not the flow — using it
   silently reintroduces the conflict this section exists to remove.
-- Tag releases `v<plugin-version>` when the owner asks.
+- Releases are tagged automatically: `.github/workflows/release.yml` runs on every push to
+  `main`, reads the version from `.claude-plugin/plugin.json`, and — if `v<version>` is not
+  already tagged — validates packs, tags the release head, and creates the GitHub release
+  with generated notes. A push that doesn't bump the version is a no-op. Never hand-tag a
+  release; bumping the version on the `release/*` branch is what cuts it.
 
 **CI does not replace the hard gate.** `.github/workflows/ci.yml` runs `pytest` only, as
-the `tests` required status check. `pytest` drives `scripts/validate-packs` via subprocess
+the `tests` required status check; `.github/workflows/release.yml` tags and publishes the
+GitHub release on pushes to `main` (see the git-flow section). `pytest` drives `scripts/validate-packs` via subprocess
 (`tests/test_validate_packs.py`), so the validator IS enforced on GitHub — but
 `./scripts/codex-smoke` is **not** in CI by deliberate choice: it asserts developer-workspace
 layout, not repo correctness. Run the full gate locally, chained with `&&`, as above.

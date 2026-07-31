@@ -1,9 +1,32 @@
-import json, shutil, subprocess, sys
+import json, os, shutil, subprocess, sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "validate-packs"
 FIX = Path(__file__).parent / "fixtures"
+
+def isolated_env(**overrides):
+    """Build a subprocess environment with ambient Swingle config removed.
+
+    Starts from the current process environment, redirects XDG_CONFIG_HOME at a
+    path that deliberately does not exist, drops any inherited SWINGLE_CONFIG
+    and SWINGLE_MODELS, then applies caller overrides. An override whose value
+    is None removes that variable rather than putting a non-string in the
+    environment.
+    """
+    e = dict(os.environ, XDG_CONFIG_HOME=str(FIX / "no-such-xdg"))
+    e.pop("SWINGLE_CONFIG", None)
+    e.pop("SWINGLE_MODELS", None)
+    for name, value in overrides.items():
+        if value is None:
+            e.pop(name, None)
+        else:
+            e[name] = value
+    return e
+
+def test_no_such_xdg_fixture_stays_absent():
+    """isolated_env's XDG redirect only isolates while this path does not exist."""
+    assert not (FIX / "no-such-xdg").exists()
 
 import importlib.machinery, importlib.util, io, contextlib
 loader = importlib.machinery.SourceFileLoader("validate_packs", str(SCRIPT))
@@ -12,7 +35,8 @@ vp = importlib.util.module_from_spec(vp_spec)
 vp_spec.loader.exec_module(vp)
 
 def run(*args):
-    return subprocess.run([sys.executable, str(SCRIPT), *args], capture_output=True, text=True)
+    return subprocess.run([sys.executable, str(SCRIPT), *args],
+                          capture_output=True, text=True, env=isolated_env())
 
 def test_real_tree_valid():
     r = run("--root", str(ROOT)); assert r.returncode == 0, r.stdout + r.stderr
@@ -128,13 +152,9 @@ def test_yaml_eligible_md_row_guard(tmp_path):
     r = run("--root", str(root))
     assert r.returncode == 1 and "eligible-row guard" in r.stdout
 
-import os
-
 def run_env(*args, **env):
-    e = dict(os.environ, XDG_CONFIG_HOME=str(FIX / "no-such-xdg"))
-    e.pop("SWINGLE_MODELS", None)
-    e.update(env)
-    return subprocess.run([sys.executable, str(SCRIPT), *args], capture_output=True, text=True, env=e)
+    return subprocess.run([sys.executable, str(SCRIPT), *args],
+                          capture_output=True, text=True, env=isolated_env(**env))
 
 def test_resolve_default_layer_line():
     r = run_env("--root", str(FIX / "good-yaml"), "--resolve", "per-task reviewer", "alpha")
@@ -211,10 +231,8 @@ def test_list_models_argv_accepted_and_validated(tmp_path):
 SDD_MODELS = ROOT / "scripts" / "swingle-models"
 
 def run_models(*args, **env):
-    e = dict(os.environ, XDG_CONFIG_HOME=str(FIX / "no-such-xdg"))
-    e.pop("SWINGLE_MODELS", None)
-    e.update(env)
-    return subprocess.run([sys.executable, str(SDD_MODELS), *args], capture_output=True, text=True, env=e)
+    return subprocess.run([sys.executable, str(SDD_MODELS), *args],
+                          capture_output=True, text=True, env=isolated_env(**env))
 
 def test_sdd_models_which_default_layer():
     r = run_models("which", "alpha", "--root", str(FIX / "good-yaml"))
@@ -368,6 +386,43 @@ def test_health_config_layers(tmp_path):
     r = run_env("--health", "--root", str(root), SWINGLE_CONFIG=str(tmp_path / "missing.json"))
     assert r.returncode == 0 and "config-layer=env-unreadable" in r.stdout
 
+
+def test_run_ignores_ambient_swingle_config(tmp_path, monkeypatch):
+    """A developer's real Swingle config must not reach subprocess tests.
+
+    Sets valid-looking ambient config at all three inputs the production layer
+    walk reads, then invokes plain `run`. The subprocess must still report the
+    built-in model layer and config-layer=none.
+    """
+    root = make_health_test_root(tmp_path, ("alpha",))
+
+    ambient_xdg = tmp_path / "ambient-xdg"
+    (ambient_xdg / "swingle").mkdir(parents=True)
+    (ambient_xdg / "swingle" / "config.json").write_text("{}")
+
+    ambient_cfg = tmp_path / "ambient-config.json"
+    ambient_cfg.write_text("{}")
+
+    ambient_models = tmp_path / "ambient-models"; ambient_models.mkdir()
+    (ambient_models / "alpha.yaml").write_text(
+        "schema: 1\nprovider: alpha\nmodels:\n"
+        "  - tier: standard\n    lane: review\n    priority: 1\n"
+        "    model: ambient-review-model\n    status: experimental\n")
+
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(ambient_xdg))
+    monkeypatch.setenv("SWINGLE_CONFIG", str(ambient_cfg))
+    monkeypatch.setenv("SWINGLE_MODELS", str(ambient_models))
+
+    r = run("--health", "--root", str(root))
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "config-layer=none" in r.stdout
+
+    r2 = run("--root", str(FIX / "good-yaml"), "--resolve", "per-task reviewer", "alpha")
+    assert r2.returncode == 0, r2.stdout + r2.stderr
+    assert "layer: default path=" in r2.stdout
+    assert "ambient-review-model" not in r2.stdout
+
+
 def test_health_composes_with_check_config(tmp_path):
     root = make_health_test_root(tmp_path, ("alpha",))
     cfg = tmp_path / "bad.json"; cfg.write_text('{"disable": ["unknown-provider"]}')
@@ -410,5 +465,11 @@ def test_health_detects_cli_on_inherited_path(tmp_path):
     assert r.returncode == 0
     assert "alpha: installed=yes version=1.0.0 verified=1.0.0 drift=no readiness=ok registry-layer=default" in r.stdout
 
-
-
+def test_config_superpowers_block_accepted():
+    r = run("--check-config", str(FIX / "config-superpowers-good.json")); assert r.returncode == 0, r.stdout
+def test_config_superpowers_malformed_stops():
+    r = run("--check-config", str(FIX / "config-superpowers-malformed.json"))
+    assert r.returncode == 1 and "superpowers" in r.stdout
+def test_config_superpowers_unknown_provider_fails():
+    r = run("--root", str(FIX / "good-lanes"), "--check-config", str(FIX / "config-superpowers-ghost.json"))
+    assert r.returncode == 1 and "superpowers names unknown provider ghost" in r.stdout

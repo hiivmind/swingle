@@ -124,6 +124,33 @@ or PR; no source tree → issue only. **Deduplicate before filing**: search exis
 reaction, not a duplicate; a new angle or wrinkle on an existing finding gets a comment
 with only the new evidence; only a genuinely distinct finding gets a new issue.
 
+**Operating guidance in log entries.** When a round or a field failure teaches an
+*operating instruction* — something a future dispatcher must do differently on this
+version and forward — write it in the log entry. House style:
+
+`**Guidance[ (<lane>[, <lane>…])]:** <what to do on this version and forward>`
+
+directly under the entry heading; lanes come from the packs' lane vocabulary, and
+omitting the parenthetical means all lanes. Freeform prose is equally valid — the line
+is for scannability, not for a parser, and nothing validates it. An instruction applies
+from its version forward until a later entry says otherwise; a later entry lifting a
+restriction is itself guidance. Publish instructions, never verdicts: between
+discovering a failure and understanding it, the honest artifact is an open issue, and
+*"pin the previous version for this lane / route the lane elsewhere, tracking #N"* is
+always available as the instruction when no workaround exists, so a published entry is
+never instruction-free. The worked example is agy 1.1.7: what that incident taught was
+not "broken" — it was *forbid shell for reviewers; restrict implementers to single
+simple commands*, the instruction that makes agy work, which later versions inherit
+without a second entry.
+
+**A user's local record.** A user who cannot write to the source records their own
+operating instructions in `${XDG_CONFIG_HOME:-~/.config}/swingle/verification/<id>.md`
+— same convention, on the user's own disk where a plugin upgrade cannot overwrite it,
+read by the dispatch skills **in addition to** the pack's log (additive, never
+precedence). A private note may record an undiagnosed state ("hit this on X, filed #N,
+expect it"); the publish-instructions rule governs what ships in a pack, not what a
+user tells themselves.
+
 **Drift-triggered findings (the common real-world trigger).** The version gate is
 advisory: the `swingle-sdd` / `swingle-delegate` skills warn on `installed ≠ verified-version` and proceed
 — re-verification is maintenance, not a per-dispatch tax. When a dispatch then fails with a
@@ -136,6 +163,10 @@ automatically: it runs the dedup search above and **recommends** the appropriate
 version vs `verified-version`, plugin version, the controlling harness + its version, and
 the verbatim failure signature. **Quality failures are excluded** (a reviewer rejecting the
 work is not drift evidence). The user decides whether to file.
+The full user loop is: file upstream → solve it locally if possible → comment the
+solution back on the issue → record it as a local operating instruction (see "A user's
+local record" above) → continue operating, with dispatches now acting on the recorded
+guidance instead of rediscovering it each session.
 
 Append to the appropriate verification log:
 

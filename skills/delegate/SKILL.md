@@ -70,6 +70,9 @@ Read these plugin documents when their policy is needed:
   external dispatch per the harness adapter; provider routing, model resolution, and
   supervision do not apply. Explicitly requested but unavailable → stop and ask;
   auto-selected (supervision) but unavailable → controller orchestrates, announced.
+- **"in a worktree"** / **"in my tree"** — dispatch the job isolated in the
+  delegate's own worktree, or force session-tree dispatch. Both in one request =
+  STOP and ask. See "Worktree dispatch" below.
 
 ## Setup (once per session) — Step-0-lite
 
@@ -115,6 +118,15 @@ Read these plugin documents when their policy is needed:
 7. **Readiness**: before the FIRST dispatch to a chosen provider, run its bounded
    preflight per its pack (version + auth/session probe; agy: the headless permission
    baseline check — on miss, STOP and hand the user the pack's baseline section).
+   Also read the routed provider's `providers/<id>/verification-log.md` and, if present,
+   the user's local record at `${XDG_CONFIG_HOME:-~/.config}/swingle/verification/<id>.md`
+   (read additively — both are evidence). If an entry at or below the installed version
+   carries an operating instruction covering the lane about to be dispatched, **act on
+   it** — apply prompt- and dispatch-shape restrictions directly and state what changed;
+   version pins and provider changes are **recommended to the user**, never performed
+   silently (cross-provider moves remain a user question, per Failure handling). An
+   instruction applies from its version forward until a later entry lifts it. No
+   applicable instruction ⇒ say nothing — a newer release is not a defect.
 8. **Workspace**: create `.swingle/delegate/` at the repo root. Check
    `git check-ignore -q .swingle/delegate/.probe` (a child sentinel, so negation
    rules cannot silently expose workspace files); if not ignored, append
@@ -223,10 +235,11 @@ BEFORE launch — a crash or compaction never loses the number→task mapping.
    first line is exactly one of: STATUS: DONE | DONE_WITH_CONCERNS | NEEDS_CONTEXT |
    BLOCKED.” Cheapest-tier conformance was 3/3 with the line inline and 0/3 by contract
    reference alone; a missing block is still UNKNOWN, never DONE.
-2. EVERY repository dispatch, both lanes: the tree must be CLEAN — `git status
-   --porcelain=v1 --untracked-files=all` empty, no exceptions on any pack (pre-existing
-   dirt is indistinguishable from agent mutation). Record BASE (= HEAD) and the current
-   branch for both lanes.
+2. EVERY repository dispatch, both lanes: clean tree, OR offer worktree dispatch
+   (one question — never a silent switch; sometimes the dispatch needs the dirty tree;
+   the offer is subject to the worktree-dispatch prerequisite below — a `superpowers`
+   config record for the routed provider).
+   Record BASE (= HEAD) and the current branch for both lanes.
 3. Dispatch with the active pack's canonical template inside the self-reaping wrapper
    (`core/liveness.md`), stdout to `NNN-dispatch.log`. Observe completion via the
    harness adapter's declared mechanism (background-task notification, polling, or the
@@ -235,11 +248,14 @@ BEFORE launch — a crash or compaction never loses the number→task mapping.
    obtain the session id per the pack's `session-source` and append it to the ledger
    the moment it is observed.
 4. **Evidence gate** (exit codes are never evidence of work):
-   - Write lane: HEAD must be UNCHANGED (an agent-created commit is a doctrine
-     violation to surface, not absorb); then `git status --porcelain=v1
-     --untracked-files=all` + `git diff HEAD --stat` — together covering unstaged,
-     staged, AND untracked changes. Agent-created untracked files are part of the
-     change: list them; include their content in any review package.
+   - Write lane: HEAD must be UNCHANGED. External agents never commit in the
+     session tree — an agent-created commit there is a doctrine violation to
+     surface, not absorb. In worktree dispatch, commits on the named branch ARE
+     the deliverable; landing remains controller-only. Then `git status
+     --porcelain=v1 --untracked-files=all` + `git diff HEAD --stat` — together
+     covering unstaged, staged, AND untracked changes. Agent-created untracked
+     files are part of the change: list them; include their content in any
+     review package.
    - Read lane: HEAD must be UNCHANGED (an unsandboxed "reader" can commit and leave
      a clean tree) and porcelain must be EMPTY (any mutation is a violation to
      surface, not silently reset); the report (file or captured output, per the lane's
@@ -272,6 +288,41 @@ BEFORE launch — a crash or compaction never loses the number→task mapping.
      block; quality failures are excluded (they are not drift evidence).
    - Every attempt appends:
      `model-attempt: job=NNN phase=<worker|review|reader2> attempt=<n> role=<role> provider=<id> model=<id> class=<scope> outcome=<failed|ok>`.
+
+## Worktree dispatch (the delegate's own superpowers)
+
+Isolation is an instruction, not a mechanism: the delegated agent's harness does
+the work with its own installed superpowers. Before dispatching with this lane:
+
+1. **Prerequisite check** — the routed provider's record under the `superpowers`
+   key, read **directly from the USER-layer config file** (environment facts
+   ignore the layered precedence walk — a project/env steering config must not
+   shadow them). `installed: true` → proceed. `false` or no record → one
+   line ("<provider> has no superpowers-availability record") and ask: dispatch
+   without isolation, or run the swingle-setup probe first. Never silently fall
+   back.
+2. **Branch name** — controller-chosen: `swingle/delegate-<NNN>` (the job number).
+3. **Prompt block** — append to the dispatch prompt verbatim, substituting the
+   branch:
+
+   > Workspace isolation: your harness has the superpowers skill set installed.
+   > Before touching any file, use superpowers:using-git-worktrees to create an
+   > isolated worktree on a new branch named `<branch>`, and do ALL work there,
+   > following your normal process — committing as your skills direct. Do not
+   > modify the main checkout. Your report must state the branch name and the
+   > final commit SHA.
+
+**Gates move to the session tree:** after the dispatch, the session checkout's
+HEAD and porcelain must be unchanged — every change belongs on the branch. The
+deliverable check is the branch: it exists, and the report names it and the
+final commit SHA. Review package = `git log` + `git diff <merge-base>..<branch>`.
+Landing is a controller act (merge / squash / cherry-pick per the user's commit
+request); where the controller's own harness has superpowers installed,
+`superpowers:finishing-a-development-branch` governs the finish —
+otherwise land with ordinary git. The branch is retention — on
+NEEDS_CONTEXT/BLOCKED keep branch and worktree, resume via the pack's resume
+channel. After landing, offer worktree removal and branch deletion — never
+auto-delete unlanded work.
 
 ## Gate, results, and opt-in review
 

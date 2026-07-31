@@ -63,7 +63,8 @@ Read these plugin documents when their policy is needed:
    (See [docs/config.md](../../docs/config.md) for the schema) — disable/steer only;
    malformed/wrong-typed config, an unknown provider ID in
    `disable`, `default_provider`, or any `providers_by_lane` value, a disabled
-   default_provider or providers_by_lane target, or set-but-unreadable
+   default_provider or providers_by_lane target, a malformed `superpowers` block
+   (including an unknown provider ID within it), or set-but-unreadable
    $SWINGLE_CONFIG = STOP with the error. ACTIVE = installed − disabled
    (− incompatible iff require-verified-version).
 6. **Compatibility (advisory)**: compare `version-argv` output to `verified-version`. A
@@ -98,6 +99,15 @@ Read these plugin documents when their policy is needed:
 9. **Readiness**: before the FIRST dispatch to a chosen provider, run its bounded
    preflight (version + session-list/auth probe per manifest); failures are
    channel-class → fallback rules.
+   Also read the routed provider's `providers/<id>/verification-log.md` and, if present,
+   the user's local record at `${XDG_CONFIG_HOME:-~/.config}/swingle/verification/<id>.md`
+   (read additively — both are evidence). If an entry at or below the installed version
+   carries an operating instruction covering the lane about to be dispatched, **act on
+   it** — apply prompt- and dispatch-shape restrictions directly and state what changed;
+   version pins and provider changes are **recommended to the user**, never performed
+   silently (cross-provider moves remain a user question, per step 10). An instruction
+   applies from its version forward until a later entry lifts it. No applicable
+   instruction ⇒ say nothing — a newer release is not a defect.
 10. **Failure classes**: channel failures (auth, model-not-found, startup stall) may
     advance to the NEXT candidate in the resolution order (same provider; max 3 total
     attempts per (task, role)); cross-provider moves are ALWAYS a user question. Ledger
@@ -126,9 +136,55 @@ For native-subagent routing, use the adapter's native subagent mechanism instead
 controller still supplies the applicable contract, brief, scene, interface list, and report
 path; provider routing and model resolution do not apply.
 
+### Worktree dispatch
+
+Levers: `"in a worktree"` runs the plan isolated; `"in my tree"` forces
+session-tree dispatch; both in one request = STOP and ask. When the session
+tree is dirty and no lever was given, OFFER this lane (one question — never a
+silent switch). Prerequisite: the routed provider's record under the
+`superpowers` config key, read directly from the USER-layer config file;
+`installed: true` → proceed, otherwise one-line warning and ask (dispatch
+without isolation, or run the swingle-setup probe first).
+
+One branch per plan run: `swingle/sdd-<plan-run-id>`, where `<plan-run-id>` is
+the plan's workspace directory name (the basename the wrapped skill's
+`scripts/sdd-workspace` derives from the plan file) — the branch carries the
+same run identity as the ledger. The FIRST task dispatch
+appends this block (substituting the branch):
+
+> Workspace isolation: your harness has the superpowers skill set installed.
+> Before touching any file, use superpowers:using-git-worktrees to create an
+> isolated worktree on a new branch named `<branch>`, and do ALL work there,
+> following your normal process — committing as your skills direct. Do not
+> modify the main checkout. Your report must state the branch name and the
+> final commit SHA.
+
+Every LATER task dispatch (and every fix-round resume) appends the
+continuation form instead — the branch already exists:
+
+> Workspace isolation: continue on the existing branch `<branch>` in its
+> existing worktree (created by an earlier task via
+> superpowers:using-git-worktrees — do not create a new worktree or branch).
+> Do ALL work there, committing as your skills direct; do not modify the main
+> checkout. Your report must state the final commit SHA.
+
+Gates move to the session tree: after each dispatch, the session checkout's
+HEAD and porcelain must be unchanged; the task's evidence is its commits on
+the branch (report SHA verified present). In this lane implementer commits on
+the branch ARE the deliverable — the controller-commits-after-gating rule
+applies to LANDING only. Task review packages come from the branch
+(`git diff` of the task's commit range); the final review targets the full
+branch diff before landing. Landing is a controller act via
+superpowers:finishing-a-development-branch. On NEEDS_CONTEXT/BLOCKED the
+branch and worktree are retention; resume rides the pack's resume channel.
+The wrapped skill's process (task loop, reviews, fix rounds, ledger) is
+otherwise unchanged and unrestated.
+
 **Implementer:** use the implement role and selected tier/lane. The prompt references the
 implementer contract and task brief by path, states the scene and prior interfaces, and
-requires the report path. Record BASE before dispatch; implementers do not commit.
+requires the report path. Record BASE before dispatch; implementers do not commit
+(session-tree dispatch only; in worktree dispatch, task commits land on the run branch
+and the controller commits nothing until landing).
 
 **Every dispatch prompt states the status vocabulary inline** — contracts move by path
 (playbook E1), the four status tokens do not (E1a). Append verbatim: “End with a status
@@ -185,7 +241,8 @@ report. The same applies to multi-round final reviews.
   Adjudication and commits remain in the main thread.
 - **Sub-dispatch** (native subagent does the work itself): the `native-subagents` lever.
 
-For the economics and the detailed controller loop, read `<root>/core/playbook.md`.
+For the economics and dispatch mechanics, read `<root>/core/playbook.md`; the task
+loop and controller process live in the invoked superpowers skill, not the playbook.
 
 ## Controller rules (the hard gate — never offloaded)
 
@@ -197,5 +254,5 @@ For the economics and the detailed controller loop, read `<root>/core/playbook.m
   implementers or re-dispatch a ledgered task.
 - Keep adjudication in the controller: statuses, cannot-verify-from-diff items, and plan
   contradictions go to the human when needed.
-- Perform the final whole-branch review with the most-capable review tier and one
-  consolidated fix cycle for findings.
+- Perform the final whole-branch review with the most-capable review tier; the wrapped
+  skill's final-review policy governs the fix cadence.

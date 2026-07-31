@@ -7,7 +7,7 @@ models:
     model: opencode-go/deepseek-v4-flash
     status: verified
     pricing: "$0.14/$0.28"
-    rationale: "cheapest paid coder; dispatched repeatedly through pi (PONG, read, write, shell)"
+    rationale: "cheapest paid coder; dispatched repeatedly through pi (PONG, read, write, shell, P8 git commit)"
   - tier: standard
     lane: implement
     priority: 1
@@ -19,16 +19,23 @@ models:
     lane: implement
     priority: 2
     model: opencode-go/qwen3.7-plus
-    status: experimental
+    status: verified
     pricing: "$0.40/$1.60"
-    rationale: "adaptation alternate; in catalog, dispatch-through-pi not yet exercised"
+    rationale: "adaptation alternate; PONG through pi confirmed 0.83.0"
   - tier: standard
     lane: review
     priority: 1
     model: opencode-go/deepseek-v4-pro
-    status: verified
+    status: rejected
     pricing: "$1.74/$3.48"
-    rationale: "per-task reviewer. PONG through pi"
+    rationale: "P13 FAIL 0.83.0: rated directory-crash as Minor (needs ≥Important) — disqualified for review lanes until P13 passes"
+  - tier: standard
+    lane: review
+    priority: 2
+    model: opencode-go/glm-5.2
+    status: verified
+    pricing: "$1.40/$4.40"
+    rationale: "review-lane fallback while deepseek-v4-pro is P13-disqualified. P13 PASS 0.83.0"
   - tier: most-capable
     lane: implement
     priority: 1
@@ -40,12 +47,12 @@ models:
     lane: implement
     priority: 2
     model: opencode-go/kimi-k2.7-code
-    status: experimental
-    rationale: "coding-strong, 256K ctx; in catalog, dispatch-through-pi not yet exercised"
+    status: verified
+    rationale: "coding-strong, 262K ctx; PONG through pi confirmed 0.83.0"
   - tier: most-capable
     lane: review
     priority: 1
     model: opencode-go/glm-5.2
     status: verified
     pricing: "$1.40/$4.40"
-    rationale: "final review; 1M ctx. PONG through pi"
+    rationale: "final review; 1M ctx. PONG through pi. P13 PASS 0.83.0: rated directory-crash ≥Important"

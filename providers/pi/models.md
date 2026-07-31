@@ -1,4 +1,4 @@
-# pi models — verified dispatching 2026-07-24
+# pi models — verified dispatching 2026-07-31 (0.83.0)
 
 pi is provider-agnostic; the reachable namespace is whatever is authed in
 `~/.pi/agent/auth.json`. This machine has **opencode-go (Zen)** only, the same backend the
@@ -21,12 +21,17 @@ from the opencode pack). Model ids use pi's combined `provider/model` form.
   id" and rejected by the provider at dispatch (`401`, exit 1), never locally. Resolve ids
   from `pi --list-models <provider>`.
 
-## Watch list (unevaluated arrivals, opencode-go catalog 2026-07-24)
+## Watch list (unevaluated arrivals, opencode-go catalog 2026-07-31)
 
-- `opencode-go/kimi-k3` (1M ctx), `opencode-go/grok-4.5` (500K), `opencode-go/mimo-v2.5-pro`,
-  `opencode-go/qwen3.7-max`, `opencode-go/hy3` — present in the catalog, not yet
-  benchmarked or priced against the table. Evaluate with the P13 reviewer benchmark + a
-  small implementer probe before any table slot.
+**Dispatch-confirmed 2026-07-31 (P12, PONG exit 0) but not yet benchmarked for table slots:**
+- `opencode-go/kimi-k3` (1M ctx, Kimi) — dispatches; evaluate with P13 + implementer probe before table slot
+- `opencode-go/grok-4.5` (500K ctx) — dispatches; evaluate before table slot
+
+**Unevaluated (in catalog, no dispatch test):**
+- `opencode-go/glm-5.1` (202.8K ctx), `opencode-go/kimi-k2.6` (262K), `opencode-go/mimo-v2.5`,
+  `opencode-go/mimo-v2.5-pro`, `opencode-go/minimax-m2.7`, `opencode-go/qwen3.6-plus`,
+  `opencode-go/qwen3.7-max`, `opencode-go/hy3` — present in 0.83.0 catalog, not yet
+  individually probed. Evaluate with P13 + implementer probe before any table slot.
 
 Zen pricing note: priced on **Zen pay-as-you-go** rates (opencode.ai/docs/zen), mirrored
 from the opencode pack (same backend) — re-check on repricing.

@@ -2,7 +2,7 @@
 schema-version: 1
 id: pi
 cli: pi
-verified-version: "0.81.1"
+verified-version: "0.83.0"
 version-argv: ["pi", "--version"]
 resume-argv: ["pi", "-p", "--session-id", "{session_id}"]
 fork-flag: "--fork"

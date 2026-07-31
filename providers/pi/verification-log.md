@@ -56,11 +56,34 @@ Auth note: fresh install of pi 0.83.0 left `~/.pi/agent/auth.json` at 2 bytes (`
 | P12 | New-model dispatch check | Blocked | auth unavailable; catalog shows "No models available" |
 | P13 | Reviewer benchmark | Blocked | auth unavailable |
 
-**matrix_green: false** — live end-to-end dispatch not achieved; `verified-version` not stamped.
-**PR proposed** (automated/drift-pi-20260731): pack.md `< /dev/null` correction only. Stamp deferred until auth is restored and P2/P5/P6/P8/P10/P12 are re-run.
+**matrix_green: false (first pass, auth unavailable)** — live end-to-end dispatch not achieved; stamp deferred. Amended below after auth restored.
 
 **Regression dispositions:**
 - P4 refutation (`< /dev/null` mandatory): propose as permanent probe in `core/verification-protocol.md` — P4 already covers this behavior; no further protocol change needed (the existing P4 probe is correct; the pack fact was stale). Filed: #71.
+
+---
+
+## 2026-07-31 — pi 0.83.0 (second pass, auth restored — stamp round)
+
+Provider `opencode-go` (Zen) re-authenticated. All dispatch-dependent probes run. Scratchpad artifacts removed after.
+
+| Probe | Assertion under test | Verdict | Evidence |
+| --- | --- | --- | --- |
+| P2 | Trivial dispatch | Confirmed | PONG, exit 0, clean stdout, no banner |
+| P3 | Bogus model error path | Confirmed | `Warning: Model "…" not found … Using custom model id.` then `401 {"type":"ModelError","message":"Model … is not supported"}`, exit 1 — remote validation unchanged |
+| P5 | Read, no flags | Confirmed | returned `XYZZY42` from readtest.txt, exit 0 |
+| P6 (file) | Write, no flags | Confirmed | writetest.txt = `HELLO` on disk, exit 0 |
+| P6 (command) | Shell, no flags | Confirmed | `echo P6CMD > cmdtest.txt` → `P6CMD` on disk, exit 0 |
+| P8 | Git commit inside sandbox | Confirmed | created newfile.txt, staged, committed `cb5d851 test commit` — git write unrestricted |
+| P10 | Output contract | Confirmed | report.txt 1336 bytes on disk (200-word summary); `write` tool targets workspace path; clean stdout, no artifact diversion |
+| P12 | Previously-experimental tier rows | Promoted | qwen3.7-plus → PONG exit 0; kimi-k2.7-code → PONG exit 0. Both promoted to `verified` in models.yaml |
+| P12 | Watch-list models | Dispatched | kimi-k3 → PONG exit 0; grok-4.5 → PONG exit 0. Catalog also shows glm-5.1, kimi-k2.6, mimo-v2.5, mimo-v2.5-pro, minimax-m2.7, qwen3.6-plus, qwen3.7-max — not individually probed; remain on watch list |
+| P13 | deepseek-v4-pro reviewer benchmark | **Non-green** | Identified directory-crash finding but rated it **Minor** (required ≥Important). Not qualified for review lane. Noted in models.yaml rationale |
+| P13 | glm-5.2 reviewer benchmark | **Green** | Rated directory-crash finding as **Important** — PASS criterion met. Qualified for review lane |
+
+**matrix_green: true** — all required probes green or confirmed-N/A; P4 refutation corrected in pack; P13 deepseek-v4-pro failure noted (not blocking — glm-5.2 qualifies the review lane).
+
+**verified-version stamped 0.83.0** on live end-to-end dispatch evidence above.
 
 ## 2026-07-25 — plugin renamed to Swingle (v2.0.0)
 

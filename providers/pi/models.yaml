@@ -26,9 +26,16 @@ models:
     lane: review
     priority: 1
     model: opencode-go/deepseek-v4-pro
-    status: verified
+    status: rejected
     pricing: "$1.74/$3.48"
-    rationale: "per-task reviewer. PONG through pi. P13 FAIL 0.83.0: rated directory-crash as Minor (needs ≥Important) — use glm-5.2 for review lane until P13 passes"
+    rationale: "P13 FAIL 0.83.0: rated directory-crash as Minor (needs ≥Important) — disqualified for review lanes until P13 passes"
+  - tier: standard
+    lane: review
+    priority: 2
+    model: opencode-go/glm-5.2
+    status: verified
+    pricing: "$1.40/$4.40"
+    rationale: "review-lane fallback while deepseek-v4-pro is P13-disqualified. P13 PASS 0.83.0"
   - tier: most-capable
     lane: implement
     priority: 1

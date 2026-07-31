@@ -35,6 +35,33 @@ for *review quality*). Run P13 before relying on pi for adversarial review.
 
 **verified-version stamped 0.81.1** on live end-to-end dispatch evidence above.
 
+## 2026-07-31 — pi 0.83.0 (trigger: version bump 0.81.1 → 0.83.0; automated drift-verify lane)
+
+**Guidance (all lanes):** Always use `< /dev/null` in headless dispatch — pi 0.83.0 reads stdin data from open pipes; omitting `/dev/null` with a live stdin source causes a `RangeError: Invalid string length` crash. This was optional insurance at 0.81.1; it is mandatory from 0.83.0.
+
+Auth note: fresh install of pi 0.83.0 left `~/.pi/agent/auth.json` at 2 bytes (`{}`), wiping the prior opencode-go auth. All dispatch-dependent probes (P2, P5, P6, P8, P10, P12, P13) were blocked. Re-verify with auth restored.
+
+| Probe | Assertion under test | Verdict | Evidence |
+| --- | --- | --- | --- |
+| P1 | Version + surface | Confirmed | `pi --version` = 0.83.0; `pi --list-models opencode-go` → "No models available" (no authed providers after fresh install) |
+| P2 | Trivial dispatch | Blocked | "No API key found for opencode-go." exit 1 — auth unavailable |
+| P3 | Bogus model error path | Partial | `Warning: Model "…" not found for provider "opencode-go". Using custom model id.` then auth failure (exit 1); remote validation behavior unchanged but unconfirmable end-to-end without auth |
+| P4 | stdin protection mandatory | **Refuted (reversed from 0.81.1)** | `/dev/null` → clean exit 1; `/dev/zero` → `RangeError: Invalid string length` crash — pi reads stdin data. `< /dev/null` now mandatory. See #71 |
+| P5–P6 | Read/write/shell permissions | Blocked | auth unavailable |
+| P7 | Sandbox escape | N/A | no sandbox claimed |
+| P8 | Git commit inside sandbox | Blocked | auth unavailable |
+| P9 | `--thinking` knob (local validation) | Confirmed | valid `high` → auth fail exit 1 (no warning); invalid `bogus` → `Warning: Invalid thinking level "bogus". Valid values: off, minimal, low, medium, high, xhigh, max` then auth fail — local validation still present and unchanged |
+| P10 | Output contract | Blocked | auth unavailable |
+| P11 | Argument-parsing footguns | Confirmed | `"<prompt>" --model … --thinking low` parsed correctly; auth failure is the only exit — no arg-parsing regression |
+| P12 | New-model dispatch check | Blocked | auth unavailable; catalog shows "No models available" |
+| P13 | Reviewer benchmark | Blocked | auth unavailable |
+
+**matrix_green: false** — live end-to-end dispatch not achieved; `verified-version` not stamped.
+**PR proposed** (automated/drift-pi-20260731): pack.md `< /dev/null` correction only. Stamp deferred until auth is restored and P2/P5/P6/P8/P10/P12 are re-run.
+
+**Regression dispositions:**
+- P4 refutation (`< /dev/null` mandatory): propose as permanent probe in `core/verification-protocol.md` — P4 already covers this behavior; no further protocol change needed (the existing P4 probe is correct; the pack fact was stale). Filed: #71.
+
 ## 2026-07-25 — plugin renamed to Swingle (v2.0.0)
 
 The plugin `sdd-dispatch` is renamed `swingle` at v2.0.0 (`sdd-dispatch-marketplace` →

@@ -106,3 +106,34 @@ The plugin `sdd-dispatch` is renamed `swingle` at v2.0.0 (`sdd-dispatch-marketpl
 `discreteds/swingle`). Entries above predate the rename and keep the old names as
 historical record. No pack facts or probe results changed in this release.
 
+---
+
+## 2026-07-31 — claude 2.1.220 (trigger: version bump from 2.1.218)
+
+**Guidance (all lanes):** Always append `< /dev/null` for headless subprocess dispatch — P4 (below) confirmed that `claude -p` hangs indefinitely when stdin is a never-closing non-tty pipe. Prior tty-context probes did not trigger this; subprocess dispatch always uses pipes.
+
+Run id: drift-verify-claude-20260731-095711-A672CECB. Changelog reviewed for 2.1.219 (Opus 5 added as default, `< /dev/null` not mentioned) and 2.1.220 (bug fixes only). Controller: Claude Code (claude-sonnet-4-6).
+
+| Probe | Assertion under test | Verdict | Evidence |
+| --- | --- | --- | --- |
+| P1 | Version & surface | Confirmed | claude 2.1.220; headless surface unchanged (`-p`/`--print`, `--model`, `--effort`, `--output-format`, `--add-dir`, `--permission-mode`, `--session-id`, `--resume`, `--fork-session`, `--allow-dangerously-skip-permissions`, `--bare`, `--bg`, `--agents`, `--allowedTools`). New flags since 2.1.218: `--agents`, `--allow-dangerously-skip-permissions`, `--allowedTools` visible in `--help` |
+| P2 | `claude -p --model haiku "<prompt>"` dispatches | Confirmed | PONG, exit 0; clean stdout |
+| P2 (json) | `--output-format json` shape | Refined | carries `total_cost_usd`, `duration_api_ms`, `fast_mode_state`, `fast_mode_disabled_reason`, `permission_denials`, `terminal_reason`, `ttft_ms`, `uuid` keys in addition to the prior `{session_id, result, is_error, num_turns, modelUsage}` — shape has expanded; core keys unchanged |
+| P3 | Bogus model error path | Confirmed | `--model this-model-does-not-exist-99` → exit 1, "It may not exist or you may not have access. Run --model to pick" — error text wording slightly changed ("There's an issue with the selected model…"), same semantics |
+| P4 | stdin protection in pipe context | **Refuted prior "No"** | HUNG 60 s (exit 143) when stdin is a never-closing FIFO (non-tty pipe). Prior claim "No — every probe ran without a stdin redirect and none hung" was observed from a tty context only. Pipe context → mandatory. Filed #73. Dispatch template updated to include `< /dev/null`. |
+| P5 | Read (no flags) | Confirmed | XYZZY42, exit 0 |
+| P6 (no bypass) | Write/shell silent no-op | Confirmed | file-write: exits 0, nothing on disk, narrates "please approve"; shell: exits 0, nothing on disk, narrates "blocked by permissions" |
+| P6 (bypass) | Write/shell with `--dangerously-skip-permissions` | Inferred unchanged | classifier blocks flag from Claude Code controller; no relevant 2.1.219/2.1.220 changelog entry; 2.1.218 operator-confirmed write+shell still the standing record |
+| P7 | Sandbox escape | N/A | sandbox: none |
+| P8 | Git commit inside workspace | Inferred unchanged | sandbox:none + P6 shell pattern unchanged ⇒ .git writable; same standing inference as 2.1.218 |
+| P9 | `--effort` knob | Confirmed | valid `low` → PONG exit 0; invalid `bogus` → warning "Valid values: low, medium, high, xhigh, max" then PONG exit 0 |
+| P10 | Output contract | Confirmed | clean stdout document (410 chars); JSON `result` key contains full answer; `--output-format json` returns complete artifact in-band |
+| P11 | Argument-parsing footguns | Confirmed | flags-after-prompt parse correctly; `-p "<prompt>"` works; no footguns observed |
+| P12 | haiku alias resolution | Confirmed | haiku→claude-haiku-4-5-20251001 (snapshot pinned; canonicalModel claude-haiku-4-5) |
+| P12 | sonnet alias resolution | Confirmed | sonnet→claude-sonnet-5 (unchanged) |
+| P12 | opus alias resolution | **Refuted prior "claude-opus-4-8"** | opus→claude-opus-5 (1M context; added in cli 2.1.219 as default Opus). Filed #43. models.yaml and models.md updated. |
+| P13 (sonnet) | Reviewer known-defect benchmark | Passed | 2/2 runs: required defect cited at Important ("IsADirectoryError / PermissionError / UnicodeDecodeError reaching read_text()"), assessment Needs fixes — consistent with 2026-07-25 result |
+| P13 (opus = claude-opus-5) | Reviewer known-defect benchmark | Passed | 2/2 runs: required defect cited at Important, assessment Needs fixes — generation bump (4-8→5) did not regress review quality; clears bar with nudged contract |
+
+**verified-version stamped 2.1.220** — matrix_green true (all probes ran and returned definitive results; P4 is a new finding not a blocker; P6 bypass and P8 inferred from unchanged evidence). Structural fix (P4: pipe-context hang is a CLI property, not a prompt issue) and pack-fact update (opus alias). PR type: structural fix (P4) + fact correction (P12 opus).
+

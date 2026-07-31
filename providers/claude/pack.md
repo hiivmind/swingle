@@ -2,7 +2,7 @@
 schema-version: 1
 id: claude
 cli: claude
-verified-version: "2.1.218"
+verified-version: "2.1.220"
 version-argv: ["claude", "--version"]
 resume-argv: ["claude", "-p", "--resume", "{session_id}"]
 fork-flag: "--fork-session"
@@ -12,12 +12,12 @@ report-transport: report-file
 sandbox: none
 ---
 
-## Cross-CLI comparison — claude cells (verified 2.1.218, 2026-07-24)
+## Cross-CLI comparison — claude cells (verified 2.1.220, 2026-07-31)
 
-| Property | claude 2.1.218 |
+| Property | claude 2.1.220 |
 | --- | --- |
 | Prompt argument | **positional / trailing**; flags parse in any position (no `-p`-eats-next-arg, no `-p`=password trap). `-p`/`--print` selects non-interactive mode and is REQUIRED for headless dispatch — without it `claude` launches the interactive TUI. |
-| `< /dev/null` needed | No — every probe ran without a stdin redirect and none hung. (P4 unclosed-pipe backstop not yet run; harmless insurance if wanted.) |
+| `< /dev/null` needed | **Yes in subprocess/pipe context.** P4 (2026-07-31): with a never-closing non-tty pipe stdin, `claude -p` hangs indefinitely (confirmed 60 s backstop, exit 143). Prior probes ran from a tty (Claude Code bash tool) — tty stdin does not block; pipe stdin does. Always append `< /dev/null` for headless subprocess dispatch. (#73) |
 | Sandbox | **None** — Claude Code ships no built-in OS sandbox. `--dangerously-skip-permissions` is documented "Recommended only for sandboxes with no internet access"; containment is external (containers). Treat every dispatch as full-host capability, gated only by the permission mode. |
 | Permission flags | Reads run headless with **no flag**. Writes and shell require `--dangerously-skip-permissions` (equivalently `--permission-mode bypassPermissions`). `acceptEdits` / `auto` / `dontAsk` do **not** grant writes headless — they still raise an approval prompt that no one can answer under `-p`, so the action **silently no-ops with exit 0** (see below). `--permission-mode plan` is an enforced read-only lane. |
 | Exit codes | 0 success; **bogus model → exit 1** with a clean local error ("It may not exist or you may not have access. Run --model to pick"). Fails fast — no dispatch to a typo'd model. |
@@ -106,7 +106,7 @@ claude -p --model <alias> --session-id <uuid> --effort <low|medium|high|xhigh|ma
    Read $WORKSPACE/task-N-brief.md — your complete requirements. \
    Scene: <one line: where this task fits>. \
    Interfaces from prior tasks: <lines, or 'none'>. \
-   Write your full report to $WORKSPACE/task-N-report.md. Begin."
+   Write your full report to $WORKSPACE/task-N-report.md. Begin." < /dev/null
 ```
 
 Reviewer dispatches drop `--dangerously-skip-permissions` for `--permission-mode plan`

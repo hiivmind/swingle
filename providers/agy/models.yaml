@@ -7,15 +7,57 @@ models:
     model: gemini-3.6-flash-low
     status: verified
     rationale: "current Flash workhorse; cheapest dispatch lane"
+  - tier: cheapest
+    lane: any
+    priority: 2
+    model: gemini-3.5-flash-low
+    status: verified
+    rationale: "verified 2026-07-31 (1.1.9): dispatches cleanly; alternate cheapest tier"
   - tier: standard
     lane: any
     priority: 1
     model: gemini-3.6-flash-medium
     status: verified
     rationale: "verified 2026-07-23: implement + 2 task reviews + resume, all clean gates"
+  - tier: standard
+    lane: any
+    priority: 2
+    model: gemini-3.5-flash-medium
+    status: verified
+    rationale: "verified 2026-07-31 (1.1.9): dispatches cleanly; alternate standard tier"
+  - tier: standard
+    lane: any
+    priority: 3
+    model: claude-sonnet-4-6
+    status: verified
+    rationale: "verified 2026-07-31 (1.1.9): dispatches cleanly; passes P13 reviewer benchmark — qualifies for review lane"
   - tier: most-capable
     lane: any
     priority: 1
     model: gemini-3.1-pro-high
     status: verified
-    rationale: "agy's only Pro; verified 2026-07-23 final whole-branch review"
+    rationale: "agy's primary Pro; verified 2026-07-23 final whole-branch review"
+  - tier: most-capable
+    lane: any
+    priority: 2
+    model: gemini-3.1-pro-low
+    status: verified
+    rationale: "verified 2026-07-31 (1.1.9): dispatches cleanly; Pro-tier lower reasoning effort"
+  - tier: most-capable
+    lane: any
+    priority: 3
+    model: claude-opus-4-6-thinking
+    status: verified
+    rationale: "verified 2026-07-31 (1.1.9): dispatches cleanly; Claude Opus with extended thinking"
+  - tier: most-capable
+    lane: any
+    priority: 4
+    model: gpt-oss-120b-medium
+    status: verified
+    rationale: "verified 2026-07-31 (1.1.9): dispatches cleanly; 120B open-weights model"
+  - tier: standard
+    lane: any
+    priority: 4
+    model: gemini-3.5-flash-high
+    status: verified
+    rationale: "verified 2026-07-31 (1.1.9): dispatches cleanly; high-effort Flash variant"

@@ -66,6 +66,19 @@ def test_grok_provider_preamble_is_relocated_not_dropped(tmp_path):
     assert (tmp_path / "providers/grok/verification-log.md").read_text() == sl.index_text("grok")
 
 
+def test_original_claude_preamble_is_known_boilerplate():
+    """Fixture copied from 7ac6c8e:providers/claude/verification-log.md."""
+    preamble = (
+        "# SDD Dispatch Verification Log — claude\n\n"
+        "Append-only. Never rewrite prior entries — a later contradiction dates a behavior change.\n"
+        "Format per [verification-protocol.md](../../core/verification-protocol.md).\n\n"
+        "---\n\n"
+    ).encode()
+    assert sl.unexpected_preamble_paragraphs("claude", preamble) == []
+    generic = preamble.replace(" — claude".encode(), b"").replace(b"../../", b"../../../")
+    assert sl.unexpected_preamble_paragraphs("claude", generic) == []
+
+
 def test_unexpected_provider_preamble_is_reported_for_relocation(tmp_path):
     directory = tmp_path / "providers" / "alpha"
     directory.mkdir(parents=True)

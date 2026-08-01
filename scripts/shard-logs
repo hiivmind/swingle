@@ -125,14 +125,23 @@ def map_entries(provider, old_entries, shard_entries):
 
 def unexpected_preamble_paragraphs(provider, preamble):
     """Return non-boilerplate paragraphs that require an explicit relocation."""
-    allowed = {
-        f"# SDD Dispatch Verification Log — {provider}",
+    allowed_lines = {
         "Append-only. Never rewrite prior entries — a later contradiction dates a behavior change.",
+        "Format per [verification-protocol.md](../../core/verification-protocol.md).",
         "Format per [verification-protocol.md](../../../core/verification-protocol.md).",
-        "---",
     }
-    return [paragraph for paragraph in re.split(r"\n[ \t]*\n", preamble.decode("utf-8"))
-            if paragraph.strip() and paragraph.strip() not in allowed]
+    titles = {
+        "# SDD Dispatch Verification Log",
+        f"# SDD Dispatch Verification Log — {provider}",
+    }
+    unexpected = []
+    for paragraph in re.split(r"\n[ \t]*\n", preamble.decode("utf-8")):
+        lines = [line.strip() for line in paragraph.splitlines() if line.strip()]
+        if not lines or all(line == "---" or line in titles or line in allowed_lines
+                            for line in lines):
+            continue
+        unexpected.append(paragraph)
+    return unexpected
 
 
 def migrate_provider(root, provider, write, source_revision=None):

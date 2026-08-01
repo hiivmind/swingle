@@ -58,10 +58,9 @@ the minimum setting that permits writes.
 
 **P6 must also probe shell-command execution, not only file tools**: dispatch `Run the
 shell command 'echo P6CMD > cmdtest.txt' and report its output.` and verify on disk.
-File-tool and command permissions are separately gated on some providers (agy ≥1.1.4
-allows file read/write under default persisted policy but auto-denies the `command`
-permission headless — a gap the file-only probe missed for two verification rounds).
-Record the file-tool and command verdicts separately.
+File-tool and command permissions are separately gated on some providers (see
+the provider verification logs). Record the file-tool and command verdicts
+separately.
 
 ### P7 — Sandbox escape (only if a sandbox is claimed)
 
@@ -138,10 +137,10 @@ restriction is itself guidance. Publish instructions, never verdicts: between
 discovering a failure and understanding it, the honest artifact is an open issue, and
 *"pin the previous version for this lane / route the lane elsewhere, tracking #N"* is
 always available as the instruction when no workaround exists, so a published entry is
-never instruction-free. The worked example is agy 1.1.7: what that incident taught was
-not "broken" — it was *forbid shell for reviewers; restrict implementers to single
-simple commands*, the instruction that makes agy work, which later versions inherit
-without a second entry.
+never instruction-free. Example of the form:
+`**Guidance (review, implement):** forbid shell for reviewers; restrict
+implementers to single simple commands` — see the originating provider log entry
+for its evidence.
 
 **A user's local record.** A user who cannot write to the source records their own
 operating instructions in `${XDG_CONFIG_HOME:-~/.config}/swingle/verification/<id>.md`

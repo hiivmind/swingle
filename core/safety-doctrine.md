@@ -20,9 +20,9 @@ for write work and structured reviews; use other packs for perspective diversity
 ## A missing status block is unknown, never success
 
 The four-status vocabulary (DONE / DONE_WITH_CONCERNS / NEEDS_CONTEXT / BLOCKED) is a
-contract the agent may simply not honor: cheapest-tier models have been observed ignoring
-it and returning a prose "## Status" section instead, while the same provider's standard
-tier emitted the exact block every time (2026-07-23, agy). Whatever reads that block —
+contract the agent may simply not honor: a cheap tier can return a prose status section
+instead of the block (see core/verification-log.md, "2026-07-23 — supervised-delegate
+rules verified behaviorally (v1.4.0)" entry). Whatever reads that block —
 controller or supervisor — **must treat an absent or non-conforming block as UNKNOWN and
 escalate to the controller's own evidence**, never infer DONE from prose that sounds
 finished, and never paraphrase it into a status token that was not emitted. A supervisor

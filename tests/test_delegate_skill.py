@@ -214,10 +214,11 @@ def test_both_skills_route_unimplemented_artifacts_to_the_design_contract():
 
 def test_status_vocabulary_is_required_inline_in_prompts():
     # playbook E1a: contracts move by path, the four status tokens move in the prompt.
+    required = "STATUS: DONE | DONE_WITH_CONCERNS | NEEDS_CONTEXT | BLOCKED"
     for f in (ROOT / "core" / "playbook.md", SKILL, SDD_SKILL):
         text = " ".join(f.read_text().split())
-        assert "inline" in text.lower() and "STATUS: DONE" in text, \
-            f"{f}: inline status-vocabulary rule missing"
+        assert "inline" in text.lower() and required in text, \
+            f"{f}: complete inline status-vocabulary rule missing"
 
 
 def test_explicit_model_rule_is_stated_in_roles():

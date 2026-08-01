@@ -69,6 +69,14 @@ because the shell used `;`. The gate is a precondition, not a preceding step.
   a re-verify round.
 - `verified-version` in a pack manifest is stamped only by live end-to-end dispatch
   evidence, recorded in that pack's verification log.
+- **Core doctrine states requirements.** A rule in `core/` says what to do and when;
+  it does not retell the incident, experiment, or date that produced it. Evidence
+  lives in verification logs (append-only, dated — that is their job); a rule that
+  rests on recorded evidence cites the log entry, never restates its story.
+  A **failure mode** — a timeless causal condition, stated without dates, provider
+  or version identifiers, sample counts, or observed-run outcomes — may be named in
+  one or two sentences when the rule is unintelligible without it. Any of those
+  excluded features makes it **failure history**, which never appears in a rule body.
 
 ## Layout contract
 

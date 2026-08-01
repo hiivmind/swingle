@@ -24,6 +24,10 @@ def isolated_env(**overrides):
             e[name] = value
     return e
 
+def health_line(p, installed="no", version="-", verified="1.0.0", drift="no", readiness="skipped", layer="default"):
+    return (f"{p}: installed={installed} version={version} verified={verified} "
+            f"drift={drift} readiness={readiness} registry-layer={layer}")
+
 def test_no_such_xdg_fixture_stays_absent():
     """isolated_env's XDG redirect only isolates while this path does not exist."""
     assert not (FIX / "no-such-xdg").exists()
@@ -379,40 +383,46 @@ def make_health_test_root(tmp_path, providers=("alpha", "beta")):
         (pdir / "verification-log.md").write_text(f"# {p} log\n")
     return root
 
-def test_health_installed_and_uninstalled(tmp_path):
+def test_health_installed_and_uninstalled_inprocess(tmp_path, monkeypatch):
     root = make_health_test_root(tmp_path, ("alpha", "beta"))
-    bin_dir = tmp_path / "bin"; bin_dir.mkdir()
-    cli = bin_dir / "alpha-cli"
-    cli.write_text("#!/bin/sh\nif [ \"$1\" = \"--version\" ]; then echo \"1.0.0\"; else echo \"ready\"; fi\n")
-    cli.chmod(0o755)
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(FIX / "no-such-xdg"))
+    monkeypatch.delenv("SWINGLE_CONFIG", raising=False)
+    monkeypatch.delenv("SWINGLE_MODELS", raising=False)
+    monkeypatch.setattr(vp, "is_provider_installed", lambda fm, pd: fm["id"] == "alpha")
+    monkeypatch.setattr(vp, "run_argv", lambda argv, pd, t: (0, "1.0.0" if "--version" in argv else "ready"))
+    out = io.StringIO()
+    with contextlib.redirect_stdout(out):
+        monkeypatch.setattr(sys, "argv", ["validate-packs", "--health", "--root", str(root)])
+        assert vp.main() == 0
+    assert health_line("alpha", installed="yes", version="1.0.0", readiness="ok") in out.getvalue()
+    assert health_line("beta") in out.getvalue()
+    assert "config-layer=none" in out.getvalue()
 
-    r = run("--health", "--root", str(root), "--path-dir", str(bin_dir))
-    assert r.returncode == 0
-    assert "alpha: installed=yes version=1.0.0 verified=1.0.0 drift=no readiness=ok registry-layer=default" in r.stdout
-    assert "beta: installed=no version=- verified=1.0.0 drift=no readiness=skipped registry-layer=default" in r.stdout
-    assert "config-layer=none" in r.stdout
-
-def test_health_version_drift(tmp_path):
+def test_health_version_drift_inprocess(tmp_path, monkeypatch):
     root = make_health_test_root(tmp_path, ("alpha",))
-    bin_dir = tmp_path / "bin"; bin_dir.mkdir()
-    cli = bin_dir / "alpha-cli"
-    cli.write_text("#!/bin/sh\nif [ \"$1\" = \"--version\" ]; then echo \"2.0.0\"; else echo \"ready\"; fi\n")
-    cli.chmod(0o755)
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(FIX / "no-such-xdg"))
+    monkeypatch.delenv("SWINGLE_CONFIG", raising=False)
+    monkeypatch.delenv("SWINGLE_MODELS", raising=False)
+    monkeypatch.setattr(vp, "is_provider_installed", lambda fm, pd: fm["id"] == "alpha")
+    monkeypatch.setattr(vp, "run_argv", lambda argv, pd, t: (0, "2.0.0" if "--version" in argv else "ready"))
+    out = io.StringIO()
+    with contextlib.redirect_stdout(out):
+        monkeypatch.setattr(sys, "argv", ["validate-packs", "--health", "--root", str(root)])
+        assert vp.main() == 0
+    assert health_line("alpha", installed="yes", version="2.0.0", drift="yes", readiness="ok") in out.getvalue()
 
-    r = run("--health", "--root", str(root), "--path-dir", str(bin_dir))
-    assert r.returncode == 0
-    assert "alpha: installed=yes version=2.0.0 verified=1.0.0 drift=yes readiness=ok registry-layer=default" in r.stdout
-
-def test_health_readiness_fail(tmp_path):
+def test_health_readiness_fail_inprocess(tmp_path, monkeypatch):
     root = make_health_test_root(tmp_path, ("alpha",))
-    bin_dir = tmp_path / "bin"; bin_dir.mkdir()
-    cli = bin_dir / "alpha-cli"
-    cli.write_text("#!/bin/sh\nif [ \"$1\" = \"--version\" ]; then echo \"1.0.0\"; else exit 1; fi\n")
-    cli.chmod(0o755)
-
-    r = run("--health", "--root", str(root), "--path-dir", str(bin_dir))
-    assert r.returncode == 0
-    assert "alpha: installed=yes version=1.0.0 verified=1.0.0 drift=no readiness=fail registry-layer=default" in r.stdout
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(FIX / "no-such-xdg"))
+    monkeypatch.delenv("SWINGLE_CONFIG", raising=False)
+    monkeypatch.delenv("SWINGLE_MODELS", raising=False)
+    monkeypatch.setattr(vp, "is_provider_installed", lambda fm, pd: fm["id"] == "alpha")
+    monkeypatch.setattr(vp, "run_argv", lambda argv, pd, t: (0, "1.0.0") if "--version" in argv else (1, ""))
+    out = io.StringIO()
+    with contextlib.redirect_stdout(out):
+        monkeypatch.setattr(sys, "argv", ["validate-packs", "--health", "--root", str(root)])
+        assert vp.main() == 0
+    assert health_line("alpha", installed="yes", version="1.0.0", readiness="fail") in out.getvalue()
 
 def test_health_readiness_timeout(tmp_path, monkeypatch):
     root = make_health_test_root(tmp_path, ("alpha",))
@@ -425,6 +435,9 @@ def test_health_readiness_timeout(tmp_path, monkeypatch):
     # shortened timeout below. Pay that cost outside the timed probes.
     subprocess.run([str(cli), "--version"], capture_output=True)
 
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(FIX / "no-such-xdg"))
+    monkeypatch.delenv("SWINGLE_CONFIG", raising=False)
+    monkeypatch.delenv("SWINGLE_MODELS", raising=False)
     monkeypatch.setattr(vp, "HEALTH_PROBE_TIMEOUT_SECONDS", 0.5)
 
     out = io.StringIO()
@@ -434,7 +447,7 @@ def test_health_readiness_timeout(tmp_path, monkeypatch):
 
     output = out.getvalue()
     assert exit_code == 0
-    assert "alpha: installed=yes version=1.0.0 verified=1.0.0 drift=no readiness=timeout registry-layer=default" in output
+    assert health_line("alpha", installed="yes", version="1.0.0", readiness="timeout") in output
 
 def test_health_version_probe_timeout_reports_no_version(tmp_path, monkeypatch):
     # Regression: a timed-out version probe must report version=-, never a number
@@ -446,6 +459,9 @@ def test_health_version_probe_timeout_reports_no_version(tmp_path, monkeypatch):
     cli.write_text(f"#!/bin/sh\n{sys.executable} -c \"import time; time.sleep(2)\"\n")
     cli.chmod(0o755)
 
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(FIX / "no-such-xdg"))
+    monkeypatch.delenv("SWINGLE_CONFIG", raising=False)
+    monkeypatch.delenv("SWINGLE_MODELS", raising=False)
     monkeypatch.setattr(vp, "HEALTH_PROBE_TIMEOUT_SECONDS", 0.1)
 
     out = io.StringIO()
@@ -454,7 +470,7 @@ def test_health_version_probe_timeout_reports_no_version(tmp_path, monkeypatch):
         exit_code = vp.main()
 
     assert exit_code == 0
-    assert "alpha: installed=yes version=- verified=1.0.0 drift=yes readiness=timeout registry-layer=default" in out.getvalue()
+    assert health_line("alpha", installed="yes", drift="yes", readiness="timeout") in out.getvalue()
 
 def test_health_registry_layers(tmp_path):
     root = make_health_test_root(tmp_path, ("alpha",))
@@ -466,7 +482,7 @@ def test_health_registry_layers(tmp_path):
 
     r = run("--health", "--root", str(root), "--project", str(proj))
     assert r.returncode == 0
-    assert "alpha: installed=no version=- verified=1.0.0 drift=no readiness=skipped registry-layer=project" in r.stdout
+    assert health_line("alpha", layer="project") in r.stdout
 
 def test_health_config_layers(tmp_path):
     root = make_health_test_root(tmp_path, ("alpha",))
@@ -553,7 +569,7 @@ def test_health_never_exits_nonzero_for_env_states(tmp_path):
 
     r = run_env("--health", "--root", str(root), "--path-dir", str(bin_dir), SWINGLE_CONFIG=str(tmp_path / "missing.json"))
     assert r.returncode == 0
-    assert "alpha: installed=yes version=9.9.9 verified=1.0.0 drift=yes readiness=fail registry-layer=default" in r.stdout
+    assert health_line("alpha", installed="yes", version="9.9.9", drift="yes", readiness="fail") in r.stdout
     assert "config-layer=env-unreadable" in r.stdout
 
 def test_health_provider_scoping(tmp_path):
@@ -574,7 +590,7 @@ def test_health_detects_cli_on_inherited_path(tmp_path):
     new_path = str(bin_dir) + os.pathsep + os.environ.get("PATH", "")
     r = run_env("--health", "--root", str(root), PATH=new_path)
     assert r.returncode == 0
-    assert "alpha: installed=yes version=1.0.0 verified=1.0.0 drift=no readiness=ok registry-layer=default" in r.stdout
+    assert health_line("alpha", installed="yes", version="1.0.0", readiness="ok") in r.stdout
 
 def test_config_superpowers_block_accepted():
     r = run("--check-config", str(FIX / "config-superpowers-good.json")); assert r.returncode == 0, r.stdout

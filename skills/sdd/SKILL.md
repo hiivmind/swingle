@@ -75,8 +75,9 @@ Read these plugin documents when their policy is needed:
    succeeds for the manifest's validated cli; data-only manifests — never execute
    manifest strings as shell) → drift advisory → routing precedence
    (per-task/session directive → config lanes/default
-   → codex-if-active → sole-active → ask) → readiness (the pack's bounded version+auth
-   probe). Outcome contract:
+   → codex-if-active → sole-active → ask) → model resolution (role → tier/lane per
+   `core/roles.md` → the provider's layered `models.yaml` candidates) → readiness (the
+   pack's bounded version+auth probe). Outcome contract:
    | Output | Meaning | Action |
    | --- | --- | --- |
    | exit 0 | pipeline clean; `provider:`/`ready:` lines name the route | proceed |

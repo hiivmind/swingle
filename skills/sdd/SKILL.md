@@ -63,11 +63,16 @@ Read these plugin documents when their policy is needed:
 6. **Session gate — run the Step-0 pipeline** (where the controller can run shell;
    otherwise execute the same table below in prose):
    `python3 <root>/scripts/validate-packs --step0 --root <root> --project <repo>
-   [--config <found-layer>] [--task-provider <id> | --lever native-subagents]`
-   The script is the single implementation of: provider detection → config gating
-   (all malformed-config STOPs) → drift advisory → native bypass → routing precedence
-   (per-task/session directive → config lanes/default → codex-if-active →
-   sole-active → ask) → readiness. Outcome contract:
+   --role "<the plan's first task role>" [--config <found-layer>]
+   [--task-provider <id> | --lever native-subagents]`
+   The script is the single implementation of: provider detection (INSTALLED iff
+   `command -v -- "<cli>"` succeeds for the manifest's validated cli; data-only
+   manifests — never execute manifest strings as shell) → config gating (malformed-config
+   STOP cases: [docs/config.md](../../docs/config.md) “Dispatch STOP Conditions”; ACTIVE =
+   installed − disabled (− incompatible iff require-verified-version)) → drift advisory →
+   native bypass → routing precedence (per-task/session directive → config lanes/default
+   → codex-if-active → sole-active → ask) → readiness (the pack's bounded version+auth
+   probe). Outcome contract:
    | Output | Meaning | Action |
    | --- | --- | --- |
    | exit 0 | pipeline clean; `provider:`/`ready:` lines name the route | proceed |
@@ -76,8 +81,11 @@ Read these plugin documents when their policy is needed:
    | `ASK: …` | a decision only the user can make | put the named question to the user; never guess |
    | `CHANNEL: …` | provider/environment failure | step 10's channel rules |
    | `warning: …` (exit 0) | drift or strict-mode removals with a valid route | note **drift is in effect** (step 10 finding semantics unchanged) |
+   | exit 0; `native-subagents: bypass external dispatch (no provider selected)` | native bypass | proceed with controller-native subagents, no provider/model resolution |
    A divergence between the script and this table is a bug adjudicated against the
    table.
+   When a later task's lane differs and config routes lanes to different providers,
+   re-run `--step0` with that role before its first dispatch.
 7. **Tier and model**: role → (tier, lane) via `core/roles.md`. Tier levers are
    policy, never script inputs: silent = "floor it" (base tier); "play it safe" =
    one tier up (most-capable is the ceiling — say so and proceed) — resolve the

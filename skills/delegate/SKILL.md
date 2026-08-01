@@ -90,18 +90,23 @@ Read these plugin documents when their policy is needed:
    `python3 <root>/scripts/validate-packs --step0 --root <root> --project <repo>
    --role "<roles.md row>" [--config <found-layer>]
    [--task-provider <id> | --lever native-subagents]`
-   The script is the single implementation of: provider detection → config gating
-   (all malformed-config STOPs) → drift advisory → native bypass → routing precedence
-   (per-task/session directive → config lanes/default → codex-if-active →
-   sole-active → ask) → readiness. Outcome contract:
+   The script is the single implementation of: provider detection (INSTALLED iff
+   `command -v -- "<cli>"` succeeds for the manifest's validated cli; data-only
+   manifests — never execute manifest strings as shell) → config gating (malformed-config
+   STOP cases: [docs/config.md](../../docs/config.md) “Dispatch STOP Conditions”; ACTIVE =
+   installed − disabled (− incompatible iff require-verified-version)) → drift advisory →
+   native bypass → routing precedence (per-task/session directive → config lanes/default
+   → codex-if-active → sole-active → ask) → readiness (the pack's bounded version+auth
+   probe). Outcome contract:
    | Output | Meaning | Action |
    | --- | --- | --- |
    | exit 0 | pipeline clean; `provider:`/`ready:` lines name the route | proceed |
    | unprefixed finding | invalid manifest/config (implicit STOP) | halt; fix or surface |
    | `STOP: …` | invalid input (e.g. unknown role) | halt; fix or surface |
    | `ASK: …` | a decision only the user can make | put the named question to the user; never guess |
-   | `CHANNEL: …` | provider/environment failure | step 10's channel rules |
-   | `warning: …` (exit 0) | drift or strict-mode removals with a valid route | note **drift is in effect** (step 10 finding semantics unchanged) |
+   | `CHANNEL: …` | provider/environment failure | Failure handling |
+   | `warning: …` (exit 0) | drift or strict-mode removals with a valid route | note **drift is in effect** (Failure handling finding semantics unchanged) |
+   | exit 0; `native-subagents: bypass external dispatch (no provider selected)` | native bypass | proceed with controller-native subagents, no provider/model resolution |
    A divergence between the script and this table is a bug adjudicated against the
    table.
 4. **Tier and model**: role → (tier, lane) via `core/roles.md`. Tier levers are

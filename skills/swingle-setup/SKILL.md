@@ -45,7 +45,7 @@ The setup skill operates in strictly ordered phases. Phase A is always read-only
    - **Set-but-unreadable `$SWINGLE_CONFIG`** (finding wording matches dispatch STOP; offered fix: unset or repair).
 4. **Registry layer record**: from `--health` output, record the **currently-resolving layer per provider** before any Phase C offer is composed — offers are computed against this record.
 5. **Legacy namespace residue**: check for presence of `<project>/.sdd-dispatch.json`, `<project>/.sdd-dispatch/`, `${XDG_CONFIG_HOME:-~/.config}/sdd-dispatch/`, and set `$SDD_DISPATCH_CONFIG` / `$SDD_DISPATCH_MODELS` environment variables. For a legacy project directory, classify its contents: **pure-untracked vs contains-tracked-files** (`git ls-files .sdd-dispatch/` non-empty), and whether the new-name target (`.swingle/`) already exists.
-6. **Controller/provider baselines**: inspect each installed provider's pack-declared, local-state-only setup preconditions read from pack manifests at run time. Inspect the controller's own install state (e.g. opencode `skills.paths` pinning) per its controller adapter.
+6. **Controller/provider baselines**: resolve the provider body using the Recording rules in `<root>/core/verification-protocol.md`, then read the pack manifest and resolved `versions/<verified-version>.md` body before inspecting each installed provider's declared, local-state-only setup preconditions. Inspect the controller's own install state (e.g. opencode `skills.paths` pinning) per its controller adapter.
 7. **Workspace ignore state**: check whether `.swingle/` scratch directory is covered by `.git/info/exclude` or `.gitignore` in the current repository (informational; dispatch skills self-heal this).
 8. **Superpowers availability records**: read the `superpowers` key from the USER-layer config file directly (environment facts ignore the layered precedence walk): report each provider's recorded `installed`/`version`/`probed` fact and flag providers with no record. These facts gate the dispatch skills' worktree-dispatch lever.
 
@@ -75,8 +75,10 @@ config: none found (dispatch uses built-in defaults)      legacy paths: ~/.confi
 ### Superpowers probe (per provider, one dispatch each)
 
 Offer per installed provider (consent — each probe costs one live dispatch).
-Dispatch mechanics, provider-neutral: the pack's canonical dispatch
-template; model = the cheapest-tier read lane per the roles table; readiness
+Dispatch mechanics, provider-neutral: resolve and read the provider body by the Recording
+rules in `<root>/core/verification-protocol.md` (the current
+`versions/<verified-version>.md` file); use the manifest plus that resolved body's canonical
+dispatch template; model = the cheapest-tier read lane per the roles table; readiness
 checked first via the pack's readiness/version argv (skip and report if not
 ready); output collected per the pack's `report-transport` (`captured-output`
 packs: the captured final message; `report-file` packs: STILL request no file —
@@ -116,7 +118,7 @@ The skill never performs the following operations directly:
 - **No writes to project-tracked files** (offer the `git mv`/diff for the user's own commit instead). Consented writes *outside* the project repo, such as a provider's persisted settings file or user-level config (`~/.config/swingle/config.json`), are legitimate Phase C writes, not exceptions to this rule.
 - No uninvited writes of any kind — every filesystem change is individually consented in Phase C.
 - No interactive authentication flows.
-- No provider-specific command strings hardcoded in the skill — every CLI name, argv, and baseline procedure is read from pack manifests and prose at run time. Purity boundary: `skills/**` stays free of model IDs and CLI invocation strings.
+- No provider-specific command strings hardcoded in the skill — every CLI name, argv, and baseline procedure is read from the pack manifest and registry-resolved provider body at run time. Purity boundary: `skills/**` stays free of model IDs and CLI invocation strings.
 
 ## Write inventory (Phase C)
 

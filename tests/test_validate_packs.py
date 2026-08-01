@@ -220,6 +220,19 @@ def test_symlinked_versions_dir_is_finding(tmp_path):
     r = run("--root", str(root))
     assert r.returncode == 1 and "versions/ must not be a symlink" in r.stdout
 
+
+def test_symlinked_log_dir_is_finding(tmp_path):
+    """A log directory symlink must be rejected before its target is inspected."""
+    root = tmp_path / "root"; shutil.copytree(FIX / "good-yaml", root)
+    pack = root / "providers" / "alpha"
+    external = tmp_path / "external-log"; external.mkdir()
+    (external / "2026-01.md").write_text("## 2026-01-01 -- external\n")
+    shutil.rmtree(pack / "log")
+    (pack / "log").symlink_to(external, target_is_directory=True)
+    r = run("--root", str(root))
+    assert r.returncode == 1 and "log/ must not be a symlink" in r.stdout
+
+
 def test_symlinked_current_file_is_finding(tmp_path):
     root = tmp_path / "root"; shutil.copytree(FIX / "good-yaml", root)
     pack = root / "providers" / "alpha"

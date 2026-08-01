@@ -123,6 +123,18 @@ def map_entries(provider, old_entries, shard_entries):
     return mappings
 
 
+def unexpected_preamble_paragraphs(provider, preamble):
+    """Return non-boilerplate paragraphs that require an explicit relocation."""
+    allowed = {
+        f"# SDD Dispatch Verification Log — {provider}",
+        "Append-only. Never rewrite prior entries — a later contradiction dates a behavior change.",
+        "Format per [verification-protocol.md](../../../core/verification-protocol.md).",
+        "---",
+    }
+    return [paragraph for paragraph in re.split(r"\n[ \t]*\n", preamble.decode("utf-8"))
+            if paragraph.strip() and paragraph.strip() not in allowed]
+
+
 def migrate_provider(root, provider, write, source_revision=None):
     log_path = root / "providers" / provider / "verification-log.md"
     relative_log = log_path.relative_to(root)
@@ -134,6 +146,11 @@ def migrate_provider(root, provider, write, source_revision=None):
         if REVERIFY not in preamble:
             raise ValueError("grok re-verify reading list missing from preamble")
         relocation = "grok preamble: Primary docs for re-verify → versions/0.2.117.md#re-verify-reading-list"
+        preamble = preamble.replace(REVERIFY, b"")
+    unexpected = unexpected_preamble_paragraphs(provider, preamble)
+    if unexpected:
+        details = "\n\n".join(unexpected)
+        raise ValueError(f"{provider}: preamble requires relocation: {details}")
     grouped = {}
     for entry in sorted(old_entries, key=lambda item: (item.date, item.ordinal)):
         grouped.setdefault(entry.date[:7], []).append(entry)

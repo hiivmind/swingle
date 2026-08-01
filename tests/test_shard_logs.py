@@ -42,7 +42,11 @@ def test_grok_provider_preamble_is_relocated_not_dropped(tmp_path):
     for provider in sl.PROVIDERS:
         directory = tmp_path / "providers" / provider
         directory.mkdir(parents=True)
-        preamble = b"# boilerplate\n\n"
+        preamble = (
+            f"# SDD Dispatch Verification Log — {provider}\n\n"
+            "Append-only. Never rewrite prior entries — a later contradiction dates a behavior change.\n\n"
+            "Format per [verification-protocol.md](../../../core/verification-protocol.md).\n\n"
+        ).encode()
         if provider == "grok":
             preamble += sl.REVERIFY + b"\n"
             version = directory / "versions" / "0.2.117.md"
@@ -60,6 +64,18 @@ def test_grok_provider_preamble_is_relocated_not_dropped(tmp_path):
     assert relocation and "Primary docs for re-verify" in relocation
     assert sl.REVERIFY in (tmp_path / "providers/grok/versions/0.2.117.md").read_bytes()
     assert (tmp_path / "providers/grok/verification-log.md").read_text() == sl.index_text("grok")
+
+
+def test_unexpected_provider_preamble_is_reported_for_relocation(tmp_path):
+    directory = tmp_path / "providers" / "alpha"
+    directory.mkdir(parents=True)
+    directory.joinpath("verification-log.md").write_text(
+        "# SDD Dispatch Verification Log — alpha\n\n"
+        "Provider-specific operational restriction.\n\n---\n\n"
+        "## 2026-07-01 -- entry\npayload\n"
+    )
+    with pytest.raises(ValueError, match="preamble requires relocation"):
+        sl.migrate_provider(tmp_path, "alpha", write=False)
 
 
 def test_pairwise_mapping_rejects_a_same_day_payload_swap():

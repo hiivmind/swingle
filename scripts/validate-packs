@@ -388,7 +388,11 @@ def check_repo_docs(root, manifests):
                 if current == entry and (header.group("vcli") != manifest.get("cli") or header.group("vver") != verified_version):
                     find(f"{entry}: current registry file must carry a Verified header naming the manifest cli and version")
         log_dir = pack / "log"
-        entries = sorted(log_dir.iterdir()) if log_dir.is_dir() else []
+        if log_dir.is_symlink():
+            find(f"{log_dir}: log/ must not be a symlink")
+            entries = []
+        else:
+            entries = sorted(log_dir.iterdir()) if log_dir.is_dir() else []
         shards = []
         for e in entries:
             if e.is_file() and not e.is_symlink() and SHARD_FILE_RE.fullmatch(e.name): shards.append(e)

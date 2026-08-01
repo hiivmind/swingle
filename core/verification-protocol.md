@@ -2,7 +2,7 @@
 
 The repeatable probe suite for (re)verifying provider-pack behavior. Run it for a pack when a
 trigger fires (see README.md), then append results to the pack's verification log and update
-its pack.md / models.yaml / models.md.
+its pack.md manifest, current registry body, models.yaml, and models.md.
 
 The invocable form of this process is the plugin's verification skill; the active controller
 adapter supplies the command details.
@@ -25,7 +25,8 @@ pack-specific dispatch template and command surface.
 ### P1 — Version & surface
 
 Record the pack version and inspect its supported dispatch surface and model inventory. Diff
-the findings against the pack's pack.md / models.yaml / models.md.
+the findings against the pack's pack.md manifest, current registry body, models.yaml, and
+models.md.
 
 ### P2 — Trivial dispatch + exit code (success path)
 
@@ -175,9 +176,9 @@ stamp M, evaluate top-down; exactly one row applies:
 | 6 | Y < M, `Y.md` has a `> Verified:` or `> Distilled:` header | frozen — STOP; a stamped historical body is never re-targeted (corrections ride version-scoped guidance) |
 
 Rows 4–5 are how a below-frontier round (a user verifying the CLI they actually run)
-enriches the registry without touching the frontier; row 6 is the only STOP. The
-above-frontier-key validator finding (see the resolution table) tolerates exactly one
-in-flight row-1/2 candidate, until its bump.
+enriches the registry without touching the frontier; row 6 is the only STOP. An
+above-frontier row-1/2 candidate may exist only transiently and uncommitted; it remains
+gate-invalid and always produces a validator finding until the manifest bump.
 
 **Resolution truth table (R5-I1)** — replaces the pack.md fallback everywhere:
 

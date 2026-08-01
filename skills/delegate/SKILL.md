@@ -13,7 +13,8 @@ containing `skills/`, `controllers/`, `core/`, `providers/`, `contracts/`).
 
 **Never dispatch from memory.** Before the first dispatch of a session, read
 `<root>/core/roles.md`, `<root>/core/playbook.md`, `<root>/core/safety-doctrine.md`,
-`<root>/core/liveness.md`, and the active `<root>/providers/<id>/pack.md`. Recalled
+`<root>/core/liveness.md`, and the active provider's `<root>/providers/<id>/pack.md`
+(manifest) plus its resolved registry body. Recalled
 doctrine is a paraphrase of whatever was true when it was learned, and these documents
 change under you — packs are re-verified on every CLI version bump, and tiering, roles,
 and dispatch templates move with them. A dispatch built from memory looks identical to a

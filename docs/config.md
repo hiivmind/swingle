@@ -50,11 +50,12 @@ Top-level keys not recognized in the schema (keys other than `disable`, `default
 
 ## Dispatch STOP Conditions
 
-The `swingle-sdd` skill inline statement is the canonical source for dispatch STOP conditions, which `docs/config.md` quotes verbatim:
+`scripts/validate-packs` config gating is the executable enforcement for dispatch
+configuration. The `swingle-sdd` and `swingle-delegate` outcome tables are the
+operational contract for acting on its results. The numbered list below is this
+document's canonical statement of configuration STOP conditions.
 
-> `disable/steer only; malformed/wrong-typed config, an unknown provider ID in disable, default_provider, or any providers_by_lane value, a disabled default_provider or providers_by_lane target, a malformed superpowers block (including an unknown provider ID within it), or set-but-unreadable $SWINGLE_CONFIG = STOP with the error.`
-
-Dispatch skills (`swingle-sdd` and `swingle-delegate`) enforce a STOP when:
+Dispatch configuration is a STOP when:
 1. The configuration file is malformed JSON or unreadable.
 2. The root JSON structure is not an object.
 3. Any recognized key has an invalid data type.

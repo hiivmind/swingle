@@ -171,7 +171,8 @@ pack.md). Versions are dotted-numeric only; compare numerically per component,
 zero-padding unequal lengths; a suffixed version string is unparseable — treated as
 above-frontier, never as its numeric prefix. Below every snapshot → pack.md's body
 plus the older-than-verified advisory. Guidance entries apply additively on top of
-whichever body resolves.
+whichever body resolves. `require-verified-version` strict mode remains frontier-only;
+a snapshot match does not satisfy it.
 
 **A user's local record.** A user who cannot write to the source records their own
 operating instructions in `${XDG_CONFIG_HOME:-~/.config}/swingle/verification/<id>.md`

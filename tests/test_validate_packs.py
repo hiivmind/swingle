@@ -24,6 +24,10 @@ def isolated_env(**overrides):
             e[name] = value
     return e
 
+def health_line(p, installed="no", version="-", verified="1.0.0", drift="no", readiness="skipped", layer="default"):
+    return (f"{p}: installed={installed} version={version} verified={verified} "
+            f"drift={drift} readiness={readiness} registry-layer={layer}")
+
 def test_no_such_xdg_fixture_stays_absent():
     """isolated_env's XDG redirect only isolates while this path does not exist."""
     assert not (FIX / "no-such-xdg").exists()
@@ -33,6 +37,18 @@ loader = importlib.machinery.SourceFileLoader("validate_packs", str(SCRIPT))
 vp_spec = importlib.util.spec_from_loader("validate_packs", loader)
 vp = importlib.util.module_from_spec(vp_spec)
 vp_spec.loader.exec_module(vp)
+
+def test_main_is_reentrant(tmp_path, monkeypatch):
+    """A failing invocation must not leak findings into the next one."""
+    out = io.StringIO()
+    with contextlib.redirect_stdout(out):
+        monkeypatch.setattr(sys, "argv", ["validate-packs", "--root", str(FIX / "bad-missing-p1")])
+        assert vp.main() == 1
+    out2 = io.StringIO()
+    with contextlib.redirect_stdout(out2):
+        monkeypatch.setattr(sys, "argv", ["validate-packs", "--root", str(FIX / "good-lanes")])
+        assert vp.main() == 0, out2.getvalue()
+    assert "priority 1" not in out2.getvalue()
 
 def run(*args):
     return subprocess.run([sys.executable, str(SCRIPT), *args],
@@ -88,6 +104,38 @@ def test_fallback_order_exact_then_any():
     r = run("--root", str(FIX / "good-lanes"), "--resolve", "per-task reviewer", "alpha"); assert "fallback order: review-model-exact, review-model-any" in r.stdout
 def test_step0_multi_active_no_policy_asks():
     r = run("--step0", "--root", str(FIX / "good-two-providers"), "--path-dir", str(FIX / "bins-two"), "--role", "per-task reviewer"); assert r.returncode == 1 and "ask user" in r.stdout
+def test_step0_ask_prefix_on_route_selection():
+    r = run("--step0", "--root", str(FIX / "good-two-providers"), "--path-dir", str(FIX / "bins-two"), "--role", "per-task reviewer")
+    assert r.returncode == 1 and "ASK: route-selection: ask user" in r.stdout
+def test_step0_ask_prefix_on_no_active():
+    r = run("--step0", "--root", str(FIX / "good-lanes"), "--path-dir", str(FIX / "bins-empty"))
+    assert r.returncode == 1 and "ASK: no active providers" in r.stdout
+def test_step0_channel_prefix_on_not_ready():
+    r = run("--step0", "--root", str(FIX / "good-lanes"), "--path-dir", str(FIX / "bins-alpha-notready"), "--role", "per-task reviewer")
+    assert r.returncode == 1 and "CHANNEL: provider not ready" in r.stdout
+def test_step0_stop_prefix_on_unknown_role():
+    r = run("--step0", "--root", str(FIX / "good-lanes"), "--path-dir", str(FIX / "bins-alpha"), "--role", "no-such-role")
+    assert r.returncode == 1 and "STOP: unknown role" in r.stdout
+def test_step0_ask_prefix_on_no_eligible_model():
+    # The override-not-covering variant uses the same production call site.
+    r = run("--step0", "--root", str(FIX / "bad-rejected-only"), "--path-dir", str(FIX / "bins-alpha"), "--role", "per-task reviewer")
+    assert r.returncode == 1 and "ASK: no eligible model" in r.stdout
+def test_step0_strict_removal_is_warning_when_route_remains():
+    r = run("--step0", "--root", str(FIX / "good-lanes"), "--path-dir", str(FIX / "bins-alpha-oldver"), "--config", str(FIX / "config-require-version.json"))
+    assert r.returncode == 1 and "warning: incompatible providers removed: alpha" in r.stdout and "ASK: no active providers" in r.stdout
+def test_step0_strict_removal_warns_and_routes_to_the_remaining_provider():
+    """Removing an outdated provider must not prevent a valid survivor route."""
+    r = run("--step0", "--root", str(FIX / "good-two-providers"),
+            "--path-dir", str(FIX / "bins-two-alpha-oldver"),
+            "--config", str(FIX / "config-require-version.json"),
+            "--role", "per-task reviewer")
+    warning_lines = [line for line in r.stdout.splitlines() if line.startswith("warning:")]
+    assert r.returncode == 0
+    assert warning_lines == [
+        "warning: incompatible: alpha (0.9.0 != 1.0.0)",
+        "warning: incompatible providers removed: alpha",
+    ]
+    assert "provider: beta" in r.stdout
 def test_step0_lane_routing_and_resolution():
     r = run("--step0", "--root", str(FIX / "good-two-providers"), "--path-dir", str(FIX / "bins-two"), "--config", str(FIX / "config-lane-beta.json"), "--role", "per-task reviewer"); assert r.returncode == 0 and "provider: beta" in r.stdout and "model:" in r.stdout
 def test_step0_version_mismatch_blocks_when_required():
@@ -126,6 +174,17 @@ def test_step0_native_bypass_ignores_malformed_config():
             "--path-dir", str(FIX / "bins-alpha"), "--lever", "native-subagents",
             "--config", str(FIX / "config-malformed.json"))
     assert r.returncode == 0 and "native-subagents: bypass" in r.stdout
+
+def test_version_probe_rejects_a_suffixed_raw_version_token(tmp_path):
+    """A suffix must not be silently discarded for snapshot or strict-mode decisions."""
+    bin_dir = tmp_path / "bin"; bin_dir.mkdir()
+    alpha = bin_dir / "alpha"
+    alpha.write_text("#!/bin/sh\necho 'alpha 1.0.0-rc1'\n")
+    alpha.chmod(0o755)
+    manifest = vp.parse_front_matter(FIX / "good-lanes" / "providers" / "alpha" / "pack.md")
+    rc, _, version = vp.check_provider_version(manifest, [str(bin_dir)], 1)
+    assert rc == 0
+    assert version is None
 
 def test_versions_bad_filename_fails():
     r = run("--root", str(FIX / "bad-versions-filename"))
@@ -215,6 +274,15 @@ def test_override_not_covering_slot_asks_with_path(tmp_path):
     assert r.returncode == 1
     assert "no eligible model" in r.stdout and "does not cover" in r.stdout
 
+def test_step0_ask_prefix_on_override_not_covering_slot(tmp_path):
+    proj = tmp_path / "proj"; (proj / ".swingle" / "models").mkdir(parents=True)
+    (proj / ".swingle" / "models" / "alpha.yaml").write_text(
+        "schema: 1\nprovider: alpha\nmodels: []\n")
+    r = run("--step0", "--root", str(FIX / "good-yaml"), "--path-dir", str(FIX / "bins-alpha"),
+            "--role", "per-task reviewer", "--project", str(proj))
+    assert r.returncode == 1
+    assert "ASK: no eligible model" in r.stdout and "does not cover" in r.stdout
+
 def test_malformed_override_stops_never_falls_through(tmp_path):
     proj = tmp_path / "proj"; (proj / ".swingle" / "models").mkdir(parents=True)
     (proj / ".swingle" / "models" / "alpha.yaml").write_text("models: {broken\n")
@@ -237,6 +305,30 @@ def test_yaml_rejects_single_quoted_scalar(tmp_path):
     yaml.write_text(text.replace('review-model-exact', "'single-quoted-value'"))
     r = run("--root", str(root))
     assert r.returncode == 1 and "single-quoted" in r.stdout
+
+FM = {"version-argv": ["x", "--version"], "verified-version": "1.0.0"}
+
+def test_version_probe_timeout_never_scrapes(monkeypatch):
+    monkeypatch.setattr(vp, "run_argv", lambda argv, pd, t: (-2, "timed out after 0.5 seconds"))
+    rc, out, ver = vp.check_provider_version(FM, [], 1)
+    assert rc == -2 and ver is None
+
+def test_version_probe_oserror_never_scrapes(monkeypatch):
+    monkeypatch.setattr(vp, "run_argv", lambda argv, pd, t: (-1, "Errno 2 no such file 1.2.3"))
+    assert vp.check_provider_version(FM, [], 1)[2] is None
+
+def test_version_probe_garbage_output(monkeypatch):
+    monkeypatch.setattr(vp, "run_argv", lambda argv, pd, t: (0, "no digits here"))
+    assert vp.check_provider_version(FM, [], 1)[2] is None
+
+def test_version_probe_extracts_dotted(monkeypatch):
+    monkeypatch.setattr(vp, "run_argv", lambda argv, pd, t: (0, "tool v2.3.4 (build x)"))
+    assert vp.check_provider_version(FM, [], 1)[2] == "2.3.4"
+
+def test_readiness_status_mapping(monkeypatch):
+    for rc_in, status in ((0, "ok"), (-2, "timeout"), (1, "fail"), (-1, "fail")):
+        monkeypatch.setattr(vp, "run_argv", lambda argv, pd, t, r=rc_in: (r, ""))
+        assert vp.check_provider_readiness(FM, [], 1)[1] == status
 
 def test_list_models_argv_accepted_and_validated(tmp_path):
     import shutil as _sh
@@ -315,40 +407,46 @@ def make_health_test_root(tmp_path, providers=("alpha", "beta")):
         (pdir / "verification-log.md").write_text(f"# {p} log\n")
     return root
 
-def test_health_installed_and_uninstalled(tmp_path):
+def test_health_installed_and_uninstalled_inprocess(tmp_path, monkeypatch):
     root = make_health_test_root(tmp_path, ("alpha", "beta"))
-    bin_dir = tmp_path / "bin"; bin_dir.mkdir()
-    cli = bin_dir / "alpha-cli"
-    cli.write_text("#!/bin/sh\nif [ \"$1\" = \"--version\" ]; then echo \"1.0.0\"; else echo \"ready\"; fi\n")
-    cli.chmod(0o755)
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(FIX / "no-such-xdg"))
+    monkeypatch.delenv("SWINGLE_CONFIG", raising=False)
+    monkeypatch.delenv("SWINGLE_MODELS", raising=False)
+    monkeypatch.setattr(vp, "is_provider_installed", lambda fm, pd: fm["id"] == "alpha")
+    monkeypatch.setattr(vp, "run_argv", lambda argv, pd, t: (0, "1.0.0" if "--version" in argv else "ready"))
+    out = io.StringIO()
+    with contextlib.redirect_stdout(out):
+        monkeypatch.setattr(sys, "argv", ["validate-packs", "--health", "--root", str(root)])
+        assert vp.main() == 0
+    assert health_line("alpha", installed="yes", version="1.0.0", readiness="ok") in out.getvalue()
+    assert health_line("beta") in out.getvalue()
+    assert "config-layer=none" in out.getvalue()
 
-    r = run("--health", "--root", str(root), "--path-dir", str(bin_dir))
-    assert r.returncode == 0
-    assert "alpha: installed=yes version=1.0.0 verified=1.0.0 drift=no readiness=ok registry-layer=default" in r.stdout
-    assert "beta: installed=no version=- verified=1.0.0 drift=no readiness=skipped registry-layer=default" in r.stdout
-    assert "config-layer=none" in r.stdout
-
-def test_health_version_drift(tmp_path):
+def test_health_version_drift_inprocess(tmp_path, monkeypatch):
     root = make_health_test_root(tmp_path, ("alpha",))
-    bin_dir = tmp_path / "bin"; bin_dir.mkdir()
-    cli = bin_dir / "alpha-cli"
-    cli.write_text("#!/bin/sh\nif [ \"$1\" = \"--version\" ]; then echo \"2.0.0\"; else echo \"ready\"; fi\n")
-    cli.chmod(0o755)
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(FIX / "no-such-xdg"))
+    monkeypatch.delenv("SWINGLE_CONFIG", raising=False)
+    monkeypatch.delenv("SWINGLE_MODELS", raising=False)
+    monkeypatch.setattr(vp, "is_provider_installed", lambda fm, pd: fm["id"] == "alpha")
+    monkeypatch.setattr(vp, "run_argv", lambda argv, pd, t: (0, "2.0.0" if "--version" in argv else "ready"))
+    out = io.StringIO()
+    with contextlib.redirect_stdout(out):
+        monkeypatch.setattr(sys, "argv", ["validate-packs", "--health", "--root", str(root)])
+        assert vp.main() == 0
+    assert health_line("alpha", installed="yes", version="2.0.0", drift="yes", readiness="ok") in out.getvalue()
 
-    r = run("--health", "--root", str(root), "--path-dir", str(bin_dir))
-    assert r.returncode == 0
-    assert "alpha: installed=yes version=2.0.0 verified=1.0.0 drift=yes readiness=ok registry-layer=default" in r.stdout
-
-def test_health_readiness_fail(tmp_path):
+def test_health_readiness_fail_inprocess(tmp_path, monkeypatch):
     root = make_health_test_root(tmp_path, ("alpha",))
-    bin_dir = tmp_path / "bin"; bin_dir.mkdir()
-    cli = bin_dir / "alpha-cli"
-    cli.write_text("#!/bin/sh\nif [ \"$1\" = \"--version\" ]; then echo \"1.0.0\"; else exit 1; fi\n")
-    cli.chmod(0o755)
-
-    r = run("--health", "--root", str(root), "--path-dir", str(bin_dir))
-    assert r.returncode == 0
-    assert "alpha: installed=yes version=1.0.0 verified=1.0.0 drift=no readiness=fail registry-layer=default" in r.stdout
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(FIX / "no-such-xdg"))
+    monkeypatch.delenv("SWINGLE_CONFIG", raising=False)
+    monkeypatch.delenv("SWINGLE_MODELS", raising=False)
+    monkeypatch.setattr(vp, "is_provider_installed", lambda fm, pd: fm["id"] == "alpha")
+    monkeypatch.setattr(vp, "run_argv", lambda argv, pd, t: (0, "1.0.0") if "--version" in argv else (1, ""))
+    out = io.StringIO()
+    with contextlib.redirect_stdout(out):
+        monkeypatch.setattr(sys, "argv", ["validate-packs", "--health", "--root", str(root)])
+        assert vp.main() == 0
+    assert health_line("alpha", installed="yes", version="1.0.0", readiness="fail") in out.getvalue()
 
 def test_health_readiness_timeout(tmp_path, monkeypatch):
     root = make_health_test_root(tmp_path, ("alpha",))
@@ -361,6 +459,9 @@ def test_health_readiness_timeout(tmp_path, monkeypatch):
     # shortened timeout below. Pay that cost outside the timed probes.
     subprocess.run([str(cli), "--version"], capture_output=True)
 
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(FIX / "no-such-xdg"))
+    monkeypatch.delenv("SWINGLE_CONFIG", raising=False)
+    monkeypatch.delenv("SWINGLE_MODELS", raising=False)
     monkeypatch.setattr(vp, "HEALTH_PROBE_TIMEOUT_SECONDS", 0.5)
 
     out = io.StringIO()
@@ -370,7 +471,7 @@ def test_health_readiness_timeout(tmp_path, monkeypatch):
 
     output = out.getvalue()
     assert exit_code == 0
-    assert "alpha: installed=yes version=1.0.0 verified=1.0.0 drift=no readiness=timeout registry-layer=default" in output
+    assert health_line("alpha", installed="yes", version="1.0.0", readiness="timeout") in output
 
 def test_health_version_probe_timeout_reports_no_version(tmp_path, monkeypatch):
     # Regression: a timed-out version probe must report version=-, never a number
@@ -382,6 +483,9 @@ def test_health_version_probe_timeout_reports_no_version(tmp_path, monkeypatch):
     cli.write_text(f"#!/bin/sh\n{sys.executable} -c \"import time; time.sleep(2)\"\n")
     cli.chmod(0o755)
 
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(FIX / "no-such-xdg"))
+    monkeypatch.delenv("SWINGLE_CONFIG", raising=False)
+    monkeypatch.delenv("SWINGLE_MODELS", raising=False)
     monkeypatch.setattr(vp, "HEALTH_PROBE_TIMEOUT_SECONDS", 0.1)
 
     out = io.StringIO()
@@ -390,7 +494,7 @@ def test_health_version_probe_timeout_reports_no_version(tmp_path, monkeypatch):
         exit_code = vp.main()
 
     assert exit_code == 0
-    assert "alpha: installed=yes version=- verified=1.0.0 drift=yes readiness=timeout registry-layer=default" in out.getvalue()
+    assert health_line("alpha", installed="yes", drift="yes", readiness="timeout") in out.getvalue()
 
 def test_health_registry_layers(tmp_path):
     root = make_health_test_root(tmp_path, ("alpha",))
@@ -402,7 +506,7 @@ def test_health_registry_layers(tmp_path):
 
     r = run("--health", "--root", str(root), "--project", str(proj))
     assert r.returncode == 0
-    assert "alpha: installed=no version=- verified=1.0.0 drift=no readiness=skipped registry-layer=project" in r.stdout
+    assert health_line("alpha", layer="project") in r.stdout
 
 def test_health_config_layers(tmp_path):
     root = make_health_test_root(tmp_path, ("alpha",))
@@ -489,7 +593,7 @@ def test_health_never_exits_nonzero_for_env_states(tmp_path):
 
     r = run_env("--health", "--root", str(root), "--path-dir", str(bin_dir), SWINGLE_CONFIG=str(tmp_path / "missing.json"))
     assert r.returncode == 0
-    assert "alpha: installed=yes version=9.9.9 verified=1.0.0 drift=yes readiness=fail registry-layer=default" in r.stdout
+    assert health_line("alpha", installed="yes", version="9.9.9", drift="yes", readiness="fail") in r.stdout
     assert "config-layer=env-unreadable" in r.stdout
 
 def test_health_provider_scoping(tmp_path):
@@ -510,7 +614,7 @@ def test_health_detects_cli_on_inherited_path(tmp_path):
     new_path = str(bin_dir) + os.pathsep + os.environ.get("PATH", "")
     r = run_env("--health", "--root", str(root), PATH=new_path)
     assert r.returncode == 0
-    assert "alpha: installed=yes version=1.0.0 verified=1.0.0 drift=no readiness=ok registry-layer=default" in r.stdout
+    assert health_line("alpha", installed="yes", version="1.0.0", readiness="ok") in r.stdout
 
 def test_config_superpowers_block_accepted():
     r = run("--check-config", str(FIX / "config-superpowers-good.json")); assert r.returncode == 0, r.stdout

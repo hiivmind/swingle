@@ -24,6 +24,10 @@ because the shell used `;`. The gate is a precondition, not a preceding step.
 
 ## Living-document rules
 
+- **Step 0 is script-executed where shell exists.** The dispatch skills run
+  `scripts/validate-packs --step0` and adjudicate its typed outcomes
+  (`STOP:`/`ASK:`/`CHANNEL:`/`warning:`); the skills' outcome table is normative and
+  the script is its executable rendering — change them together.
 - **Verification logs are append-only** (`core/verification-log.md`,
   `providers/*/verification-log.md`). Never rewrite a prior entry — a later contradiction
   *dates* a behavior change. Supersede in place only for same-session uncommitted text;

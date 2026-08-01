@@ -87,8 +87,7 @@ rather than only in the referenced contract (see core/verification-log.md, "2026
 inline status instruction promoted from lead to playbook rule (E1a)" entry). Append to
 the dispatch prompt verbatim:
 
-> *“End with a status block whose first line is exactly one of: STATUS: DONE |
-> DONE_WITH_CONCERNS | NEEDS_CONTEXT | BLOCKED.”*
+> *“End with a status block whose first line is exactly one of: STATUS: DONE | DONE_WITH_CONCERNS | NEEDS_CONTEXT | BLOCKED.”*
 
 The contract file keeps the full semantics of each token; the prompt carries only the four
 words and where to put them. This changes what a *missing* block means not at all — see the

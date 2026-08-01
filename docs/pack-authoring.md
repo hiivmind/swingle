@@ -5,9 +5,9 @@ manifest-driven**, and the validator that proves it ships with the repo. This pa
 authoring reference. The README carries the claim and the one command; the field grammar
 lives here.
 
-Add one directory under `providers/` satisfying the pack contract — `pack.md`, `models.yaml`
-(the model table of record), `models.md` (documentary narrative), and `verification-log.md`
-— then run:
+Add one directory under `providers/` satisfying the pack contract — manifest-only `pack.md`,
+the version registry in `versions/`, sharded verification logs in `log/`, `models.yaml`
+(the model table of record), and `models.md` (documentary narrative) — then run:
 
 ```bash
 python3 scripts/validate-packs --root .
@@ -53,17 +53,17 @@ skill logic. Adding a field means updating `REQ`/`OPTIONAL` and `ENUMS` in
 Every value is validator-enforced, and `*-argv` arrays are **data** — `argv[0]` must equal
 `cli`, and shell metacharacters are rejected (see [safety.md](safety.md#manifest-injection-is-closed)).
 `verified-version` is stamped only by live end-to-end dispatch evidence, recorded in the
-pack's `verification-log.md`. The full verification workflow is the `swingle-verify` skill and
-`core/verification-protocol.md`.
+pack's `log/` shards. The full verification workflow is the `swingle-verify` skill and
+[the Recording doctrine](../core/verification-protocol.md#recording).
 
-## Per-version snapshots (`versions/`)
+## Version registry and logs
 
-`providers/<id>/versions/<version>.md` holds one frozen file per previously verified
-version — created by the verify round's snapshot-then-rewrite protocol
-(`core/verification-protocol.md` Recording). Initial per-pack files are the one-time
-distilled seeds, marked `> Distilled:`; ongoing files are mechanical `> Frozen:` copies,
-never authored by hand or edited after creation. Filenames are dotted-numeric (`1.2.3.md`);
-the validator enforces the
-shape and exempts the directory from the link scan. `pack.md` and `models.md` are the
-living docs and state present-tense truth only — the validator rejects strikethroughs,
-`(from archive` stamps, and body `verified vX` claims in them.
+`providers/<id>/versions/<version>.md` holds every provider body. Its first line declares
+its class with a `> Verified:` or `> Distilled:` header; the manifest's `verified-version`
+names the current registry file. Filenames are dotted-numeric (`1.2.3.md`), and the
+validator enforces the registry shape and header contract.
+
+Provider evidence is recorded in chronological `providers/<id>/log/YYYY-MM.md` shards.
+`verification-log.md` remains a read-only index. The registry lifecycle and resolution
+rules are defined by [the Recording doctrine](../core/verification-protocol.md#recording);
+do not duplicate them here.

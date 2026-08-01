@@ -28,10 +28,10 @@ because the shell used `;`. The gate is a precondition, not a preceding step.
   `scripts/validate-packs --step0` and adjudicate its typed outcomes
   (`STOP:`/`ASK:`/`CHANNEL:`/`warning:`); the skills' outcome table is normative and
   the script is its executable rendering — change them together.
-- **Verification logs are append-only** (`core/verification-log.md`,
-  `providers/*/verification-log.md`). Never rewrite a prior entry — a later contradiction
-  *dates* a behavior change. Supersede in place only for same-session uncommitted text;
-  otherwise strike (`~~…~~`) with a dated correction or append a new entry.
+- **Verification logs are append-only.** Provider entries live in chronological
+  `providers/<id>/log/YYYY-MM.md` shards; `verification-log.md` is a retained read-only
+  index. Follow [the Recording doctrine](core/verification-protocol.md#recording) for
+  recording rules.
 - **Log entries may carry operating guidance** (`core/verification-protocol.md`
   Recording): an instruction a future dispatcher must follow from that version forward,
   house style `**Guidance (<lanes>):** …` under the entry heading. The verify skill
@@ -50,11 +50,13 @@ because the shell used `;`. The gate is a precondition, not a preceding step.
   `captured-output` and both skills ask for no file. Adding a field means updating `REQ`
   or `OPTIONAL` plus `ENUMS` in `scripts/validate-packs`, declaring it in every shipped
   pack, and documenting it in the README's "Adding a provider" table.
-- **Pack living docs state the present tense; history is snapshots + logs.** A verify
-  round that moves `verified-version` snapshots the outgoing pack.md body to
-  `providers/<id>/versions/<old>.md` (frozen; never edited) before rewriting. The
-  validator enforces the hygiene scans; the protocol is in
-  `core/verification-protocol.md` Recording.
+- **Provider registry layout is structural.** `pack.md` is manifest-only; every provider
+  body lives in `providers/<id>/versions/<version>.md` with a declared class header, and
+  the manifest's `verified-version` names the current file. Provider evidence lives in
+  chronological `providers/<id>/log/YYYY-MM.md` shards, while `verification-log.md` is a
+  read-only index. Lifecycle and resolution are defined only in
+  [the Recording doctrine](core/verification-protocol.md#recording); the validator enforces
+  the structural contract.
 - **Prefer structural fixes to prompt workarounds.** A prompt nudge can only lower the
   rate of a misbehaviour; routing around it can remove the failure mode. When you claim a
   fix works, say which kind it is — and do not call a mitigation "verified" off a single
@@ -93,8 +95,8 @@ because the shell used `;`. The gate is a precondition, not a preceding step.
 grandparent directory — `controllers/`, `core/`, `providers/`, `contracts/` are load-bearing
 siblings of `skills/`. `controllers/<controller>.md` documents each CLI in its **driving**
 role (skill-loading, native subagents, background jobs, asset root); `providers/<id>/`
-documents each CLI as a **dispatch target** (pack manifest, dispatch template, model tables,
-verification log). The same CLI appears in both, once per role. Anything that breaks that
+documents each CLI as a **dispatch target** (manifest-only pack, version registry, model
+tables, and sharded verification logs). The same CLI appears in both, once per role. Anything that breaks that
 physical layout (moving skills out alone, flattening the tree) breaks every install route. Codex plugin installs cache the whole repo, so the
 layout survives; the symlink route depends on it.
 

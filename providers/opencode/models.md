@@ -7,13 +7,13 @@
 ## Documentary
 
 - **All six table models dispatch with their listed statuses.**
-  `opencode-go/deepseek-v4-flash` requires a China-hosting workspace opt-in; see pack.md
-  Guidance and the pack's verification log.
+  `opencode-go/deepseek-v4-flash` requires a China-hosting workspace opt-in; see Guidance
+  in the provider body (the current registry file) and the pack's verification logs.
 - **Catalog arrivals not yet benchmarked:** `opencode-go/gpt-5.6-luna`,
   `opencode/big-pickle`, and `opencode/ling-3.0-flash-free` are in the watch list below.
   They require the P13 reviewer benchmark and a small-implementer probe before a table slot.
 
-`opencode/nemotron-3-ultra-free` — ❌ rejected. See the [provider verification log](verification-log.md) for the reviewer and implementer probe findings.
+`opencode/nemotron-3-ultra-free` — ❌ rejected. See the [provider verification logs](log/) for the reviewer and implementer probe findings.
 
 **Free-tier namespace + caveat:** all `-free` models live under `opencode/` (never
 `opencode-go/`). Trial-use: prompts are logged and may train/improve the

@@ -19,5 +19,5 @@ Effort: `--effort low|medium|high|xhigh|max` — locally validated (bogus → wa
   pin a snapshot id in a project override only if a lane needs an exact model.
 - **Review lane:** sonnet and opus clear P13 with the current reviewer contract. Keep
   severity adjudication in the controller; this is a prompt mitigation, not a guarantee.
-  Haiku is not a review tier. See the pack's [verification log](verification-log.md) for
+  Haiku is not a review tier. See the pack's [verification logs](log/) for
   benchmark evidence.

@@ -20,10 +20,10 @@ same skill twice. If the skills vanish, check `OPENCODE_DISABLE_EXTERNAL_SKILLS`
 
 ## opencode-as-controller dispatching the opencode pack
 
-Allowed, and unlike Codex there is no sandbox to probe (`providers/opencode/pack.md`
-records `sandbox: none`). The hazard is session identity instead.
+Allowed, and unlike Codex there is no sandbox to probe (the provider body, the current
+registry file, records `sandbox: none`). The hazard is session identity instead.
 
-`providers/opencode/pack.md` sets `session-source: session-list`, i.e. the dispatched
+The provider body (the current registry file) sets `session-source: session-list`, i.e. the dispatched
 session id is recovered from `opencode session list` rather than the run log. Under an
 opencode controller that list **also contains the controller's own session and every
 `task` subagent session**, so "take the newest entry" will hand you the wrong id and a

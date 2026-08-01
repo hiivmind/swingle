@@ -17,7 +17,7 @@ from the opencode pack). Model ids use pi's combined `provider/model` form.
   `huggingface/*` open-weights directly. None are in a tier slot here because only
   `opencode-go` is authed on this machine — add rows only after a live dispatch through pi
   on a machine where the provider is authed.
-- **Model validation is remote** (pack.md): an unlisted id is forwarded as a "custom model
+- **Model validation is remote** (the provider body, the current registry file): an unlisted id is forwarded as a "custom model
   id" and rejected by the provider at dispatch (`401`, exit 1), never locally. Resolve ids
   from `pi --list-models <provider>`.
 

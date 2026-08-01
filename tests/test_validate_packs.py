@@ -112,10 +112,13 @@ def test_step0_channel_prefix_on_not_ready():
 def test_step0_stop_prefix_on_unknown_role():
     r = run("--step0", "--root", str(FIX / "good-lanes"), "--path-dir", str(FIX / "bins-alpha"), "--role", "no-such-role")
     assert r.returncode == 1 and "STOP: unknown role" in r.stdout
+def test_step0_ask_prefix_on_no_eligible_model():
+    # The override-not-covering variant uses the same production call site.
+    r = run("--step0", "--root", str(FIX / "bad-rejected-only"), "--path-dir", str(FIX / "bins-alpha"), "--role", "per-task reviewer")
+    assert r.returncode == 1 and "ASK: no eligible model" in r.stdout
 def test_step0_strict_removal_is_warning_when_route_remains():
     r = run("--step0", "--root", str(FIX / "good-lanes"), "--path-dir", str(FIX / "bins-alpha-oldver"), "--config", str(FIX / "config-require-version.json"))
-    assert "warning: incompatible providers removed: alpha" in r.stdout
-    assert "ASK: no active providers" in r.stdout
+    assert r.returncode == 1 and "warning: incompatible providers removed: alpha" in r.stdout and "ASK: no active providers" in r.stdout
 def test_step0_lane_routing_and_resolution():
     r = run("--step0", "--root", str(FIX / "good-two-providers"), "--path-dir", str(FIX / "bins-two"), "--config", str(FIX / "config-lane-beta.json"), "--role", "per-task reviewer"); assert r.returncode == 0 and "provider: beta" in r.stdout and "model:" in r.stdout
 def test_step0_version_mismatch_blocks_when_required():

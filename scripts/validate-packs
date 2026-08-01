@@ -322,7 +322,7 @@ def check_repo_docs(root):
         vdir = pack / "versions"
         if vdir.is_dir():
             for entry in sorted(vdir.iterdir()):
-                if not (entry.is_file() and VERSION_FILE_RE.match(entry.name)):
+                if not (entry.is_file() and VERSION_FILE_RE.fullmatch(entry.name)):
                     find(f"{entry}: versions/ entries must be <dotted-numeric-version>.md")
     banned = re.compile(r"gpt-5\.6|gemini-3|opencode-go/|deepseek|minimax|qwen|glm-5|Agent tool|TodoWrite|CLAUDE_PLUGIN_ROOT|spawn_agent")
     for directory in ("core", "contracts"):

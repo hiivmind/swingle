@@ -129,6 +129,19 @@ version and forward — write it in the log entry. House style:
 
 `**Guidance[ (<lane>[, <lane>…])]:** <what to do on this version and forward>`
 
+directly under the entry heading; lanes come from the packs' lane vocabulary, and
+omitting the parenthetical means all lanes. Freeform prose is equally valid — the line
+is for scannability, not for a parser, and nothing validates it. An instruction applies
+from its version forward until a later entry says otherwise; a later entry lifting a
+restriction is itself guidance. Publish instructions, never verdicts: between
+discovering a failure and understanding it, the honest artifact is an open issue, and
+*"pin the previous version for this lane / route the lane elsewhere, tracking #N"* is
+always available as the instruction when no workaround exists, so a published entry is
+never instruction-free. Example of the form:
+`**Guidance (review, implement):** forbid shell for reviewers; restrict
+implementers to single simple commands` — see the originating provider log entry
+for its evidence.
+
 **Living docs state the present tense; history lives in snapshots and logs.** The
 living pack docs are `pack.md` and `models.md`; they state present-tense truth for the
 manifest's `verified-version`. `providers/<id>/versions/<v>.md` files are frozen
@@ -159,19 +172,6 @@ zero-padding unequal lengths; a suffixed version string is unparseable — treat
 above-frontier, never as its numeric prefix. Below every snapshot → pack.md's body
 plus the older-than-verified advisory. Guidance entries apply additively on top of
 whichever body resolves.
-
-directly under the entry heading; lanes come from the packs' lane vocabulary, and
-omitting the parenthetical means all lanes. Freeform prose is equally valid — the line
-is for scannability, not for a parser, and nothing validates it. An instruction applies
-from its version forward until a later entry says otherwise; a later entry lifting a
-restriction is itself guidance. Publish instructions, never verdicts: between
-discovering a failure and understanding it, the honest artifact is an open issue, and
-*"pin the previous version for this lane / route the lane elsewhere, tracking #N"* is
-always available as the instruction when no workaround exists, so a published entry is
-never instruction-free. Example of the form:
-`**Guidance (review, implement):** forbid shell for reviewers; restrict
-implementers to single simple commands` — see the originating provider log entry
-for its evidence.
 
 **A user's local record.** A user who cannot write to the source records their own
 operating instructions in `${XDG_CONFIG_HOME:-~/.config}/swingle/verification/<id>.md`

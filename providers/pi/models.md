@@ -24,7 +24,7 @@ from the opencode pack). Model ids use pi's combined `provider/model` form.
 ## Watch list (unevaluated arrivals, opencode-go catalog)
 
 **Dispatch-confirmed (P12, PONG exit 0) but not yet benchmarked for table slots** (see the
-pack's verification log):
+pack's [verification logs](log/)):
 - `opencode-go/kimi-k3` (1M ctx, Kimi) — dispatches; evaluate with P13 + implementer probe before table slot
 - `opencode-go/grok-4.5` (500K ctx) — dispatches; evaluate before table slot
 

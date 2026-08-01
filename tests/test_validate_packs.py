@@ -333,8 +333,12 @@ def test_health_readiness_timeout(tmp_path, monkeypatch):
     cli = bin_dir / "alpha-cli"
     cli.write_text(f"#!/bin/sh\nif [ \"$1\" = \"--version\" ]; then echo \"1.0.0\"; else {sys.executable} -c \"import time; time.sleep(2)\"; fi\n")
     cli.chmod(0o755)
+    # Warm-up exec: macOS scans a freshly created executable on first exec
+    # (~400ms observed), which would push the fast --version probe past the
+    # shortened timeout below. Pay that cost outside the timed probes.
+    subprocess.run([str(cli), "--version"], capture_output=True)
 
-    monkeypatch.setattr(vp, "HEALTH_PROBE_TIMEOUT_SECONDS", 0.1)
+    monkeypatch.setattr(vp, "HEALTH_PROBE_TIMEOUT_SECONDS", 0.5)
 
     out = io.StringIO()
     with contextlib.redirect_stdout(out):
@@ -344,6 +348,26 @@ def test_health_readiness_timeout(tmp_path, monkeypatch):
     output = out.getvalue()
     assert exit_code == 0
     assert "alpha: installed=yes version=1.0.0 verified=1.0.0 drift=no readiness=timeout registry-layer=default" in output
+
+def test_health_version_probe_timeout_reports_no_version(tmp_path, monkeypatch):
+    # Regression: a timed-out version probe must report version=-, never a number
+    # scraped from the TimeoutExpired message ("timed out after 0.1 seconds"
+    # used to yield version=0.1).
+    root = make_health_test_root(tmp_path, ("alpha",))
+    bin_dir = tmp_path / "bin"; bin_dir.mkdir()
+    cli = bin_dir / "alpha-cli"
+    cli.write_text(f"#!/bin/sh\n{sys.executable} -c \"import time; time.sleep(2)\"\n")
+    cli.chmod(0o755)
+
+    monkeypatch.setattr(vp, "HEALTH_PROBE_TIMEOUT_SECONDS", 0.1)
+
+    out = io.StringIO()
+    with contextlib.redirect_stdout(out):
+        monkeypatch.setattr(sys, "argv", ["validate-packs", "--health", "--root", str(root), "--path-dir", str(bin_dir)])
+        exit_code = vp.main()
+
+    assert exit_code == 0
+    assert "alpha: installed=yes version=- verified=1.0.0 drift=yes readiness=timeout registry-layer=default" in out.getvalue()
 
 def test_health_registry_layers(tmp_path):
     root = make_health_test_root(tmp_path, ("alpha",))

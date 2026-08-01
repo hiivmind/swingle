@@ -87,8 +87,9 @@ agy --model gemini-3.6-flash --effort <low|medium|high> \
   available models.
 - **Model naming**: display label verbatim (`"Gemini 3.6 Flash (Low)"`) or slug
   (`gemini-3.6-flash-low`) both accepted. Effort: baked into the name **or** base slug +
-  `--effort low|medium|high`; combining `--effort` with an effort-suffixed name **errors**
-  (`--effort is not supported for model "Gemini 3.5 Flash"` — labels always carry effort).
+  `--effort low|medium|high`; combining the same effort level is harmless, while
+  conflicting levels error. `--effort` with a display label always errors because labels
+  carry effort.
 - **Auth is OAuth**: run `agy` once interactively (creds → `~/.gemini/`); headless fails
   *silently* when signed out.
 - `< /dev/null>` is harmless but not required.

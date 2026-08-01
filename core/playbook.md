@@ -1,7 +1,7 @@
 # Mapping superpowers:subagent-driven-development onto Provider Packs
 
 > The token-efficient way to run the SDD skill's subagent roles through provider packs
-> instead of the harness's native subagent mechanism (see harness adapter).
+> instead of the controller's native subagent mechanism (see controller adapter).
 > Companion to [core/roles.md](roles.md) and the active provider's resolved models.yaml.
 
 ## Process authority: the invoked skill, not this document
@@ -38,11 +38,11 @@ provider's layered models.yaml; apply [core/liveness.md](liveness.md).
 
 “Dispatch” is ambiguous. Five execution modes, three currencies. The currencies, in order
 of scarcity: **main-thread context** (multiplicative — resident tokens are re-sent every
-turn and degrade the controller's judgment as they accumulate), **harness token budget**
+turn and degrade the controller's judgment as they accumulate), **controller token budget**
 (our spend; disposable subagent contexts are one-shot), **provider cost** (largely fixed by
 the task, with cold-start overhead per execution).
 
-| Mode | Main-ctx / task | Harness tokens | Provider cost | When |
+| Mode | Main-ctx / task | Controller tokens | Provider cost | When |
 | --- | --- | --- | --- | --- |
 | **Inline** (controller does it) | 15–40k+, grows with task size | full task, premium | 0 | below the orchestration floor (~2k of work, single-file mechanical), or judgment-core work |
 | **Sub-dispatch** (native subagent) | 1–3k (prompt + report) | full task, isolated context | 0 | judgment-heavy isolated work; the `native-subagents` lever |

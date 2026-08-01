@@ -85,9 +85,9 @@ Working-tree progress survives a kill (agents write as they go) — `git diff` b
   opencode's silent-ignore, but still confirm the intended level took effect from the value
   you passed, not from the absence of an error.
 - **No background bash, no subagents, no to-dos** in core (`usage.md` design principles) —
-  these are harness-adapter concerns, not pack concerns, but they mean a pi *controller*
+  these are controller-adapter concerns, not pack concerns, but they mean a pi *controller*
   runs every dispatch through the detached wrapper in `core/liveness.md`. See
-  `skills/sdd/harnesses/pi.md`.
+  `controllers/pi.md`.
 - **No cheap auth-probe subcommand**: `readiness-argv` is omitted, so preflight defaults to
   `version-argv` (local only). Auth reachability surfaces as a channel failure on the first
   real dispatch, handled by the standard fallback rules. `pi --list-models <provider>` is a

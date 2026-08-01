@@ -1,4 +1,4 @@
-# opencode harness adapter
+# opencode controller adapter
 
 | Concern | opencode mapping |
 | --- | --- |
@@ -41,5 +41,5 @@ Exactly one new id should appear per dispatch. Zero or more than one means the
 attribution is unsafe — treat it as a channel-class failure and ask the user rather
 than resuming a guessed id.
 
-The lever alias **"all opencode"** means `native-subagents` (harness-native `task`, not
+The lever alias **"all opencode"** means `native-subagents` (controller-native `task`, not
 external packs).

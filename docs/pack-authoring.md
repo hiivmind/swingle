@@ -1,4 +1,4 @@
-# Adding a harness pack
+# Adding a provider pack
 
 The strong, testable claim: **adding a pack requires zero edits to `core/`; routing is
 manifest-driven**, and the validator that proves it ships with the repo. This page is the
@@ -29,7 +29,7 @@ The manifest is the YAML front matter of `pack.md`.
 | Field | Values | Meaning |
 | --- | --- | --- |
 | `report-transport` | `report-file` (default) · `captured-output` | How an agent's report gets back to the controller |
-| `list-models-argv` | argv array | How to enumerate an open-catalog harness's live model list (e.g. pi). Surfaced by `swingle-models init`, never auto-executed |
+| `list-models-argv` | argv array | How to enumerate an open-catalog provider's live model list (e.g. pi). Surfaced by `swingle-models init`, never auto-executed |
 
 ## `report-transport`: the field to get right
 
@@ -37,7 +37,7 @@ Declare `captured-output` when the CLI cannot reliably write an agent-authored f
 workspace path. The skills then ask for **no file** and take the full report as the captured
 final message, saving it themselves.
 
-Getting this wrong is not cosmetic: on such a harness a report-file request fails
+Getting this wrong is not cosmetic: on such a provider a report-file request fails
 *intermittently* while the exit code stays 0, so the report is silently missing and any
 reviewer downstream loses an input. `agy` is `captured-output`; `claude`, `codex`,
 `opencode`, `grok`, and `pi` are `report-file`.

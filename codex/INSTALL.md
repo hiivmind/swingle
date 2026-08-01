@@ -69,7 +69,7 @@ repository's `.agents/skills/` instead.
 Whichever dispatch CLIs you use must be on PATH (`codex`, `opencode`, `agy`), each
 authenticated once interactively; provider-specific setup (for example agy's headless
 permission baseline) lives in `providers/<id>/pack.md`. On first use, read the Codex
-harness adapter: `skills/sdd/harnesses/codex.md`. After installing, run `swingle-setup`
+controller adapter: `controllers/codex.md`. After installing, run `swingle-setup`
 for a guided environment check.
 
 From a clone, verify the repository layout and release gate:

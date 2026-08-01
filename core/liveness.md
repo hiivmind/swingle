@@ -58,19 +58,19 @@ Thresholds are keyed to the manifest's `stall-signal`:
   shell can embed the dispatch string in its own command line and a pattern kill can kill the
   wrapper itself. Capture `$!` at dispatch time; pattern-kill only from a shell that
   dispatches nothing.
-- Use the self-reaping wrapper below for harness background tasks. It makes the harness
+- Use the self-reaping wrapper below for controller background tasks. It makes the controller
   notification mean “finished or stall-killed”, executes the stall rule with zero controller
   turns, and leaves the controller responsive throughout. A bare `&` + wrapper exit reports
   completion long before the dispatched process finishes; a watcher that only notifies adds
   controller turns before a kill; a foreground dispatch prevents the controller from serving
   the user and prevents the stall rule from firing.
-- **The wrapper must survive its supervisor.** Where the harness's background
+- **The wrapper must survive its supervisor.** Where the controller's background
   mechanism can reap its own tasks, a supervisor event can kill a healthy
   backgrounded wrapper (see core/verification-log.md, "2026-07-23 — harness-kill of backgrounded wrappers (v1.2.0 execution run)" entry). Detached form: write the dispatch
   script to a file; launch it with `setsid nohup <script> >/dev/null 2>&1 < /dev/null &`
   plus `disown`; record the CLI pid to a pid file; the wrapper appends its terminal line
   ("cli exit=N" or the stall-kill message) to a marker file; a separate lightweight watcher
-  watches that marker (see harness adapter for the mechanism). Notification still
+  watches that marker (see controller adapter for the mechanism). Notification still
   means finished-or-reaped, and no supervisor event can orphan-kill the dispatch. Two
   consecutive supervisor kills of the same dispatch = switch to the detached form.
 - On any early exit, the log tail is the diagnosis. Record any new hang/early-exit signature

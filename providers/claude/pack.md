@@ -57,8 +57,8 @@ non-Claude controller does not:
 
 Controllers on **codex / grok / opencode / pi** (or a plain shell) have neither problem —
 `claude` is a clean external implementer/reviewer there. The `native-subagents` lever ("all
-Claude" under Claude Code) remains the right tool for in-harness Claude work; this pack is
-for cross-harness dispatch and for deliberately isolated `claude`-under-`claude` runs.
+Claude" under Claude Code) remains the right tool for in-session Claude work; this pack is
+for cross-CLI dispatch and for deliberately isolated `claude`-under-`claude` runs.
 
 ## Sessions — the controller assigns the id
 

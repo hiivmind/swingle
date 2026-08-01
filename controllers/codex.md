@@ -1,4 +1,4 @@
-# Codex harness adapter
+# Codex controller adapter
 
 | Concern | Codex mapping |
 | --- | --- |

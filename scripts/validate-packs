@@ -376,6 +376,7 @@ def check_repo_docs(root):
                     if known is not None and anchor not in known: find(f"{path}:{n}: broken anchor #{anchor} → {pathpart or path.name}")
 
 def main():
+    findings.clear()
     ap = argparse.ArgumentParser(); ap.add_argument("--root", default="."); ap.add_argument("--resolve", nargs=2, metavar=("ROLE", "PROVIDER")); ap.add_argument("--exclude", action="append", default=[]); ap.add_argument("--check-config"); ap.add_argument("--step0", action="store_true"); ap.add_argument("--health", action="store_true"); ap.add_argument("--provider", action="append", default=[]); ap.add_argument("--config"); ap.add_argument("--path-dir", action="append", default=[]); ap.add_argument("--lever"); ap.add_argument("--task-provider"); ap.add_argument("--role"); ap.add_argument("--project"); a = ap.parse_args()
     root, excluded = Path(a.root), {}
     for exclusion in a.exclude:

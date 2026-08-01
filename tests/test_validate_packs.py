@@ -34,6 +34,18 @@ vp_spec = importlib.util.spec_from_loader("validate_packs", loader)
 vp = importlib.util.module_from_spec(vp_spec)
 vp_spec.loader.exec_module(vp)
 
+def test_main_is_reentrant(tmp_path, monkeypatch):
+    """A failing invocation must not leak findings into the next one."""
+    out = io.StringIO()
+    with contextlib.redirect_stdout(out):
+        monkeypatch.setattr(sys, "argv", ["validate-packs", "--root", str(FIX / "bad-missing-p1")])
+        assert vp.main() == 1
+    out2 = io.StringIO()
+    with contextlib.redirect_stdout(out2):
+        monkeypatch.setattr(sys, "argv", ["validate-packs", "--root", str(FIX / "good-lanes")])
+        assert vp.main() == 0, out2.getvalue()
+    assert "priority 1" not in out2.getvalue()
+
 def run(*args):
     return subprocess.run([sys.executable, str(SCRIPT), *args],
                           capture_output=True, text=True, env=isolated_env())

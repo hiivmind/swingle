@@ -16,10 +16,10 @@ readiness-argv: ["opencode", "session", "list"]
 
 ## Cross-CLI comparison — opencode cells
 
-| Property | opencode 1.18.10 |
+| Property | opencode |
 | --- | --- |
 | Prompt argument | **positional** (`-p` = basic-auth *password*!) |
-| `< /dev/null` needed | **Yes — mandatory** (refuted 2026-07-29; a truly open stdin hangs indefinitely; reconfirmed 2026-07-31 at 1.18.10) |
+| `< /dev/null` needed | **Yes — mandatory**; a truly open stdin hangs indefinitely (see the pack's verification log) |
 | Sandbox | None — headless reads/writes/shells freely, no flags |
 | Permission flags | `--auto` exists but is a no-op until permissions are configured; keep as intent documentation |
 | Exit codes | Normal 0/1 |
@@ -41,12 +41,12 @@ scratch** after any backstop kill or hang-kill where partial progress is real:
 Working-tree progress survives the kill too (agents write as they go) — `git diff` before
 resuming to see what's already landed.
 
-## opencode (verified v1.18.10, 2026-07-31)
+## opencode
 
 ### Dispatch
 ```bash
 # prompt is POSITIONAL — `-p` is basic-auth password, not prompt
-# stdin MUST be closed/redirected — a truly open stdin hangs indefinitely (2026-07-29)
+# stdin MUST be closed/redirected — a truly open stdin hangs indefinitely
 opencode run --auto -m <provider/model> --variant <high|max|minimal…> \
   --dir <repo> "Read <brief-file> …" < /dev/null
 ```
@@ -57,14 +57,13 @@ opencode run --auto -m <provider/model> --variant <high|max|minimal…> \
   ("auto-approve permissions not explicitly denied") only matters once a permission config
   exists — keep passing it as intent documentation.
 - **`-p` means password** (basic auth for `--attach` mode). Carrying the agy `-p "<PROMPT>"`
-  habit over does not silently misfire as of 1.18.9+ — it fails loudly (`Error: You must
+  habit over fails loudly (`Error: You must
   provide a message or a command`, exit 1) since the prompt text is swallowed into the
   password field, leaving no positional message. Still a footgun (wrong prompt consumed by
   an auth flag) but a catchable one, not a silent wrong-behavior success.
-- **Stdin MUST be closed or redirected — mandatory, not optional (refuted 2026-07-29,
-  reconfirmed 2026-07-31).** A truly never-closing stdin (mkfifo, held open) hangs the
+- **Stdin MUST be closed or redirected — mandatory, not optional.** A truly never-closing stdin (mkfifo, held open) hangs the
   process indefinitely with zero output. Always redirect stdin (`< /dev/null` or
-  equivalent).
+  equivalent); see the pack's verification log.
 - `--variant` sets provider-specific reasoning effort — but is **silently ignored** when
   unsupported or misspelled (`--variant bogusvariant` ran without complaint). Never assume
   it took effect.
@@ -74,7 +73,7 @@ opencode run --auto -m <provider/model> --variant <high|max|minimal…> \
 - Model namespace: `opencode/<model>` and `opencode-go/<model>` are distinct lists —
   e.g. `deepseek-v4-flash-free` and `gemini-3.5-flash-lite` exist **only** under `opencode/`.
 - **`opencode-go/deepseek-v4-flash` (the pack's cheapest-tier model) can require a
-  one-time China-hosting opt-in (observed 2026-07-31):** on a fresh OpenCode Go
+  one-time China-hosting opt-in:** on a fresh OpenCode Go
   workspace, dispatching this model errors immediately (exit 1, `Error: The latest
   version of this model is only available hosted in China and requires explicit opt
   in: <workspace-url>/go`, zero work done) until the workspace owner opts in at that
@@ -84,14 +83,14 @@ opencode run --auto -m <provider/model> --variant <high|max|minimal…> \
   been granted — an unattended automated dispatch will otherwise fail every time with
   this exact channel-class signature (not a code defect, not a billing issue — a
   distinct, clearly-worded gate).
-- **Intermittent zero-output startup hang (observed 2026-07-22, v1.17.18/Zen):**
+- **Intermittent zero-output startup hang:**
   backgrounded `opencode run` occasionally hangs before its first output byte — process
   alive, log 0 bytes indefinitely; hit resume (`-s`), `--fork`, and cold dispatches alike
   (~5× in one window) while every foreground run succeeded. Cause undetermined (suspect
   non-tty/piped stdio at startup). Handling: 0-byte log past the 5-min threshold = stall →
   kill (by pid), retry once; second consecutive stall → switch to a FOREGROUND dispatch
   (short tasks) or apply a sub-2k fix inline. Exit codes are useless here — judge by log
-  bytes only.
+  bytes only. See the pack's verification log for the evidence.
 - **Session ids are NOT in plain-text run logs** — get them from `opencode session list`
   (newest first) for `-s` resume/`--fork`.
 

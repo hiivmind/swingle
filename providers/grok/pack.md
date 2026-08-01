@@ -16,16 +16,16 @@ readiness-argv: ["grok", "models"]
 
 ## Cross-CLI comparison — grok cells
 
-| Property | grok 0.2.117 (user-guide + smoke) |
+| Property | grok (user guide + smoke) |
 | --- | --- |
 | Prompt argument | `-p` / `--single` (also `--prompt-file`, `--prompt-json`) |
 | `< /dev/null>` needed | **No** — headless does not read piped stdin as prompt |
 | Sandbox | **Enforced** profiles: `off`, `workspace`, `read-only`, `strict`, `devbox` (Landlock/Seatbelt) |
 | Permission flags | **`--always-approve`** ≡ `--yolo` ≡ `bypassPermissions`. Do not use `--permission-mode acceptEdits` headless (flag does not enable that policy) |
-| Exit codes | Docs: 0/1/130/143; live: bogus model exit **1** (2026-07-24) |
+| Exit codes | Docs: 0/1/130/143; live: bogus model exit **1** (see the pack's verification log) |
 | Model validation | Error text (`unknown model id`); exit 1 |
 | Reasoning-effort control | `--reasoning-effort` / `--effort`; `grok-4.5` accepts `low\|medium\|high` (default `high`). Docs list wider canonical set; model menu is the binding constraint |
-| Output contract | `plain` (default), `json` (`.sessionId` + `.text` + richer spend fields), `streaming-json`, `streaming-messages-json` (Messages API JSONL — 4th format, added 0.2.117) |
+| Output contract | `plain` (default), `json` (`.sessionId` + `.text` + richer spend fields), `streaming-json`, `streaming-messages-json` (Messages API JSONL) |
 | Auth | grok.com OAuth / `XAI_API_KEY`; SuperGrok for higher limits |
 | Docs | `~/.grok/docs/user-guide/` — read 14/17/18/22 on every version bump |
 
@@ -47,7 +47,7 @@ grok --resume <session_id> --fork-session -p "<continuation>" --always-approve -
 Sandbox on resume is **session-fixed** (user-guide 18): omit `--sandbox` on resume or
 pass the same profile; a different profile is refused.
 
-## grok (surface seed 0.2.111, 2026-07-24; re-verified 0.2.117, 2026-07-31)
+## grok
 
 Authority: `~/.grok/docs/user-guide/14-headless-mode.md`, `17-sessions.md`,
 `18-sandbox.md`, `22-permissions-and-safety.md`, and `~/.grok/README.md`.
@@ -63,7 +63,7 @@ Authority: `~/.grok/docs/user-guide/14-headless-mode.md`, `17-sessions.md`,
 - **Sandbox** is real OS isolation. Unknown custom profile fails closed.
 - **`-s` / `--session-id` creates only** (must be UUID); resume with `-r` / `-c`.
 - Fallback if always-approve is admin-locked: document and STOP (requirements.toml).
-- **`--sandbox workspace`** (2026-07-24): write CWD + `/tmp` + `~/.grok/`; home escape
+- **`--sandbox workspace`:** write CWD + `/tmp` + `~/.grok/`; home escape
   blocked (`FsViolation`). **`--sandbox read-only`**: project-tree writes blocked when
   CWD is outside the profile write set (`~/.grok`, `/tmp`, `/var/tmp`; this host also
   allows `~/.cache/claude-tmp`). Probing under `/tmp` is a false positive for "blocks
@@ -75,11 +75,11 @@ Authority: `~/.grok/docs/user-guide/14-headless-mode.md`, `17-sessions.md`,
   (default `high` when omitted). Levels outside that model menu are rejected.
   Tiering: cheapest → `low`, standard → `medium`, most-capable → `high` (see models.md).
 - **Session id**: `--output-format streaming-json` → `end` event `.sessionId` (preferred; keeps log-age signal). `--output-format json` → `.sessionId` (also works but buffers stdout — log-age fails; see gotcha 10). Resume + fork work; mismatched sandbox on resume is refused.
-- **JSON output fields** (0.2.117): `text`, `stopReason`, `sessionId`, `requestId`, `thought`, `usage` (6-bucket token breakdown), `num_turns`, `total_cost_usd`, `total_cost_usd_ticks`, `modelUsage` (key is CLI-internal model name, e.g. `grok-4.5-build` for dispatch model `grok-4.5`).
-- **`streaming-messages-json`** (0.2.117): 4th output format, Messages API JSONL wire format. Compatible with standard Messages stream consumers.
-- **`--resume` without value** (0.2.117): resumes most recent session in cwd. `-r <title>` matches by session title (case-insensitive) when value is not a UUID.
-- **New dispatch flags** (0.2.117): `--max-turns <N>`, `--tools <list>` (allowlist), `--disallowed-tools <list>` (denylist incl. `Agent`/`Agent(type)` entries), `--no-subagents`, `--no-memory`, `--no-plan`, `--disable-web-search`, `--worktree [NAME]`, `--ref <REF>`.
-- **Sandbox hook write-protection** (0.2.117): `workspace`, `read-only`, and `strict` now kernel-deny writes to `~/.grok/hooks/` and `~/.grok/hooks-paths`. Does not affect dispatch behavior.
+- **JSON output fields:** `text`, `stopReason`, `sessionId`, `requestId`, `thought`, `usage` (6-bucket token breakdown), `num_turns`, `total_cost_usd`, `total_cost_usd_ticks`, `modelUsage` (key is CLI-internal model name, e.g. `grok-4.5-build` for dispatch model `grok-4.5`).
+- **`streaming-messages-json`:** Messages API JSONL wire format, compatible with standard Messages stream consumers.
+- **`--resume` without value:** resumes the most recent session in cwd. `-r <title>` matches by session title (case-insensitive) when the value is not a UUID.
+- **Dispatch flags:** `--max-turns <N>`, `--tools <list>` (allowlist), `--disallowed-tools <list>` (denylist incl. `Agent`/`Agent(type)` entries), `--no-subagents`, `--no-memory`, `--no-plan`, `--disable-web-search`, `--worktree [NAME]`, `--ref <REF>`.
+- **Sandbox hook write-protection:** `workspace`, `read-only`, and `strict` kernel-deny writes to `~/.grok/hooks/` and `~/.grok/hooks-paths`. This does not affect dispatch behavior.
 
 ### Canonical dispatch template
 

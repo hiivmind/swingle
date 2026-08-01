@@ -13,7 +13,7 @@ sandbox: enforced
 
 ## Cross-CLI comparison — codex cells
 
-| Property | codex 0.146.0 |
+| Property | codex |
 | --- | --- |
 | Prompt argument | positional (or stdin) |
 | `< /dev/null>` needed | **Yes** — hangs reading stdin to EOF |
@@ -26,7 +26,7 @@ sandbox: enforced
 | Auth | ChatGPT account |
 | Changelog | https://github.com/openai/codex/releases — read on every version bump before probing |
 
-## codex (verified v0.146.0, 2026-07-31)
+## codex
 
 ### Dispatch
 ```bash
@@ -40,8 +40,7 @@ codex exec -m <model> -C <repo> -s workspace-write -c approval_policy="never" \
 - **Stdin**: codex prints `Reading additional input from stdin...` as a startup banner on
   every exec invocation (even with `< /dev/null`). Without `< /dev/null`, it reads stdin
   to EOF and hangs forever → `< /dev/null` is mandatory. The banner is cosmetic; the hang
-  is real. (Refined at 0.146.0: the message appeared only with open stdin in 0.144.x;
-  now it is unconditional — see issue #58.)
+  is real; see the pack's verification log for the probe evidence.
 - **Sandbox is real**: a write to `~/` fails with "patch rejected: writing outside of the project".
   Two carve-outs:
   - `/tmp` **is writable by design** — don't treat the sandbox as total containment, and
@@ -54,11 +53,9 @@ codex exec -m <model> -C <repo> -s workspace-write -c approval_policy="never" \
     interactive "always allow" approvals) run matching commands OUTSIDE the sandbox, so on
     such machines the agent's commit succeeds. Matching is argv-prefix-shaped —
     `git commit` escapes while `git -C <path> commit` does not — so the effect looks
-    intermittent across runs. Isolated by controller bisect 2026-07-31 (pristine
-    `CODEX_HOME` fails; pristine + `rules/` succeeds; trust entries, `config.toml`, and
-    the npm dep refresh all ruled out). An in-sandbox commit success is an environment
-    signal, never a sandbox-drift finding. See issue #75.
-- **Stdout includes hook lifecycle lines** in 0.146.0: `hook: SessionStart`,
+    intermittent across runs. An in-sandbox commit success is an environment signal,
+    never a sandbox-drift finding; see the pack's verification log and issue #75.
+- **Stdout includes hook lifecycle lines:** `hook: SessionStart`,
   `hook: UserPromptSubmit`, `hook: PreToolUse`, `hook: PostToolUse`, `hook: Stop`
   (with Completed variants) appear between the session header and the final message.
   The `-o <file>` contract is unaffected — last message only. Token usage summary
@@ -71,7 +68,7 @@ codex exec -m <model> -C <repo> -s workspace-write -c approval_policy="never" \
 - `-o <file>` contains **only the agent's final message** — verify via `git diff` + your own
   gate re-run, never the report prose.
 - Model IDs and `model_reasoning_effort` are **server-validated**: bogus values → HTTP 400,
-  exit 1, with a clear JSON error. Valid effort values (0.146.0): `none`, `minimal`,
+  exit 1, with a clear JSON error. Valid effort values: `none`, `minimal`,
   `low`, `medium`, `high`, `xhigh`, `max`.
 - Model IDs verified dispatching: `gpt-5.6-luna`, `gpt-5.6-terra`, `gpt-5.6-sol`.
 - Known model quirk: **Luna long-context recall ~41%** (Sol/Terra ~90%) — bump Luna→Terra

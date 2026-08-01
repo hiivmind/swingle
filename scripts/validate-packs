@@ -14,7 +14,7 @@ VERSION_TOKEN_RE = re.compile(r"[0-9]+(?:\.[0-9]+)+\S*")
 VERSION_FILE_RE = re.compile(r"^[0-9]+(?:\.[0-9]+)+\.md$")
 
 def registry_path_for(pack_dir, verified_version):
-    if not (verified_version and VER_RE.fullmatch(verified_version)):
+    if not (isinstance(verified_version, str) and VER_RE.fullmatch(verified_version)):
         find(f"{pack_dir / 'pack.md'}: verified-version must be dotted numeric before registry resolution: {verified_version!r}")
         return None
     vdir = pack_dir / "versions"

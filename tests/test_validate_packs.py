@@ -202,6 +202,14 @@ def test_verified_version_absolute_is_finding():
     r = run("--root", str(FIX / "bad-verver-absolute"))
     assert r.returncode == 1 and "verified-version must be dotted numeric" in r.stdout
 
+def test_list_verified_version_is_finding(tmp_path):
+    root = tmp_path / "root"; shutil.copytree(FIX / "good-yaml", root)
+    pack = root / "providers" / "alpha" / "pack.md"
+    pack.write_text(pack.read_text().replace(
+        'verified-version: "1.0.0"', 'verified-version: ["1.0.0"]'))
+    r = run("--root", str(root))
+    assert r.returncode == 1 and "verified-version must be dotted numeric" in r.stdout
+
 def test_symlinked_versions_dir_is_finding(tmp_path):
     root = tmp_path / "root"; shutil.copytree(FIX / "good-yaml", root)
     pack = root / "providers" / "alpha"

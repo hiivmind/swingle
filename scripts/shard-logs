@@ -3,6 +3,7 @@
 import argparse
 import hashlib
 import re
+import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -22,6 +23,13 @@ class Entry:
     date: str
     ordinal: int
     payload: bytes
+
+
+@dataclass(frozen=True)
+class Mapping:
+    old: Entry
+    shard: str
+    new: Entry
 
 
 def parse_log(data):
@@ -79,9 +87,47 @@ def entry_hashes(entries):
     return [hashlib.sha256(entry.payload).hexdigest() for entry in entries]
 
 
-def migrate_provider(root, provider, write):
+def heading(entry):
+    return entry.payload.splitlines()[0].decode("utf-8")
+
+
+def source_at_revision(root, relative_path, revision):
+    result = subprocess.run(
+        ["git", "show", f"{revision}:{relative_path.as_posix()}"], cwd=root,
+        capture_output=True,
+    )
+    if result.returncode:
+        raise ValueError(
+            f"cannot read {relative_path} at {revision}: {result.stderr.decode().strip()}"
+        )
+    return result.stdout
+
+
+def map_entries(provider, old_entries, shard_entries):
+    """Pair each source entry with its exact chronological destination entry."""
+    old_ordered = sorted(old_entries, key=lambda item: (item.date, item.ordinal))
+    new_ordered = [
+        (month, entry) for month in sorted(shard_entries)
+        for entry in shard_entries[month]
+    ]
+    if len(old_ordered) != len(new_ordered):
+        raise ValueError(f"{provider}: entry count differs after sharding")
+    mappings = []
+    for old, (month, new) in zip(old_ordered, new_ordered):
+        if old.date != new.date or old.payload != new.payload:
+            raise ValueError(
+                f"{provider}: source entry {old.ordinal} ({heading(old)}) does not match "
+                f"log/{month}.md entry {new.ordinal} ({heading(new)})"
+            )
+        mappings.append(Mapping(old, month, new))
+    return mappings
+
+
+def migrate_provider(root, provider, write, source_revision=None):
     log_path = root / "providers" / provider / "verification-log.md"
-    data = log_path.read_bytes()
+    relative_log = log_path.relative_to(root)
+    data = (source_at_revision(root, relative_log, source_revision)
+            if source_revision else log_path.read_bytes())
     preamble, old_entries = parse_log(data)
     relocation = None
     if provider == "grok":
@@ -92,17 +138,15 @@ def migrate_provider(root, provider, write):
     for entry in sorted(old_entries, key=lambda item: (item.date, item.ordinal)):
         grouped.setdefault(entry.date[:7], []).append(entry)
     rendered = {month: render_shard(provider, month, entries) for month, entries in grouped.items()}
-    new_entries = []
-    for month in sorted(rendered):
-        _, parsed = parse_log(rendered[month])
-        new_entries.extend(parsed)
-    if entry_hashes(old_entries) != entry_hashes(sorted(new_entries, key=lambda item: item.ordinal)):
-        # New entries lack source ordinals after parsing; compare in source identity order instead.
-        old_set, new_set = sorted(entry_hashes(old_entries)), sorted(entry_hashes(new_entries))
-        if old_set != new_set:
-            raise ValueError(f"{provider}: entry payload hashes differ after sharding")
-    if len(old_entries) != len(new_entries):
-        raise ValueError(f"{provider}: entry count differs after sharding")
+    if source_revision and not write:
+        destination = {}
+        for month in grouped:
+            _, destination[month] = parse_log(
+                (log_path.parent / "log" / f"{month}.md").read_bytes()
+            )
+    else:
+        destination = {month: parse_log(body)[1] for month, body in rendered.items()}
+    mappings = map_entries(provider, old_entries, destination)
     if write:
         log_dir = log_path.parent / "log"
         log_dir.mkdir(exist_ok=True)
@@ -115,15 +159,19 @@ def migrate_provider(root, provider, write):
             section = b"## Re-verify reading list\n\n" + REVERIFY
             if section not in version_data:
                 version.write_bytes(version_data.rstrip(b"\n") + b"\n\n" + section)
-    return old_entries, new_entries, relocation
+    return old_entries, [mapping.new for mapping in mappings], relocation, mappings
 
 
-def report_provider(provider, old_entries, new_entries, relocation):
-    old_hashes = sorted(entry_hashes(old_entries))
-    new_hashes = sorted(entry_hashes(new_entries))
+def report_provider(provider, old_entries, new_entries, relocation, mappings):
     lines = [f"{provider}: old entries={len(old_entries)} new entries={len(new_entries)}"]
-    for ordinal, digest in enumerate(old_hashes, 1):
-        lines.append(f"  sha256[{ordinal}]: old={digest} new={new_hashes[ordinal - 1]}")
+    for mapping in mappings:
+        old_digest = hashlib.sha256(mapping.old.payload).hexdigest()
+        new_digest = hashlib.sha256(mapping.new.payload).hexdigest()
+        lines.append(
+            f"  source ordinal={mapping.old.ordinal} heading={heading(mapping.old)!r} "
+            f"sha256={old_digest} -> log/{mapping.shard}.md ordinal={mapping.new.ordinal} "
+            f"heading={heading(mapping.new)!r} sha256={new_digest}"
+        )
     if relocation:
         lines.append(f"  relocation: {relocation}")
     return "\n".join(lines)
@@ -134,12 +182,15 @@ def main():
     parser.add_argument("--root", type=Path, default=Path("."))
     parser.add_argument("--write", action="store_true", help="write shards, indexes, and the grok relocation")
     parser.add_argument("--parity", type=Path, help="write parity report to this path")
+    parser.add_argument("--source-revision", help="read original verification logs from this git revision")
     args = parser.parse_args()
     try:
         reports = []
         for provider in PROVIDERS:
-            old_entries, new_entries, relocation = migrate_provider(args.root, provider, args.write)
-            reports.append(report_provider(provider, old_entries, new_entries, relocation))
+            old_entries, new_entries, relocation, mappings = migrate_provider(
+                args.root, provider, args.write, args.source_revision
+            )
+            reports.append(report_provider(provider, old_entries, new_entries, relocation, mappings))
         report = "Migration parity: PASS\n" + "\n".join(reports) + "\n"
         if args.parity:
             args.parity.write_text(report)

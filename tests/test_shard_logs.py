@@ -3,6 +3,8 @@ import importlib.util
 import sys
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "shard-logs"
 loader = importlib.machinery.SourceFileLoader("shard_logs", str(SCRIPT))
@@ -49,8 +51,19 @@ def test_grok_provider_preamble_is_relocated_not_dropped(tmp_path):
         (directory / "verification-log.md").write_bytes(
             preamble + b"---\n\n## 2026-07-01 -- entry\npayload\n"
         )
-    old, new, relocation = sl.migrate_provider(tmp_path, "grok", write=True)
+    old, new, relocation, mappings = sl.migrate_provider(tmp_path, "grok", write=True)
     assert len(old) == len(new) == 1
+    assert mappings[0].old.ordinal == mappings[0].new.ordinal == 0
+    mapped_report = sl.report_provider("grok", old, new, relocation, mappings)
+    assert "source ordinal=0 heading='## 2026-07-01 -- entry'" in mapped_report
+    assert "-> log/2026-07.md ordinal=0 heading='## 2026-07-01 -- entry'" in mapped_report
     assert relocation and "Primary docs for re-verify" in relocation
     assert sl.REVERIFY in (tmp_path / "providers/grok/versions/0.2.117.md").read_bytes()
     assert (tmp_path / "providers/grok/verification-log.md").read_text() == sl.index_text("grok")
+
+
+def test_pairwise_mapping_rejects_a_same_day_payload_swap():
+    first = sl.Entry("2026-07-01", 0, b"## 2026-07-01 -- first\nfirst\n")
+    second = sl.Entry("2026-07-01", 1, b"## 2026-07-01 -- second\nsecond\n")
+    with pytest.raises(ValueError, match="source entry 0"):
+        sl.map_entries("test", [first, second], {"2026-07": [second, first]})

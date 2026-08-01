@@ -12,6 +12,21 @@ STATUSES, ELIGIBLE = {"verified", "experimental", "unavailable", "superseded", "
 NAME_RE, META_RE, VER_RE = re.compile(r"^[a-z0-9-]+$"), re.compile(r"[;|&<>$]"), re.compile(r"^[0-9]+(?:\.[0-9]+)+$")
 VERSION_TOKEN_RE = re.compile(r"[0-9]+(?:\.[0-9]+)+\S*")
 VERSION_FILE_RE = re.compile(r"^[0-9]+(?:\.[0-9]+)+\.md$")
+
+def registry_path_for(pack_dir, verified_version):
+    if not (verified_version and VER_RE.fullmatch(verified_version)):
+        find(f"{pack_dir / 'pack.md'}: verified-version must be dotted numeric before registry resolution: {verified_version!r}")
+        return None
+    vdir = pack_dir / "versions"
+    if vdir.is_symlink():
+        find(f"{vdir}: versions/ must not be a symlink")
+        return None
+    path = vdir / f"{verified_version}.md"
+    if path.is_symlink():
+        find(f"{path}: registry file must not be a symlink")
+        return None
+    return path
+
 LINE_RE = re.compile(r'^([a-z-]+):\s*(".*"|\[.*\]|[^"\[\s][^"]*)?\s*(#.*)?$')
 CONFIG_KEYS = {"disable": list, "default_provider": str, "providers_by_lane": dict, "require-verified-version": bool, "note": str, "superpowers": dict}
 PROBED_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
@@ -314,7 +329,7 @@ def run_argv(argv, path_dirs, timeout):
     except subprocess.TimeoutExpired as error: return -2, str(error)
     except OSError as error: return -1, str(error)
 
-def check_repo_docs(root):
+def check_repo_docs(root, manifests):
     plugin, readme = root / ".claude-plugin" / "plugin.json", root / "README.md"
     codex_plugin = root / ".codex-plugin" / "plugin.json"
     plugin_version = json.loads(plugin.read_text()).get("version") if plugin.exists() else None
@@ -323,6 +338,7 @@ def check_repo_docs(root):
     if plugin_version and match and plugin_version != match.group(1): find(f"version mismatch: plugin.json {plugin_version} != README {match.group(1)}")
     if plugin_version and codex_version and plugin_version != codex_version: find(f"version mismatch: .claude-plugin {plugin_version} != .codex-plugin {codex_version}")
     for pack in sorted((root / "providers").glob("*/")) if (root / "providers").exists() else []:
+        registry_path_for(pack, manifests[pack.name].get("verified-version"))
         vdir = pack / "versions"
         if vdir.is_dir():
             for entry in sorted(vdir.iterdir()):
@@ -403,7 +419,7 @@ def main():
     if a.check_config:
         load_config(a.check_config, set(manifests))
     if not (a.check_config or a.step0 or a.health or a.resolve):
-        check_repo_docs(root)
+        check_repo_docs(root, manifests)
     if a.health:
         run_health(manifests, a.path_dir, root, a.project, a.provider, a.config)
     elif a.step0:

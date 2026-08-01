@@ -190,6 +190,36 @@ def test_versions_bad_filename_fails():
     r = run("--root", str(FIX / "bad-versions-filename"))
     assert r.returncode == 1 and "versions/ entries must be" in r.stdout
 
+def test_verified_version_traversal_is_finding():
+    r = run("--root", str(FIX / "bad-verver-traversal"))
+    assert r.returncode == 1 and "verified-version must be dotted numeric" in r.stdout
+
+def test_verified_version_suffixed_is_finding():
+    r = run("--root", str(FIX / "bad-verver-suffixed"))
+    assert r.returncode == 1 and "verified-version must be dotted numeric" in r.stdout
+
+def test_verified_version_absolute_is_finding():
+    r = run("--root", str(FIX / "bad-verver-absolute"))
+    assert r.returncode == 1 and "verified-version must be dotted numeric" in r.stdout
+
+def test_symlinked_versions_dir_is_finding(tmp_path):
+    root = tmp_path / "root"; shutil.copytree(FIX / "good-yaml", root)
+    pack = root / "providers" / "alpha"
+    external = tmp_path / "external"; external.mkdir()
+    (external / "1.0.0.md").write_text("frozen body\n")
+    (pack / "versions").symlink_to(external, target_is_directory=True)
+    r = run("--root", str(root))
+    assert r.returncode == 1 and "versions/ must not be a symlink" in r.stdout
+
+def test_symlinked_current_file_is_finding(tmp_path):
+    root = tmp_path / "root"; shutil.copytree(FIX / "good-yaml", root)
+    pack = root / "providers" / "alpha"
+    versions = pack / "versions"; versions.mkdir()
+    external = tmp_path / "external.md"; external.write_text("frozen body\n")
+    (versions / "1.0.0.md").symlink_to(external)
+    r = run("--root", str(root))
+    assert r.returncode == 1 and "registry file must not be a symlink" in r.stdout
+
 def test_versions_dir_exempt_from_link_scan(tmp_path):
     root = tmp_path / "vlinks"; shutil.copytree(FIX / "good-lanes", root)
     vdir = root / "providers" / "alpha" / "versions"; vdir.mkdir()

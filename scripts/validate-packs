@@ -235,6 +235,10 @@ def detect_installed_providers(manifests, path_dirs):
 
 def check_provider_version(fm, path_dirs, timeout):
     rc, output = run_argv(fm["version-argv"], path_dirs, timeout)
+    if rc < 0:
+        # timeout (-2) / OSError (-1): output is the exception message, and a
+        # dotted number in it (e.g. the timeout value) is not a version.
+        return rc, output, None
     match = VER_RE.search(output or "")
     return rc, output, match.group(0) if match else None
 

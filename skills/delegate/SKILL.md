@@ -120,7 +120,13 @@ Read these plugin documents when their policy is needed:
    baseline check — on miss, STOP and hand the user the pack's baseline section).
    Also read the routed provider's `providers/<id>/verification-log.md` and, if present,
    the user's local record at `${XDG_CONFIG_HOME:-~/.config}/swingle/verification/<id>.md`
-   (read additively — both are evidence). If an entry at or below the installed version
+   (read additively — both are evidence).
+   When the installed version is BELOW the manifest's `verified-version` and
+   `providers/<id>/versions/` holds a file at-or-below it, read the NEAREST such file in
+   place of pack.md's body — the manifest (frontmatter) still comes from pack.md; version
+   comparison and edge rules are in `core/verification-protocol.md` Recording. Guidance
+   still applies additively on top of whichever body resolves.
+   If an entry at or below the installed version
    carries an operating instruction covering the lane about to be dispatched, **act on
    it** — apply prompt- and dispatch-shape restrictions directly and state what changed;
    version pins and provider changes are **recommended to the user**, never performed
@@ -233,8 +239,9 @@ BEFORE launch — a crash or compaction never loses the number→task mapping.
    status vocabulary **inline in the prompt** — the contract path carries each token's
    semantics, the prompt carries the tokens (playbook E1a): “End with a status block whose
    first line is exactly one of: STATUS: DONE | DONE_WITH_CONCERNS | NEEDS_CONTEXT |
-   BLOCKED.” Cheapest-tier conformance was 3/3 with the line inline and 0/3 by contract
-   reference alone; a missing block is still UNKNOWN, never DONE.
+   BLOCKED.” Inline tokens buy cheapest-tier conformance that a contract citation alone
+   does not (evidence in the core verification log); a missing block is still UNKNOWN,
+   never DONE.
 2. EVERY repository dispatch, both lanes: clean tree, OR offer worktree dispatch
    (one question — never a silent switch; sometimes the dispatch needs the dirty tree;
    the offer is subject to the worktree-dispatch prerequisite below — a `superpowers`
@@ -395,7 +402,7 @@ a killed supervisor loses no state.
 **Ledger writes are append-only — say it explicitly, then verify it.** A supervisor told
 merely to "append" has been observed recreating `ledger.md` with its own header,
 destroying the controller's pre-launch `NNN allocated:` lines — the exact state the
-pre-allocation exists to protect (2026-07-23). The supervisor's brief must say: append
+pre-allocation exists to protect. The supervisor's brief must say: append
 with `>>` only; never create, truncate, reorder, or rewrite the ledger; never remove a
 line you did not write. And because a brief is not enforcement, **the controller re-reads
 the ledger when the supervisor returns and confirms its own pre-launch lines survived** —

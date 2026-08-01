@@ -10,6 +10,7 @@ INTERPRETERS = {"sh", "bash", "dash", "zsh", "ksh", "env", "python", "python3", 
 TIERS, LANES = {"cheapest", "standard", "most-capable"}, {"implement", "review", "any"}
 STATUSES, ELIGIBLE = {"verified", "experimental", "unavailable", "superseded", "rejected"}, {"verified", "experimental"}
 NAME_RE, META_RE, VER_RE = re.compile(r"^[a-z0-9-]+$"), re.compile(r"[;|&<>$]"), re.compile(r"[0-9]+(?:\.[0-9]+)+")
+VERSION_FILE_RE = re.compile(r"^[0-9]+(?:\.[0-9]+)+\.md$")
 LINE_RE = re.compile(r'^([a-z-]+):\s*(".*"|\[.*\]|[^"\[\s][^"]*)?\s*(#.*)?$')
 CONFIG_KEYS = {"disable": list, "default_provider": str, "providers_by_lane": dict, "require-verified-version": bool, "note": str, "superpowers": dict}
 PROBED_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
@@ -317,6 +318,27 @@ def check_repo_docs(root):
     match = re.search(r"\*\*Version:\*\*\s*([0-9.]+)", readme.read_text()) if readme.exists() else None
     if plugin_version and match and plugin_version != match.group(1): find(f"version mismatch: plugin.json {plugin_version} != README {match.group(1)}")
     if plugin_version and codex_version and plugin_version != codex_version: find(f"version mismatch: .claude-plugin {plugin_version} != .codex-plugin {codex_version}")
+    for pack in sorted((root / "providers").glob("*/")) if (root / "providers").exists() else []:
+        vdir = pack / "versions"
+        if vdir.is_dir():
+            for entry in sorted(vdir.iterdir()):
+                if not (entry.is_file() and VERSION_FILE_RE.fullmatch(entry.name)):
+                    find(f"{entry}: versions/ entries must be <dotted-numeric-version>.md")
+    hygiene = [("~~", "strikethrough"), ("(from archive", "provenance stamp")]
+    ver_claim = re.compile(r"verified v[0-9]")
+    for pack in sorted((root / "providers").glob("*/")) if (root / "providers").exists() else []:
+        targets = []
+        if (pack / "pack.md").exists():
+            text = (pack / "pack.md").read_text().splitlines()
+            end = next((i for i, l in enumerate(text[1:], 1) if l == "---"), 0)
+            targets.append((pack / "pack.md", text[end + 1:], end + 2))
+        if (pack / "models.md").exists():
+            targets.append((pack / "models.md", (pack / "models.md").read_text().splitlines(), 1))
+        for path, lines, start in targets:
+            for n, line in enumerate(lines, start):
+                for needle, label in hygiene:
+                    if needle in line: find(f"{path}:{n}: pack-hygiene: {label}: {line.strip()[:60]}")
+                if ver_claim.search(line): find(f"{path}:{n}: pack-hygiene: body version claim: {line.strip()[:60]}")
     banned = re.compile(r"gpt-5\.6|gemini-3|opencode-go/|deepseek|minimax|qwen|glm-5|Agent tool|TodoWrite|CLAUDE_PLUGIN_ROOT|spawn_agent")
     for directory in ("core", "contracts"):
         for path in sorted((root / directory).glob("*.md")) if (root / directory).exists() else []:
@@ -337,7 +359,9 @@ def check_repo_docs(root):
         # Git-ignored agent scratch (sdd/delegate workspaces) and archive snapshots are
         # agent-authored or historical artifacts full of illustrative links — never repo content.
         rel = str(p.relative_to(root))
-        return not ("archive/" in rel or ".git" in p.parts or ".superpowers" in p.parts or ".swingle" in p.parts or ".sdd-dispatch" in p.parts)
+        return not ("archive/" in rel or re.match(r"providers/[^/]+/versions/", rel)
+                    or ".git" in p.parts or ".superpowers" in p.parts
+                    or ".swingle" in p.parts or ".sdd-dispatch" in p.parts)
     for path in sorted(root.rglob("*.md")):
         if not scanned(path): continue
         for n, line in enumerate(path.read_text().splitlines(), 1):

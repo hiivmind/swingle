@@ -221,7 +221,8 @@ model authored. The full threat model is [docs/safety.md](docs/safety.md); the e
   the `swingle-models` tool: [docs/model-tiering.md](docs/model-tiering.md).
 - **Credentials & subscription seats** — Swingle works best driving flat-rate seats you
   already pay for; auth modes and caps: [docs/credentials.md](docs/credentials.md).
-- **Adding a provider pack** — manifest-driven, no `core/` edits; grammar and validator:
+- **Adding a provider pack** — manifest-driven, no `core/` edits; grammar, validator, and
+  per-version snapshot layout:
   [docs/pack-authoring.md](docs/pack-authoring.md).
 - **Reporting verification findings** — packs are living documents; where to record what
   you observe: [core/verification-protocol.md](core/verification-protocol.md), or

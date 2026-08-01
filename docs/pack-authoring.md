@@ -55,3 +55,13 @@ Every value is validator-enforced, and `*-argv` arrays are **data** — `argv[0]
 `verified-version` is stamped only by live end-to-end dispatch evidence, recorded in the
 pack's `verification-log.md`. The full verification workflow is the `swingle-verify` skill and
 `core/verification-protocol.md`.
+
+## Per-version snapshots (`versions/`)
+
+`providers/<id>/versions/<version>.md` holds one frozen file per previously verified
+version — created by the verify round's snapshot-then-rewrite protocol
+(`core/verification-protocol.md` Recording), never authored by hand and never edited
+after creation. Filenames are dotted-numeric (`1.2.3.md`); the validator enforces the
+shape and exempts the directory from the link scan. `pack.md` and `models.md` are the
+living docs and state present-tense truth only — the validator rejects strikethroughs,
+`(from archive` stamps, and body `verified vX` claims in them.

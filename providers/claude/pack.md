@@ -12,12 +12,12 @@ report-transport: report-file
 sandbox: none
 ---
 
-## Cross-CLI comparison — claude cells (verified 2.1.220, 2026-07-31)
+## Cross-CLI comparison — claude cells
 
-| Property | claude 2.1.220 |
+| Property | claude |
 | --- | --- |
 | Prompt argument | **positional / trailing**; flags parse in any position (no `-p`-eats-next-arg, no `-p`=password trap). `-p`/`--print` selects non-interactive mode and is REQUIRED for headless dispatch — without it `claude` launches the interactive TUI. |
-| `< /dev/null` needed | **Yes in subprocess/pipe context.** P4 (2026-07-31): with a never-closing non-tty pipe stdin, `claude -p` hangs indefinitely (confirmed 60 s backstop, exit 143). Prior probes ran from a tty (Claude Code bash tool) — tty stdin does not block; pipe stdin does. Always append `< /dev/null` for headless subprocess dispatch. (#73) |
+| `< /dev/null` needed | **Yes in subprocess/pipe context.** A never-closing non-tty pipe stdin makes `claude -p` hang indefinitely, while tty stdin does not block. Always append `< /dev/null` for headless subprocess dispatch; see the pack's verification log. (#73) |
 | Sandbox | **None** — Claude Code ships no built-in OS sandbox. `--dangerously-skip-permissions` is documented "Recommended only for sandboxes with no internet access"; containment is external (containers). Treat every dispatch as full-host capability, gated only by the permission mode. |
 | Permission flags | Reads run headless with **no flag**. Writes and shell require `--dangerously-skip-permissions` (equivalently `--permission-mode bypassPermissions`). `acceptEdits` / `auto` / `dontAsk` do **not** grant writes headless — they still raise an approval prompt that no one can answer under `-p`, so the action **silently no-ops with exit 0** (see below). `--permission-mode plan` is an enforced read-only lane. |
 | Exit codes | 0 success; **bogus model → exit 1** with a clean local error ("It may not exist or you may not have access. Run --model to pick"). Fails fast — no dispatch to a typo'd model. |

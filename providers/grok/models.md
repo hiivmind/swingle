@@ -1,4 +1,4 @@
-# grok models (Grok Build / xAI) — verified dispatching 2026-07-24
+# grok models (Grok Build / xAI)
 
 > The table of record is [models.yaml](models.yaml) (layered overrides: see README
 > "Model tables and overrides"). This file carries the documentary layer only —

@@ -127,6 +127,29 @@ def test_step0_native_bypass_ignores_malformed_config():
             "--config", str(FIX / "config-malformed.json"))
     assert r.returncode == 0 and "native-subagents: bypass" in r.stdout
 
+def test_versions_bad_filename_fails():
+    r = run("--root", str(FIX / "bad-versions-filename"))
+    assert r.returncode == 1 and "versions/ entries must be" in r.stdout
+
+def test_versions_dir_exempt_from_link_scan(tmp_path):
+    root = tmp_path / "vlinks"; shutil.copytree(FIX / "good-lanes", root)
+    vdir = root / "providers" / "alpha" / "versions"; vdir.mkdir()
+    (vdir / "1.0.0.md").write_text("> Frozen: alpha-cli 1.0.0 pack body.\n[dead](../../missing/file.md)\n")
+    r = run("--root", str(root))
+    assert r.returncode == 0, r.stdout
+
+def test_body_strikethrough_fails():
+    r = run("--root", str(FIX / "bad-strikethrough"))
+    assert r.returncode == 1 and "pack-hygiene: strikethrough" in r.stdout
+
+def test_body_archive_stamp_fails():
+    r = run("--root", str(FIX / "bad-archive-stamp"))
+    assert r.returncode == 1 and "pack-hygiene: provenance stamp" in r.stdout
+
+def test_body_version_claim_fails():
+    r = run("--root", str(FIX / "bad-body-version"))
+    assert r.returncode == 1 and "pack-hygiene: body version claim" in r.stdout
+
 def test_yaml_pack_valid_and_resolvable():
     r = run("--root", str(FIX / "good-yaml"), "--resolve", "per-task reviewer", "alpha")
     assert r.returncode == 0 and "review-model-exact" in r.stdout

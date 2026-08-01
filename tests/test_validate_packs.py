@@ -246,6 +246,15 @@ def test_override_not_covering_slot_asks_with_path(tmp_path):
     assert r.returncode == 1
     assert "no eligible model" in r.stdout and "does not cover" in r.stdout
 
+def test_step0_ask_prefix_on_override_not_covering_slot(tmp_path):
+    proj = tmp_path / "proj"; (proj / ".swingle" / "models").mkdir(parents=True)
+    (proj / ".swingle" / "models" / "alpha.yaml").write_text(
+        "schema: 1\nprovider: alpha\nmodels: []\n")
+    r = run("--step0", "--root", str(FIX / "good-yaml"), "--path-dir", str(FIX / "bins-alpha"),
+            "--role", "per-task reviewer", "--project", str(proj))
+    assert r.returncode == 1
+    assert "ASK: no eligible model" in r.stdout and "does not cover" in r.stdout
+
 def test_malformed_override_stops_never_falls_through(tmp_path):
     proj = tmp_path / "proj"; (proj / ".swingle" / "models").mkdir(parents=True)
     (proj / ".swingle" / "models" / "alpha.yaml").write_text("models: {broken\n")

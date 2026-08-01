@@ -215,6 +215,7 @@ def test_symlinked_versions_dir_is_finding(tmp_path):
     pack = root / "providers" / "alpha"
     external = tmp_path / "external"; external.mkdir()
     (external / "1.0.0.md").write_text("frozen body\n")
+    shutil.rmtree(pack / "versions")
     (pack / "versions").symlink_to(external, target_is_directory=True)
     r = run("--root", str(root))
     assert r.returncode == 1 and "versions/ must not be a symlink" in r.stdout
@@ -222,18 +223,60 @@ def test_symlinked_versions_dir_is_finding(tmp_path):
 def test_symlinked_current_file_is_finding(tmp_path):
     root = tmp_path / "root"; shutil.copytree(FIX / "good-yaml", root)
     pack = root / "providers" / "alpha"
-    versions = pack / "versions"; versions.mkdir()
+    versions = pack / "versions"
     external = tmp_path / "external.md"; external.write_text("frozen body\n")
+    (versions / "1.0.0.md").unlink()
     (versions / "1.0.0.md").symlink_to(external)
     r = run("--root", str(root))
     assert r.returncode == 1 and "registry file must not be a symlink" in r.stdout
 
+def test_symlinked_historical_file_is_finding(tmp_path):
+    root = tmp_path / "root"; shutil.copytree(FIX / "good-yaml", root)
+    pack = root / "providers" / "alpha"
+    external = tmp_path / "external.md"; external.write_text("historical body\n")
+    (pack / "versions" / "0.9.0.md").symlink_to(external)
+    r = run("--root", str(root))
+    assert r.returncode == 1 and "registry file must be a regular file" in r.stdout
+
 def test_versions_dir_exempt_from_link_scan(tmp_path):
     root = tmp_path / "vlinks"; shutil.copytree(FIX / "good-lanes", root)
-    vdir = root / "providers" / "alpha" / "versions"; vdir.mkdir()
-    (vdir / "1.0.0.md").write_text("> Frozen: alpha-cli 1.0.0 pack body.\n[dead](../../missing/file.md)\n")
+    vdir = root / "providers" / "alpha" / "versions"; vdir.mkdir(exist_ok=True)
+    (vdir / "0.9.0.md").write_text(
+        "> Distilled: alpha 0.9.0 truth, assembled fixture history.\n"
+        "[dead](../../missing/file.md)\n")
     r = run("--root", str(root))
     assert r.returncode == 0, r.stdout
+
+def test_pack_body_remains_fails():
+    r = run("--root", str(FIX / "bad-pack-body-remains"))
+    assert r.returncode == 1 and "pack.md must be manifest-only" in r.stdout
+
+def test_missing_current_registry_file_fails():
+    r = run("--root", str(FIX / "bad-missing-current"))
+    assert r.returncode == 1 and "current registry file missing" in r.stdout
+
+def test_empty_registry_file_fails_closed():
+    r = run("--root", str(FIX / "bad-registry-empty-file"))
+    assert r.returncode == 1 and "registry file must open with a class header" in r.stdout
+
+def test_registry_header_fails():
+    r = run("--root", str(FIX / "bad-registry-header"))
+    assert r.returncode == 1 and "registry file must open with a class header" in r.stdout
+
+def test_registry_header_version_must_equal_filename():
+    r = run("--root", str(FIX / "bad-registry-header-version"))
+    assert r.returncode == 1 and "header version must equal filename" in r.stdout
+
+def test_current_registry_must_be_verified_for_manifest_cli_and_version():
+    r = run("--root", str(FIX / "bad-current-not-verified"))
+    assert r.returncode == 1 and "current registry file must carry a Verified header naming the manifest cli and version" in r.stdout
+
+def test_registry_key_above_manifest_stamp_fails():
+    r = run("--root", str(FIX / "bad-registry-above-frontier"))
+    assert r.returncode == 1 and "registry key must not exceed manifest verified-version" in r.stdout
+
+def test_version_cmp_key_zero_pads_components():
+    assert vp.version_cmp_key("1.2", 3) < vp.version_cmp_key("1.2.1", 3)
 
 def test_body_strikethrough_fails():
     r = run("--root", str(FIX / "bad-strikethrough"))
@@ -443,6 +486,12 @@ def make_health_test_root(tmp_path, providers=("alpha", "beta")):
         )
         (pdir / "models.md").write_text(f"# {p} models\n")
         (pdir / "verification-log.md").write_text(f"# {p} log\n")
+        (pdir / "versions").mkdir()
+        (pdir / "versions" / "1.0.0.md").write_text(
+            f"> Verified: {p}-cli 1.0.0, round 2026-07-31.\nbody\n")
+        (pdir / "log").mkdir()
+        (pdir / "log" / "2026-07.md").write_text(
+            f"# Verification log — {p}\n\n## 2026-07-01 — fixture entry\n\nFixture evidence.\n")
     return root
 
 def test_health_installed_and_uninstalled_inprocess(tmp_path, monkeypatch):

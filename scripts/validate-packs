@@ -324,6 +324,21 @@ def check_repo_docs(root):
             for entry in sorted(vdir.iterdir()):
                 if not (entry.is_file() and VERSION_FILE_RE.fullmatch(entry.name)):
                     find(f"{entry}: versions/ entries must be <dotted-numeric-version>.md")
+    hygiene = [("~~", "strikethrough"), ("(from archive", "provenance stamp")]
+    ver_claim = re.compile(r"verified v[0-9]")
+    for pack in sorted((root / "providers").glob("*/")) if (root / "providers").exists() else []:
+        targets = []
+        if (pack / "pack.md").exists():
+            text = (pack / "pack.md").read_text().splitlines()
+            end = next((i for i, l in enumerate(text[1:], 1) if l == "---"), 0)
+            targets.append((pack / "pack.md", text[end + 1:], end + 2))
+        if (pack / "models.md").exists():
+            targets.append((pack / "models.md", (pack / "models.md").read_text().splitlines(), 1))
+        for path, lines, start in targets:
+            for n, line in enumerate(lines, start):
+                for needle, label in hygiene:
+                    if needle in line: find(f"{path}:{n}: pack-hygiene: {label}: {line.strip()[:60]}")
+                if ver_claim.search(line): find(f"{path}:{n}: pack-hygiene: body version claim: {line.strip()[:60]}")
     banned = re.compile(r"gpt-5\.6|gemini-3|opencode-go/|deepseek|minimax|qwen|glm-5|Agent tool|TodoWrite|CLAUDE_PLUGIN_ROOT|spawn_agent")
     for directory in ("core", "contracts"):
         for path in sorted((root / directory).glob("*.md")) if (root / directory).exists() else []:

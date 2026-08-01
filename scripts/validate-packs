@@ -9,7 +9,8 @@ ENUMS = {"session-source": {"session-list", "exec-output", "conversation-id"}, "
 INTERPRETERS = {"sh", "bash", "dash", "zsh", "ksh", "env", "python", "python3", "perl", "ruby", "node", "deno", "bun", "npx", "uv", "uvx", "xargs", "nice", "timeout", "sudo", "doas"}
 TIERS, LANES = {"cheapest", "standard", "most-capable"}, {"implement", "review", "any"}
 STATUSES, ELIGIBLE = {"verified", "experimental", "unavailable", "superseded", "rejected"}, {"verified", "experimental"}
-NAME_RE, META_RE, VER_RE = re.compile(r"^[a-z0-9-]+$"), re.compile(r"[;|&<>$]"), re.compile(r"[0-9]+(?:\.[0-9]+)+")
+NAME_RE, META_RE, VER_RE = re.compile(r"^[a-z0-9-]+$"), re.compile(r"[;|&<>$]"), re.compile(r"^[0-9]+(?:\.[0-9]+)+$")
+VERSION_TOKEN_RE = re.compile(r"[0-9]+(?:\.[0-9]+)+\S*")
 VERSION_FILE_RE = re.compile(r"^[0-9]+(?:\.[0-9]+)+\.md$")
 LINE_RE = re.compile(r'^([a-z-]+):\s*(".*"|\[.*\]|[^"\[\s][^"]*)?\s*(#.*)?$')
 CONFIG_KEYS = {"disable": list, "default_provider": str, "providers_by_lane": dict, "require-verified-version": bool, "note": str, "superpowers": dict}
@@ -240,8 +241,11 @@ def check_provider_version(fm, path_dirs, timeout):
         # timeout (-2) / OSError (-1): output is the exception message, and a
         # dotted number in it (e.g. the timeout value) is not a version.
         return rc, output, None
-    match = VER_RE.search(output or "")
-    return rc, output, match.group(0) if match else None
+    # Preserve the CLI's raw version token.  A suffix (or any other wrapper)
+    # makes the token unparseable; never compare an extracted numeric prefix.
+    match = VERSION_TOKEN_RE.search(output or "")
+    raw_token = match.group(0) if match else None
+    return rc, output, raw_token if raw_token and VER_RE.fullmatch(raw_token) else None
 
 def check_provider_readiness(fm, path_dirs, timeout):
     ready_argv = fm.get("readiness-argv") or fm["version-argv"]

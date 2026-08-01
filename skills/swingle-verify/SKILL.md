@@ -100,6 +100,12 @@ Knowledge base (all paths are relative to the plugin tree root `<root>`):
    `providers/<id>/verification-log.md`. Update only that pack's `pack.md` and `models.yaml`
    when evidence changes facts, versions, or model status (stamps land in models.yaml — the
    table of record; models.md keeps the narrative entry). Never rewrite earlier log entries.
+   When the round moves `verified-version`, FIRST perform the snapshot-then-rewrite
+   protocol in `core/verification-protocol.md` Recording — copy the outgoing pack.md
+   body to `versions/<old>.md` with its `> Frozen:` line before any pack edit, honoring
+   its idempotence rules — and rewrite the affected pack/models sections to clean
+   present tense: superseded text is deleted, not struck through; version-scoped
+   operating deltas go to the log as guidance, never into pack prose.
    If the round produced an **operating instruction** — something a future dispatcher
    must do differently on this version and forward — record it per the guidance
    convention in `core/verification-protocol.md` Recording (house style

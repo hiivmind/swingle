@@ -120,7 +120,13 @@ Read these plugin documents when their policy is needed:
    baseline check — on miss, STOP and hand the user the pack's baseline section).
    Also read the routed provider's `providers/<id>/verification-log.md` and, if present,
    the user's local record at `${XDG_CONFIG_HOME:-~/.config}/swingle/verification/<id>.md`
-   (read additively — both are evidence). If an entry at or below the installed version
+   (read additively — both are evidence).
+   When the installed version is BELOW the manifest's `verified-version` and
+   `providers/<id>/versions/` holds a file at-or-below it, read the NEAREST such file in
+   place of pack.md's body — the manifest (frontmatter) still comes from pack.md; version
+   comparison and edge rules are in `core/verification-protocol.md` Recording. Guidance
+   still applies additively on top of whichever body resolves.
+   If an entry at or below the installed version
    carries an operating instruction covering the lane about to be dispatched, **act on
    it** — apply prompt- and dispatch-shape restrictions directly and state what changed;
    version pins and provider changes are **recommended to the user**, never performed

@@ -129,6 +129,37 @@ version and forward — write it in the log entry. House style:
 
 `**Guidance[ (<lane>[, <lane>…])]:** <what to do on this version and forward>`
 
+**Living docs state the present tense; history lives in snapshots and logs.** The
+living pack docs are `pack.md` and `models.md`; they state present-tense truth for the
+manifest's `verified-version`. `providers/<id>/versions/<v>.md` files are frozen
+present-tense historical artifacts — one per previously verified version, existing if
+and only if a round stamped that version. History markup is banned in living docs: no
+strikethrough refutation trails, no provenance/migration stamps, no
+"no longer / previously / superseded" narration; any such marker expires the first
+time its section is re-verified or rewritten. What changed between versions is the
+diff between snapshot files plus the dated log entries. The manifest's
+`verified-version` is the only version assertion in living docs.
+
+**Snapshot-then-rewrite (every round that moves `verified-version` from X to Y):**
+(1) copy pack.md's entire body (below the frontmatter's closing `---`) to
+`versions/X.md`, prepending `> Frozen: <cli> X pack body, verified state as of commit
+<sha>.` — BEFORE any pack.md edit of the round; (2) verify the copy; (3) rewrite
+pack.md to Y's present tense. Idempotence: destination byte-identical → skip;
+destination differs → STOP, never overwrite a frozen snapshot. A same-version
+re-verification with a material correction snapshots nothing — the earlier body was
+wrong, and git history covers it. A frozen snapshot later proven wrong is never
+edited: a dispatch-affecting correction REQUIRES a version-scoped guidance entry; a
+non-dispatch fact gets a dated log note.
+
+**Resolution for older installed versions:** when the installed version is below
+`verified-version` and `versions/` holds a file at-or-below it, dispatch skills read
+the nearest such file in place of pack.md's body (the manifest still comes from
+pack.md). Versions are dotted-numeric only; compare numerically per component,
+zero-padding unequal lengths; a suffixed version string is unparseable — treated as
+above-frontier, never as its numeric prefix. Below every snapshot → pack.md's body
+plus the older-than-verified advisory. Guidance entries apply additively on top of
+whichever body resolves.
+
 directly under the entry heading; lanes come from the packs' lane vocabulary, and
 omitting the parenthetical means all lanes. Freeform prose is equally valid — the line
 is for scannability, not for a parser, and nothing validates it. An instruction applies

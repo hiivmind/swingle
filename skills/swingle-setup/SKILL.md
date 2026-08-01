@@ -45,7 +45,7 @@ The setup skill operates in strictly ordered phases. Phase A is always read-only
    - **Set-but-unreadable `$SWINGLE_CONFIG`** (finding wording matches dispatch STOP; offered fix: unset or repair).
 4. **Registry layer record**: from `--health` output, record the **currently-resolving layer per provider** before any Phase C offer is composed — offers are computed against this record.
 5. **Legacy namespace residue**: check for presence of `<project>/.sdd-dispatch.json`, `<project>/.sdd-dispatch/`, `${XDG_CONFIG_HOME:-~/.config}/sdd-dispatch/`, and set `$SDD_DISPATCH_CONFIG` / `$SDD_DISPATCH_MODELS` environment variables. For a legacy project directory, classify its contents: **pure-untracked vs contains-tracked-files** (`git ls-files .sdd-dispatch/` non-empty), and whether the new-name target (`.swingle/`) already exists.
-6. **Controller/provider baselines**: resolve the provider body using the Recording rules in `<root>/core/verification-protocol.md`, then read the pack manifest and resolved `versions/<verified-version>.md` body before inspecting each installed provider's declared, local-state-only setup preconditions. Inspect the controller's own install state (e.g. opencode `skills.paths` pinning) per its controller adapter.
+6. **Controller/provider baselines**: resolve the provider body using the Recording resolution rules in `<root>/core/verification-protocol.md` (the registry key resolved FROM the installed CLI version — exact match, else nearest at-or-below; the manifest-frontier file only when at or above it), then read the pack manifest and that resolved registry body before inspecting each installed provider's declared, local-state-only setup preconditions. Inspect the controller's own install state (e.g. opencode `skills.paths` pinning) per its controller adapter.
 7. **Workspace ignore state**: check whether `.swingle/` scratch directory is covered by `.git/info/exclude` or `.gitignore` in the current repository (informational; dispatch skills self-heal this).
 8. **Superpowers availability records**: read the `superpowers` key from the USER-layer config file directly (environment facts ignore the layered precedence walk): report each provider's recorded `installed`/`version`/`probed` fact and flag providers with no record. These facts gate the dispatch skills' worktree-dispatch lever.
 
@@ -76,9 +76,9 @@ config: none found (dispatch uses built-in defaults)      legacy paths: ~/.confi
 
 Offer per installed provider (consent — each probe costs one live dispatch).
 Dispatch mechanics, provider-neutral: resolve and read the provider body by the Recording
-rules in `<root>/core/verification-protocol.md` (the current
-`versions/<verified-version>.md` file); use the manifest plus that resolved body's canonical
-dispatch template; model = the cheapest-tier read lane per the roles table; readiness
+resolution rules in `<root>/core/verification-protocol.md` (the registry key resolved
+from the installed CLI version, not unconditionally the manifest frontier); use the
+manifest plus that resolved body's canonical dispatch template; model = the cheapest-tier read lane per the roles table; readiness
 checked first via the pack's readiness/version argv (skip and report if not
 ready); output collected per the pack's `report-transport` (`captured-output`
 packs: the captured final message; `report-file` packs: STILL request no file —

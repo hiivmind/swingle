@@ -46,6 +46,11 @@ because the shell used `;`. The gate is a precondition, not a preceding step.
   `captured-output` and both skills ask for no file. Adding a field means updating `REQ`
   or `OPTIONAL` plus `ENUMS` in `scripts/validate-packs`, declaring it in every shipped
   pack, and documenting it in the README's "Adding a provider" table.
+- **Pack living docs state the present tense; history is snapshots + logs.** A verify
+  round that moves `verified-version` snapshots the outgoing pack.md body to
+  `providers/<id>/versions/<old>.md` (frozen; never edited) before rewriting. The
+  validator enforces the hygiene scans; the protocol is in
+  `core/verification-protocol.md` Recording.
 - **Prefer structural fixes to prompt workarounds.** A prompt nudge can only lower the
   rate of a misbehaviour; routing around it can remove the failure mode. When you claim a
   fix works, say which kind it is — and do not call a mitigation "verified" off a single

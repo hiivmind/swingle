@@ -66,12 +66,14 @@ Read these plugin documents when their policy is needed:
    `python3 <root>/scripts/validate-packs --step0 --root <root> --project <repo>
    --role "<the plan's first task role>" [--config <found-layer>]
    [--task-provider <id> | --lever native-subagents]`
-   The script is the single implementation of: provider detection (INSTALLED iff
-   `command -v -- "<cli>"` succeeds for the manifest's validated cli; data-only
-   manifests — never execute manifest strings as shell) → native bypass → config loading
-   and gating (malformed-config STOP cases: [docs/config.md](../../docs/config.md)
+   The script is the single implementation of: manifest pre-validation → native bypass
+   branch (when the `native-subagents` lever is set: print-and-proceed native; nothing
+   else runs) → config loading and gating (malformed-config STOP cases:
+   [docs/config.md](../../docs/config.md)
    “Dispatch STOP Conditions”; ACTIVE = installed − disabled (− incompatible iff
-   require-verified-version)) → provider detection → drift advisory → routing precedence
+   require-verified-version)) → provider detection (INSTALLED iff `command -v -- "<cli>"`
+   succeeds for the manifest's validated cli; data-only manifests — never execute
+   manifest strings as shell) → drift advisory → routing precedence
    (per-task/session directive → config lanes/default
    → codex-if-active → sole-active → ask) → readiness (the pack's bounded version+auth
    probe). Outcome contract:

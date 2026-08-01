@@ -55,22 +55,24 @@ Read these plugin documents when their policy is needed:
    to proceed past a non-zero exit. THEN check `git -C <root> status --porcelain
    providers/` — any untracked or modified provider directory requires explicit user
    approval before its manifest or prose is used (git-tracked state is the trust anchor).
-5. **Config discovery (prose)**: first found of `$SWINGLE_CONFIG` →
-   `<project>/.swingle.json` → `${XDG_CONFIG_HOME:-~/.config}/swingle/config.json`
-   (schema: [docs/config.md](../../docs/config.md)). A set-but-unreadable
-   `$SWINGLE_CONFIG` is a STOP. No file found is a normal state — omit `--config`
-   below.
-6. **Session gate — run the Step-0 pipeline** (where the controller can run shell;
+5. **Session gate — run the Step-0 pipeline** (where the controller can run shell;
    otherwise execute the same table below in prose):
+   Branch for `native-subagents` immediately after manifest pre-validation; it bypasses
+   config discovery/loading and provider detection. For an external branch, discover the
+   first config found at `$SWINGLE_CONFIG` → `<project>/.swingle.json` →
+   `${XDG_CONFIG_HOME:-~/.config}/swingle/config.json` (schema:
+   [docs/config.md](../../docs/config.md)). A set-but-unreadable `$SWINGLE_CONFIG` is a
+   STOP. No file found is normal — omit `--config` below.
    `python3 <root>/scripts/validate-packs --step0 --root <root> --project <repo>
    --role "<the plan's first task role>" [--config <found-layer>]
    [--task-provider <id> | --lever native-subagents]`
    The script is the single implementation of: provider detection (INSTALLED iff
    `command -v -- "<cli>"` succeeds for the manifest's validated cli; data-only
-   manifests — never execute manifest strings as shell) → config gating (malformed-config
-   STOP cases: [docs/config.md](../../docs/config.md) “Dispatch STOP Conditions”; ACTIVE =
-   installed − disabled (− incompatible iff require-verified-version)) → drift advisory →
-   native bypass → routing precedence (per-task/session directive → config lanes/default
+   manifests — never execute manifest strings as shell) → native bypass → config loading
+   and gating (malformed-config STOP cases: [docs/config.md](../../docs/config.md)
+   “Dispatch STOP Conditions”; ACTIVE = installed − disabled (− incompatible iff
+   require-verified-version)) → provider detection → drift advisory → routing precedence
+   (per-task/session directive → config lanes/default
    → codex-if-active → sole-active → ask) → readiness (the pack's bounded version+auth
    probe). Outcome contract:
    | Output | Meaning | Action |
@@ -84,8 +86,9 @@ Read these plugin documents when their policy is needed:
    | exit 0; `native-subagents: bypass external dispatch (no provider selected)` | native bypass | proceed with controller-native subagents, no provider/model resolution |
    A divergence between the script and this table is a bug adjudicated against the
    table.
-   When a later task's lane differs and config routes lanes to different providers,
-   re-run `--step0` with that role before its first dispatch.
+   Re-run `--step0` before a task's first dispatch whenever any effective routing input
+   changes: its per-task provider directive, its per-task native directive, or a lane
+   whose config routing differs for that task.
 7. **Tier and model**: role → (tier, lane) via `core/roles.md`. Tier levers are
    policy, never script inputs: silent = "floor it" (base tier); "play it safe" =
    one tier up (most-capable is the ceiling — say so and proceed) — resolve the
@@ -102,7 +105,11 @@ Read these plugin documents when their policy is needed:
 9. Also read the routed provider's `providers/<id>/verification-log.md` and, if present,
    the user's local record at `${XDG_CONFIG_HOME:-~/.config}/swingle/verification/<id>.md`
    (read additively — both are evidence).
-   When the installed version is BELOW the manifest's `verified-version` and
+   Take the installed version for snapshot resolution from the CLI's **raw version-output
+   token**, accepting it only when it matches the closed dotted-numeric grammar. If that
+   raw token carries any suffix, treat the version as unparseable and use `pack.md`'s body;
+   never resolve on a numeric prefix extracted by the drift probe. When a parseable
+   installed version is BELOW the manifest's `verified-version` and
    `providers/<id>/versions/` holds a file at-or-below it, read the NEAREST such file in
    place of pack.md's body — the manifest (frontmatter) still comes from pack.md; version
    comparison and edge rules are in `core/verification-protocol.md` Recording. Guidance

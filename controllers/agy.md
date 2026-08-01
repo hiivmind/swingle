@@ -13,4 +13,5 @@ Antigravity-as-**controller** (this adapter) and Antigravity-as-**provider** (`p
 
 The lever alias **"all Antigravity"** (or "all agy") means `native-subagents` (controller-native `invoke_subagent`, not external packs).
 
-**Verified as a driver 2026-07-25** by an inception dispatch: a job dispatched *to* agy had it drive a nested dispatch *to* opencode (`opencode run --auto -m opencode-go/deepseek-v4-flash …`) via `run_command`, capturing opencode's stdout and round-tripping a marker cleanly (`STATUS: DONE`, tree untouched). See `providers/agy/verification-log.md`.
+agy can drive a nested external-provider dispatch through `run_command`, capture its stdout,
+and round-trip its completion marker. Evidence: `providers/agy/verification-log.md`.

@@ -123,6 +123,19 @@ def test_step0_ask_prefix_on_no_eligible_model():
 def test_step0_strict_removal_is_warning_when_route_remains():
     r = run("--step0", "--root", str(FIX / "good-lanes"), "--path-dir", str(FIX / "bins-alpha-oldver"), "--config", str(FIX / "config-require-version.json"))
     assert r.returncode == 1 and "warning: incompatible providers removed: alpha" in r.stdout and "ASK: no active providers" in r.stdout
+def test_step0_strict_removal_warns_and_routes_to_the_remaining_provider():
+    """Removing an outdated provider must not prevent a valid survivor route."""
+    r = run("--step0", "--root", str(FIX / "good-two-providers"),
+            "--path-dir", str(FIX / "bins-two-alpha-oldver"),
+            "--config", str(FIX / "config-require-version.json"),
+            "--role", "per-task reviewer")
+    warning_lines = [line for line in r.stdout.splitlines() if line.startswith("warning:")]
+    assert r.returncode == 0
+    assert warning_lines == [
+        "warning: incompatible: alpha (0.9.0 != 1.0.0)",
+        "warning: incompatible providers removed: alpha",
+    ]
+    assert "provider: beta" in r.stdout
 def test_step0_lane_routing_and_resolution():
     r = run("--step0", "--root", str(FIX / "good-two-providers"), "--path-dir", str(FIX / "bins-two"), "--config", str(FIX / "config-lane-beta.json"), "--role", "per-task reviewer"); assert r.returncode == 0 and "provider: beta" in r.stdout and "model:" in r.stdout
 def test_step0_version_mismatch_blocks_when_required():
@@ -161,6 +174,17 @@ def test_step0_native_bypass_ignores_malformed_config():
             "--path-dir", str(FIX / "bins-alpha"), "--lever", "native-subagents",
             "--config", str(FIX / "config-malformed.json"))
     assert r.returncode == 0 and "native-subagents: bypass" in r.stdout
+
+def test_version_probe_rejects_a_suffixed_raw_version_token(tmp_path):
+    """A suffix must not be silently discarded for snapshot or strict-mode decisions."""
+    bin_dir = tmp_path / "bin"; bin_dir.mkdir()
+    alpha = bin_dir / "alpha"
+    alpha.write_text("#!/bin/sh\necho 'alpha 1.0.0-rc1'\n")
+    alpha.chmod(0o755)
+    manifest = vp.parse_front_matter(FIX / "good-lanes" / "providers" / "alpha" / "pack.md")
+    rc, _, version = vp.check_provider_version(manifest, [str(bin_dir)], 1)
+    assert rc == 0
+    assert version is None
 
 def test_versions_bad_filename_fails():
     r = run("--root", str(FIX / "bad-versions-filename"))

@@ -1,0 +1,56 @@
+import importlib.machinery
+import importlib.util
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+SCRIPT = ROOT / "scripts" / "shard-logs"
+loader = importlib.machinery.SourceFileLoader("shard_logs", str(SCRIPT))
+spec = importlib.util.spec_from_loader("shard_logs", loader)
+sl = importlib.util.module_from_spec(spec)
+sys.modules[spec.name] = sl
+spec.loader.exec_module(sl)
+
+
+def test_parse_and_render_preserve_payloads_and_report_provider_preamble():
+    data = (
+        b"# boilerplate\n\nProvider-specific instruction.\n\n---\n\n"
+        b"## 2026-08-02 -- second\nbody two\n\n### addendum\nkept\n---\ninside payload\n\n---\n\n"
+        b"## 2026-07-01 -- first\nfirst body\n\n---\n\n"
+        b"## 2026-08-02 -- third\nthird body\n"
+    )
+    preamble, entries = sl.parse_log(data)
+    assert b"Provider-specific instruction." in preamble
+    assert [entry.date for entry in entries] == ["2026-08-02", "2026-07-01", "2026-08-02"]
+    assert b"### addendum\nkept\n---\ninside payload" in entries[0].payload
+    assert not entries[0].payload.endswith(b"\n\n---\n\n")
+    grouped = {}
+    for entry in sorted(entries, key=lambda item: (item.date, item.ordinal)):
+        grouped.setdefault(entry.date[:7], []).append(entry)
+    july = sl.render_shard("test", "2026-07", grouped["2026-07"])
+    august = sl.render_shard("test", "2026-08", grouped["2026-08"])
+    _, july_entries = sl.parse_log(july)
+    _, august_entries = sl.parse_log(august)
+    assert july_entries[0].payload == entries[1].payload
+    assert [entry.payload for entry in august_entries] == [entries[0].payload, entries[2].payload]
+    assert b"../../../core/verification-protocol.md" in july
+
+
+def test_grok_provider_preamble_is_relocated_not_dropped(tmp_path):
+    for provider in sl.PROVIDERS:
+        directory = tmp_path / "providers" / provider
+        directory.mkdir(parents=True)
+        preamble = b"# boilerplate\n\n"
+        if provider == "grok":
+            preamble += sl.REVERIFY + b"\n"
+            version = directory / "versions" / "0.2.117.md"
+            version.parent.mkdir()
+            version.write_text("# current registry\n")
+        (directory / "verification-log.md").write_bytes(
+            preamble + b"---\n\n## 2026-07-01 -- entry\npayload\n"
+        )
+    old, new, relocation = sl.migrate_provider(tmp_path, "grok", write=True)
+    assert len(old) == len(new) == 1
+    assert relocation and "Primary docs for re-verify" in relocation
+    assert sl.REVERIFY in (tmp_path / "providers/grok/versions/0.2.117.md").read_bytes()
+    assert (tmp_path / "providers/grok/verification-log.md").read_text() == sl.index_text("grok")

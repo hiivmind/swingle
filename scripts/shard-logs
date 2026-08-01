@@ -1,0 +1,154 @@
+#!/usr/bin/env python3
+"""Shard provider verification logs while proving entry-payload parity (stdlib only)."""
+import argparse
+import hashlib
+import re
+import sys
+from dataclasses import dataclass
+from pathlib import Path
+
+HEADING = re.compile(br"(?m)^## ")
+DATE = re.compile(br"\b(\d{4}-\d{2}-\d{2})\b")
+REVERIFY = (
+    b"Primary docs for re-verify (read first on every CLI bump):\n"
+    b"`~/.grok/docs/user-guide/14-headless-mode.md`, `17-sessions.md`, `18-sandbox.md`,\n"
+    b"`22-permissions-and-safety.md`.\n"
+)
+PROVIDERS = ("agy", "claude", "codex", "grok", "opencode", "pi")
+
+
+@dataclass(frozen=True)
+class Entry:
+    date: str
+    ordinal: int
+    payload: bytes
+
+
+def parse_log(data):
+    """Return preamble and payloads, excluding only terminal separator blocks."""
+    starts = [match.start() for match in HEADING.finditer(data)]
+    if not starts:
+        raise ValueError("no top-level verification-log entries")
+    entries = []
+    for ordinal, start in enumerate(starts):
+        end = starts[ordinal + 1] if ordinal + 1 < len(starts) else len(data)
+        payload = trim_separator(data[start:end])
+        match = DATE.search(payload.splitlines()[0])
+        if not match:
+            raise ValueError("entry heading has no YYYY-MM-DD date")
+        entries.append(Entry(match.group(1).decode("ascii"), ordinal, payload))
+    return data[:starts[0]], entries
+
+
+def trim_separator(payload):
+    """Remove the maximal final run of blank and horizontal-rule lines."""
+    lines = payload.splitlines(keepends=True)
+    while lines and lines[-1].strip() in (b"", b"---"):
+        lines.pop()
+    return b"".join(lines)
+
+
+def shard_preamble(provider, month):
+    return (
+        f"# SDD Dispatch Verification Log — {provider}, {month}\n\n"
+        "Append-only. Never rewrite prior entries — a later contradiction dates a behavior change.\n"
+        "Format per [verification-protocol.md](../../../core/verification-protocol.md).\n"
+        "Chronological within shard; older and newer shards are siblings in this directory.\n\n"
+        "---\n\n"
+    ).encode()
+
+
+def index_text(provider):
+    return (
+        f"# SDD Dispatch Verification Log — {provider} (index)\n\n"
+        "This log now lives in [log/](log/) as monthly shards (`YYYY-MM.md`), chronological\n"
+        "within each shard. This file is a stable read-only pointer retained because frozen\n"
+        "registry headers and external links cite it as their evidence source; new entries go\n"
+        "to the current month's shard, never here.\n"
+    )
+
+
+def render_shard(provider, month, entries):
+    body = shard_preamble(provider, month)
+    for entry in entries:
+        body += entry.payload + b"\n---\n\n"
+    return body
+
+
+def entry_hashes(entries):
+    return [hashlib.sha256(entry.payload).hexdigest() for entry in entries]
+
+
+def migrate_provider(root, provider, write):
+    log_path = root / "providers" / provider / "verification-log.md"
+    data = log_path.read_bytes()
+    preamble, old_entries = parse_log(data)
+    relocation = None
+    if provider == "grok":
+        if REVERIFY not in preamble:
+            raise ValueError("grok re-verify reading list missing from preamble")
+        relocation = "grok preamble: Primary docs for re-verify → versions/0.2.117.md#re-verify-reading-list"
+    grouped = {}
+    for entry in sorted(old_entries, key=lambda item: (item.date, item.ordinal)):
+        grouped.setdefault(entry.date[:7], []).append(entry)
+    rendered = {month: render_shard(provider, month, entries) for month, entries in grouped.items()}
+    new_entries = []
+    for month in sorted(rendered):
+        _, parsed = parse_log(rendered[month])
+        new_entries.extend(parsed)
+    if entry_hashes(old_entries) != entry_hashes(sorted(new_entries, key=lambda item: item.ordinal)):
+        # New entries lack source ordinals after parsing; compare in source identity order instead.
+        old_set, new_set = sorted(entry_hashes(old_entries)), sorted(entry_hashes(new_entries))
+        if old_set != new_set:
+            raise ValueError(f"{provider}: entry payload hashes differ after sharding")
+    if len(old_entries) != len(new_entries):
+        raise ValueError(f"{provider}: entry count differs after sharding")
+    if write:
+        log_dir = log_path.parent / "log"
+        log_dir.mkdir(exist_ok=True)
+        for month, body in rendered.items():
+            (log_dir / f"{month}.md").write_bytes(body)
+        log_path.write_text(index_text(provider))
+        if relocation:
+            version = root / "providers" / "grok" / "versions" / "0.2.117.md"
+            version_data = version.read_bytes()
+            section = b"## Re-verify reading list\n\n" + REVERIFY
+            if section not in version_data:
+                version.write_bytes(version_data.rstrip(b"\n") + b"\n\n" + section)
+    return old_entries, new_entries, relocation
+
+
+def report_provider(provider, old_entries, new_entries, relocation):
+    old_hashes = sorted(entry_hashes(old_entries))
+    new_hashes = sorted(entry_hashes(new_entries))
+    lines = [f"{provider}: old entries={len(old_entries)} new entries={len(new_entries)}"]
+    for ordinal, digest in enumerate(old_hashes, 1):
+        lines.append(f"  sha256[{ordinal}]: old={digest} new={new_hashes[ordinal - 1]}")
+    if relocation:
+        lines.append(f"  relocation: {relocation}")
+    return "\n".join(lines)
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--root", type=Path, default=Path("."))
+    parser.add_argument("--write", action="store_true", help="write shards, indexes, and the grok relocation")
+    parser.add_argument("--parity", type=Path, help="write parity report to this path")
+    args = parser.parse_args()
+    try:
+        reports = []
+        for provider in PROVIDERS:
+            old_entries, new_entries, relocation = migrate_provider(args.root, provider, args.write)
+            reports.append(report_provider(provider, old_entries, new_entries, relocation))
+        report = "Migration parity: PASS\n" + "\n".join(reports) + "\n"
+        if args.parity:
+            args.parity.write_text(report)
+        print(report, end="")
+        return 0
+    except (OSError, ValueError) as error:
+        print(f"shard-logs: {error}", file=sys.stderr)
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

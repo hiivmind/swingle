@@ -278,6 +278,30 @@ def test_yaml_rejects_single_quoted_scalar(tmp_path):
     r = run("--root", str(root))
     assert r.returncode == 1 and "single-quoted" in r.stdout
 
+FM = {"version-argv": ["x", "--version"], "verified-version": "1.0.0"}
+
+def test_version_probe_timeout_never_scrapes(monkeypatch):
+    monkeypatch.setattr(vp, "run_argv", lambda argv, pd, t: (-2, "timed out after 0.5 seconds"))
+    rc, out, ver = vp.check_provider_version(FM, [], 1)
+    assert rc == -2 and ver is None
+
+def test_version_probe_oserror_never_scrapes(monkeypatch):
+    monkeypatch.setattr(vp, "run_argv", lambda argv, pd, t: (-1, "Errno 2 no such file 1.2.3"))
+    assert vp.check_provider_version(FM, [], 1)[2] is None
+
+def test_version_probe_garbage_output(monkeypatch):
+    monkeypatch.setattr(vp, "run_argv", lambda argv, pd, t: (0, "no digits here"))
+    assert vp.check_provider_version(FM, [], 1)[2] is None
+
+def test_version_probe_extracts_dotted(monkeypatch):
+    monkeypatch.setattr(vp, "run_argv", lambda argv, pd, t: (0, "tool v2.3.4 (build x)"))
+    assert vp.check_provider_version(FM, [], 1)[2] == "2.3.4"
+
+def test_readiness_status_mapping(monkeypatch):
+    for rc_in, status in ((0, "ok"), (-2, "timeout"), (1, "fail"), (-1, "fail")):
+        monkeypatch.setattr(vp, "run_argv", lambda argv, pd, t, r=rc_in: (r, ""))
+        assert vp.check_provider_readiness(FM, [], 1)[1] == status
+
 def test_list_models_argv_accepted_and_validated(tmp_path):
     import shutil as _sh
     root = tmp_path / "lm"; _sh.copytree(FIX / "good-yaml", root)

@@ -55,51 +55,43 @@ Read these plugin documents when their policy is needed:
    to proceed past a non-zero exit. THEN check `git -C <root> status --porcelain
    providers/` — any untracked or modified provider directory requires explicit user
    approval before its manifest or prose is used (git-tracked state is the trust anchor).
-5. **Detect providers**: read each <root>/providers/*/pack.md manifest; a provider is
-   INSTALLED iff `command -v -- "<cli>"` succeeds for its validated cli name (data-only
-   manifests — never execute manifest strings as shell; argv[0]==cli is
-   validator-enforced). Apply layered config (first found): $SWINGLE_CONFIG →
-   <project>/.swingle.json → ${XDG_CONFIG_HOME:-~/.config}/swingle/config.json
-   (See [docs/config.md](../../docs/config.md) for the schema) — disable/steer only;
-   malformed/wrong-typed config, an unknown provider ID in
-   `disable`, `default_provider`, or any `providers_by_lane` value, a disabled
-   default_provider or providers_by_lane target, a malformed `superpowers` block
-   (including an unknown provider ID within it), or set-but-unreadable
-   $SWINGLE_CONFIG = STOP with the error. ACTIVE = installed − disabled
-   (− incompatible iff require-verified-version).
-6. **Compatibility (advisory)**: compare `version-argv` output to `verified-version`. A
-   mismatch is a WARNING, not a gate — warn (installed X vs verified Y) and PROCEED.
-   Re-verifying a bumped CLI is maintenance (`swingle-verify <id>`), never a per-dispatch
-   stop; block only under config `require-verified-version`. Note that **drift is in
-   effect** for the session: if a later dispatch fails with a channel-class signature
-   (step 10), that failure IS a verification finding — recommend recording it per the
-   existing recording ladder and dedup (`core/verification-protocol.md` Recording),
-   capturing plugin + CLI versions. Never file automatically; never block the user
-   pre-dispatch on drift alone.
-7. **Provider routing (before any model resolution)**: FIRST, if the `native-subagents`
-   lever (or per-task native directive) is in effect → bypass external dispatch entirely
-   (controller-native subagents per adapter; no provider is selected). Otherwise: per-task
-   provider directive → session lever → config providers_by_lane[lane-of-role] /
-   default_provider → codex-if-active else sole-active-iff-exactly-one → ask. Inactive
-   provider named anywhere → ask, never silently reroute.
-8. **Resolve model within the routed provider**: role → (tier, lane) via core/roles.md →
-   the provider's layered models.yaml (first found wins whole-file:
-   `$SWINGLE_MODELS/<id>.yaml` → `<project>/.swingle/models/<id>.yaml` →
-   `${XDG_CONFIG_HOME:-~/.config}/swingle/models/<id>.yaml` → the pack's
-   `models.yaml`) → ordered candidates (eligible statuses verified/experimental;
-   exact-lane rows by priority, THEN (tier, any) rows by priority — this order is the
-   complete fallback sequence); take the first; none → ask the user, naming the winning
-   file. A found-but-malformed override, or set-but-unreadable `$SWINGLE_MODELS`,
-   is a STOP, never a fall-through.
-   (`scripts/validate-packs --resolve "<role>" <provider> --project <repo>` prints the
-   layer and the walk order; `scripts/swingle-models which|init` inspects and seeds
-   override layers.) Resolving from the pack default is normal — but when no override
-   layer exists at all, mention ONCE per session to run `swingle-setup` to seed the
-   machine-wide registry; never create user config uninvited.
-9. **Readiness**: before the FIRST dispatch to a chosen provider, run its bounded
-   preflight (version + session-list/auth probe per manifest); failures are
-   channel-class → fallback rules.
-   Also read the routed provider's `providers/<id>/verification-log.md` and, if present,
+5. **Config discovery (prose)**: first found of `$SWINGLE_CONFIG` →
+   `<project>/.swingle.json` → `${XDG_CONFIG_HOME:-~/.config}/swingle/config.json`
+   (schema: [docs/config.md](../../docs/config.md)). A set-but-unreadable
+   `$SWINGLE_CONFIG` is a STOP. No file found is a normal state — omit `--config`
+   below.
+6. **Session gate — run the Step-0 pipeline** (where the controller can run shell;
+   otherwise execute the same table below in prose):
+   `python3 <root>/scripts/validate-packs --step0 --root <root> --project <repo>
+   [--config <found-layer>] [--task-provider <id> | --lever native-subagents]`
+   The script is the single implementation of: provider detection → config gating
+   (all malformed-config STOPs) → drift advisory → native bypass → routing precedence
+   (per-task/session directive → config lanes/default → codex-if-active →
+   sole-active → ask) → readiness. Outcome contract:
+   | Output | Meaning | Action |
+   | --- | --- | --- |
+   | exit 0 | pipeline clean; `provider:`/`ready:` lines name the route | proceed |
+   | unprefixed finding | invalid manifest/config (implicit STOP) | halt; fix or surface |
+   | `STOP: …` | invalid input (e.g. unknown role) | halt; fix or surface |
+   | `ASK: …` | a decision only the user can make | put the named question to the user; never guess |
+   | `CHANNEL: …` | provider/environment failure | step 10's channel rules |
+   | `warning: …` (exit 0) | drift or strict-mode removals with a valid route | note **drift is in effect** (step 10 finding semantics unchanged) |
+   A divergence between the script and this table is a bug adjudicated against the
+   table.
+7. **Tier and model**: role → (tier, lane) via `core/roles.md`. Tier levers are
+   policy, never script inputs: silent = "floor it" (base tier); "play it safe" =
+   one tier up (most-capable is the ceiling — say so and proceed) — resolve the
+   roles-table row at the effective tier in the same lane. Resolve candidates with
+   `scripts/validate-packs --resolve "<role>" <provider> --project <repo>` (layered
+   models.yaml walk; found-but-malformed override or unreadable `$SWINGLE_MODELS` =
+   STOP; no candidates → ask, naming the winning file). When no override layer exists
+   at all, mention ONCE per session to run `swingle-setup`; never create user config
+   uninvited.
+8. **Pack-specific preflight (prose)**: before the FIRST dispatch to the routed
+   provider, run any preflight its pack defines beyond the generic probe (e.g. a
+   persisted-permission baseline check) — a miss is a STOP with the pack's fix
+   section.
+9. Also read the routed provider's `providers/<id>/verification-log.md` and, if present,
    the user's local record at `${XDG_CONFIG_HOME:-~/.config}/swingle/verification/<id>.md`
    (read additively — both are evidence).
    When the installed version is BELOW the manifest's `verified-version` and

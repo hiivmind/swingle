@@ -275,6 +275,22 @@ def test_registry_key_above_manifest_stamp_fails():
     r = run("--root", str(FIX / "bad-registry-above-frontier"))
     assert r.returncode == 1 and "registry key must not exceed manifest verified-version" in r.stdout
 
+def test_above_frontier_registry_file_with_bad_header_reports_both_findings(tmp_path):
+    root = tmp_path / "root"; shutil.copytree(FIX / "good-yaml", root)
+    path = root / "providers" / "alpha" / "versions" / "2.0.0.md"
+    path.write_text("# invalid header\nbody\n")
+    r = run("--root", str(root))
+    assert r.returncode == 1
+    assert "registry file must open with a class header" in r.stdout
+    assert "registry key must not exceed manifest verified-version" in r.stdout
+
+def test_invalid_utf8_registry_file_fails_closed(tmp_path):
+    root = tmp_path / "root"; shutil.copytree(FIX / "good-yaml", root)
+    path = root / "providers" / "alpha" / "versions" / "1.0.0.md"
+    path.write_bytes(b"\xff\xfe")
+    r = run("--root", str(root))
+    assert r.returncode == 1 and "registry file must open with a class header" in r.stdout
+
 def test_version_cmp_key_zero_pads_components():
     assert vp.version_cmp_key("1.2", 3) < vp.version_cmp_key("1.2.1", 3)
 

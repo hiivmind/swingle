@@ -367,9 +367,13 @@ def check_repo_docs(root, manifests):
                 if not entry.is_file() or entry.is_symlink():
                     find(f"{entry}: registry file must be a regular file")
                     continue
+                if isinstance(verified_version, str) and VER_RE.fullmatch(verified_version):
+                    width = max(len(version_key(entry.stem)), len(version_key(verified_version)))
+                    if version_cmp_key(entry.stem, width) > version_cmp_key(verified_version, width):
+                        find(f"{entry}: registry key must not exceed manifest verified-version {verified_version}")
                 try:
                     lines = entry.read_text().splitlines()
-                except OSError:
+                except (OSError, UnicodeError):
                     lines = []
                 first = lines[0] if lines else ""
                 header = HEADER_RE.fullmatch(first)
@@ -379,10 +383,6 @@ def check_repo_docs(root, manifests):
                 header_version = header.group("vver") or header.group("dver")
                 if header_version != entry.stem:
                     find(f"{entry}: header version must equal filename")
-                if isinstance(verified_version, str) and VER_RE.fullmatch(verified_version):
-                    width = max(len(version_key(entry.stem)), len(version_key(verified_version)))
-                    if version_cmp_key(entry.stem, width) > version_cmp_key(verified_version, width):
-                        find(f"{entry}: registry key must not exceed manifest verified-version {verified_version}")
                 if current == entry and (header.group("vcli") != manifest.get("cli") or header.group("vver") != verified_version):
                     find(f"{entry}: current registry file must carry a Verified header naming the manifest cli and version")
     hygiene = [("~~", "strikethrough"), ("(from archive", "provenance stamp")]
@@ -402,7 +402,7 @@ def check_repo_docs(root, manifests):
                     continue
                 try:
                     targets.append((path, path.read_text().splitlines()[1:], 2))
-                except OSError:
+                except (OSError, UnicodeError):
                     continue
         for path, lines, start in targets:
             for n, line in enumerate(lines, start):

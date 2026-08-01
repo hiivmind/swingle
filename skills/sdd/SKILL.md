@@ -205,7 +205,7 @@ path, so ask for NO file: the FULL report is the captured final message and the 
 saves it to the report path — on initial and resumed turns alike. Getting this wrong is
 not cosmetic: on a `captured-output` provider a report-file request fails intermittently
 while the exit code stays 0, so the report is simply missing and the reviewer silently
-loses an input (observed 2026-07-23).
+loses an input (see the provider verification logs).
 
 **Task reviewer:** use the review role and selected tier/lane. Provide the task reviewer
 contract, brief, report, review-package path, and global constraints verbatim. Say:

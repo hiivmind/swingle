@@ -291,6 +291,46 @@ def test_invalid_utf8_registry_file_fails_closed(tmp_path):
     r = run("--root", str(root))
     assert r.returncode == 1 and "registry file must open with a class header" in r.stdout
 
+def test_missing_log_shard_fails():
+    r = run("--root", str(FIX / "bad-no-log"))
+    assert r.returncode == 1 and "log/ must exist with at least one YYYY-MM.md shard" in r.stdout
+
+def test_bad_log_shard_filename_fails():
+    r = run("--root", str(FIX / "bad-shard-name"))
+    assert r.returncode == 1 and "log/ entries must be YYYY-MM.md regular files" in r.stdout
+
+def test_log_shard_entries_must_be_nondecreasing():
+    r = run("--root", str(FIX / "bad-shard-order"))
+    assert r.returncode == 1 and "shard entries must be nondecreasing by date" in r.stdout
+
+def test_log_shard_entry_must_belong_to_shard_month():
+    r = run("--root", str(FIX / "bad-shard-month"))
+    assert r.returncode == 1 and "outside the shard's month" in r.stdout
+
+def test_log_shard_stray_file_fails():
+    r = run("--root", str(FIX / "bad-shard-stray-file"))
+    assert r.returncode == 1 and "log/ entries must be YYYY-MM.md regular files" in r.stdout
+
+def test_log_shard_nested_directory_fails():
+    r = run("--root", str(FIX / "bad-shard-nested-dir"))
+    assert r.returncode == 1 and "log/ entries must be YYYY-MM.md regular files" in r.stdout
+
+def test_log_shard_entry_requires_date_heading():
+    r = run("--root", str(FIX / "bad-shard-undated-entry"))
+    assert r.returncode == 1 and "shard entry heading must open with its date" in r.stdout
+
+def test_log_shard_entry_requires_real_calendar_date():
+    r = run("--root", str(FIX / "bad-shard-impossible-date"))
+    assert r.returncode == 1 and "not a real calendar date" in r.stdout
+
+def test_links_inside_log_shards_remain_scanned(tmp_path):
+    root = tmp_path / "bad-link-in-shard"
+    shutil.copytree(FIX / "good-lanes", root)
+    shard = root / "providers" / "alpha" / "log" / "2026-07.md"
+    shard.write_text(shard.read_text() + "\n[missing](missing.md)\n")
+    r = run("--root", str(root))
+    assert r.returncode == 1 and "broken link missing.md" in r.stdout
+
 def test_version_cmp_key_zero_pads_components():
     assert vp.version_cmp_key("1.2", 3) < vp.version_cmp_key("1.2.1", 3)
 

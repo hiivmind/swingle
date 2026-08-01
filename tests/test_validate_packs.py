@@ -100,6 +100,22 @@ def test_fallback_order_exact_then_any():
     r = run("--root", str(FIX / "good-lanes"), "--resolve", "per-task reviewer", "alpha"); assert "fallback order: review-model-exact, review-model-any" in r.stdout
 def test_step0_multi_active_no_policy_asks():
     r = run("--step0", "--root", str(FIX / "good-two-providers"), "--path-dir", str(FIX / "bins-two"), "--role", "per-task reviewer"); assert r.returncode == 1 and "ask user" in r.stdout
+def test_step0_ask_prefix_on_route_selection():
+    r = run("--step0", "--root", str(FIX / "good-two-providers"), "--path-dir", str(FIX / "bins-two"), "--role", "per-task reviewer")
+    assert r.returncode == 1 and "ASK: route-selection: ask user" in r.stdout
+def test_step0_ask_prefix_on_no_active():
+    r = run("--step0", "--root", str(FIX / "good-lanes"), "--path-dir", str(FIX / "bins-empty"))
+    assert r.returncode == 1 and "ASK: no active providers" in r.stdout
+def test_step0_channel_prefix_on_not_ready():
+    r = run("--step0", "--root", str(FIX / "good-lanes"), "--path-dir", str(FIX / "bins-alpha-notready"), "--role", "per-task reviewer")
+    assert r.returncode == 1 and "CHANNEL: provider not ready" in r.stdout
+def test_step0_stop_prefix_on_unknown_role():
+    r = run("--step0", "--root", str(FIX / "good-lanes"), "--path-dir", str(FIX / "bins-alpha"), "--role", "no-such-role")
+    assert r.returncode == 1 and "STOP: unknown role" in r.stdout
+def test_step0_strict_removal_is_warning_when_route_remains():
+    r = run("--step0", "--root", str(FIX / "good-lanes"), "--path-dir", str(FIX / "bins-alpha-oldver"), "--config", str(FIX / "config-require-version.json"))
+    assert "warning: incompatible providers removed: alpha" in r.stdout
+    assert "ASK: no active providers" in r.stdout
 def test_step0_lane_routing_and_resolution():
     r = run("--step0", "--root", str(FIX / "good-two-providers"), "--path-dir", str(FIX / "bins-two"), "--config", str(FIX / "config-lane-beta.json"), "--role", "per-task reviewer"); assert r.returncode == 0 and "provider: beta" in r.stdout and "model:" in r.stdout
 def test_step0_version_mismatch_blocks_when_required():

@@ -429,29 +429,29 @@ def main():
                     incompatible.append(provider)
             if cfg.get("require-verified-version"):
                 dropped = set(incompatible)
-                if dropped: find(f"incompatible providers removed: {' '.join(sorted(dropped))}")
+                if dropped: print(f"warning: incompatible providers removed: {' '.join(sorted(dropped))}")
                 active = [provider for provider in active if provider not in dropped]
-            if not active: find("no active providers")
+            if not active: find("ASK: no active providers")
             else:
                 print(f"active: {' '.join(active)}"); role_tier_lane = None
                 if a.role:
                     roles = parse_roles(root); role_tier_lane = next((value for key, value in roles.items() if a.role.lower() in key), None)
-                    if not role_tier_lane: find(f"unknown role: {a.role}")
+                    if not role_tier_lane: find(f"STOP: unknown role: {a.role}")
                 lane = role_tier_lane[1] if role_tier_lane else None
                 chosen = a.task_provider or a.lever or (cfg.get("providers_by_lane", {}).get(lane) if lane else None) or cfg.get("default_provider") or ("codex" if "codex" in active else (active[0] if len(active) == 1 else None))
-                if chosen and chosen not in active: find(f"routed provider inactive: {chosen}")
-                elif not chosen: find("route-selection: ask user (multiple active, no policy)")
+                if chosen and chosen not in active: find(f"ASK: routed provider inactive: {chosen}")
+                elif not chosen: find("ASK: route-selection: ask user (multiple active, no policy)")
                 else:
                     print(f"provider: {chosen}")
                     if role_tier_lane:
                         layer, layer_path, layer_rows = resolve_models(chosen, root, a.project)
                         if layer_path is not None: print(f"layer: {layer} path={layer_path.resolve()}")
                         order = candidate_order(layer_rows, *role_tier_lane, excluded.get(chosen, set()))
-                        if not order and layer in ("env", "project", "user"): find(f"no eligible model for {role_tier_lane} in {chosen} — override at {layer_path} does not cover {role_tier_lane}")
-                        elif not order: find(f"no eligible model for {role_tier_lane} in {chosen}")
+                        if not order and layer in ("env", "project", "user"): find(f"ASK: no eligible model for {role_tier_lane} in {chosen} — override at {layer_path} does not cover {role_tier_lane}")
+                        elif not order: find(f"ASK: no eligible model for {role_tier_lane} in {chosen}")
                         else: print(f"model: {order[0]['model']} (P{order[0]['prio']}); fallback: {', '.join(row['model'] for row in order)}")
                     rc, _ = check_provider_readiness(manifests[chosen], a.path_dir, int(manifests[chosen].get("readiness-timeout-seconds", 30)))
-                    if rc != 0: find(f"provider not ready: {chosen} (exit {rc})")
+                    if rc != 0: find(f"CHANNEL: provider not ready: {chosen} (exit {rc})")
                     else: print(f"ready: {chosen}")
     elif a.resolve:
         role, provider = a.resolve[0].lower(), a.resolve[1]; roles = parse_roles(root); tier_lane = next((value for key, value in roles.items() if role in key), None)

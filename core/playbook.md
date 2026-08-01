@@ -82,13 +82,10 @@ again.
 
 **E1a — the status vocabulary is the one exception: state it inline in every dispatch
 prompt.** E1 moves contract text out of the prompt; the four-token status line stays in it.
-The cheapest tiers have been observed honoring the vocabulary 3/3 when the requirement sat
-inline in the dispatch prompt and 0/3 when the identical requirement reached the same model
-only as a reference to the contract file (2026-07-23, recorded in
-[core/verification-log.md](verification-log.md)). That is n=3 vs n=3 — a lead, not an
-established law — but the cost of acting on it is one line against a failure that forces
-the reader into UNKNOWN and costs the controller a full evidence sweep. Append to the
-dispatch prompt verbatim:
+Cheapest-tier conformance depends on the requirement sitting inline in the dispatch prompt
+rather than only in the referenced contract (see core/verification-log.md, "2026-07-23 —
+inline status instruction promoted from lead to playbook rule (E1a)" entry). Append to
+the dispatch prompt verbatim:
 
 > *“End with a status block whose first line is exactly one of: STATUS: DONE |
 > DONE_WITH_CONCERNS | NEEDS_CONTEXT | BLOCKED.”*

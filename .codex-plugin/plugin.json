@@ -1,7 +1,7 @@
 {
   "name": "swingle",
   "version": "3.4.0",
-  "description": "Share the load: dispatch implementation and review work across coding-agent harnesses (codex/opencode/agy/grok/pi/claude), locally, through validated packs — no proxy, no key custody.",
+  "description": "Share the load: dispatch implementation and review work across coding-agent CLIs as providers (codex/opencode/agy/grok/pi/claude), locally, through validated packs — no proxy, no key custody.",
   "author": {
     "name": "Nathaniel Ramm"
   },
@@ -19,8 +19,8 @@
   "skills": "./skills/",
   "interface": {
     "displayName": "Swingle",
-    "shortDescription": "Dispatch work across coding-agent harnesses through validated packs, locally",
-    "longDescription": "Swingle is a local harness-to-harness dispatcher: it executes implementation plans and one-off jobs through external-CLI subagents (codex, opencode, agy, grok, pi, claude) with manifest-driven routing, model tiering, liveness protocol, controller hard gates, and an append-only verification knowledge base. It spawns processes locally against credentials you already hold — no proxy, no key custody.",
+    "shortDescription": "Dispatch work across coding-agent CLIs through validated packs, locally",
+    "longDescription": "Swingle is a local controller-to-provider dispatcher: it executes implementation plans and one-off jobs through external-CLI subagents (codex, opencode, agy, grok, pi, claude) with manifest-driven routing, model tiering, liveness protocol, controller hard gates, and an append-only verification knowledge base. It spawns processes locally against credentials you already hold — no proxy, no key custody.",
     "developerName": "Nathaniel Ramm",
     "category": "Developer Tools",
     "capabilities": [

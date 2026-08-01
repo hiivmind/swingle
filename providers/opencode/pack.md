@@ -14,7 +14,7 @@ sandbox: none
 readiness-argv: ["opencode", "session", "list"]
 ---
 
-## Cross-CLI comparison — opencode cells (from archive/v1.1)
+## Cross-CLI comparison — opencode cells
 
 | Property | opencode 1.18.10 |
 | --- | --- |
@@ -29,7 +29,7 @@ readiness-argv: ["opencode", "session", "list"]
 | Auth | Zen (pay-as-you-go) |
 | Changelog | https://github.com/sst/opencode/releases — read on every version bump before probing |
 
-### Resume — a kill is a checkpoint, not a restart (from archive/v1.1)
+### Resume — a kill is a checkpoint, not a restart
 
 All three CLIs can continue a killed/expired session; **resume, don't re-dispatch from
 scratch** after any backstop kill or hang-kill where partial progress is real:
@@ -41,9 +41,9 @@ scratch** after any backstop kill or hang-kill where partial progress is real:
 Working-tree progress survives the kill too (agents write as they go) — `git diff` before
 resuming to see what's already landed.
 
-## opencode (verified v1.18.10, 2026-07-31) (from archive/v1.1)
+## opencode (verified v1.18.10, 2026-07-31)
 
-### Dispatch (from archive/v1.1)
+### Dispatch
 ```bash
 # prompt is POSITIONAL — `-p` is basic-auth password, not prompt
 # stdin MUST be closed/redirected — a truly open stdin hangs indefinitely (2026-07-29)
@@ -51,7 +51,7 @@ opencode run --auto -m <provider/model> --variant <high|max|minimal…> \
   --dir <repo> "Read <brief-file> …" < /dev/null
 ```
 
-### Verified behavior (from archive/v1.1)
+### Verified behavior
 - **No sandbox**: with no permission config present, headless `opencode run` read files,
   wrote files, and executed shell commands **without `--auto`**. `--auto`
   ("auto-approve permissions not explicitly denied") only matters once a permission config

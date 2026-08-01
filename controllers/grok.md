@@ -1,4 +1,4 @@
-# Grok harness adapter
+# Grok controller adapter
 
 | Concern | Grok mapping |
 | --- | --- |
@@ -10,4 +10,4 @@
 
 Grok-as-**controller** and Grok-as-**provider** are separate: this adapter is for when Grok is the controlling session. External dispatch still goes through `providers/<id>/` (including `providers/grok/` when the pack is the dispatch target).
 
-The lever alias **“all Grok”** means `native-subagents` (harness-native `spawn_subagent`, not external packs).
+The lever alias **“all Grok”** means `native-subagents` (controller-native `spawn_subagent`, not external packs).

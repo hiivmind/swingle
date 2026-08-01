@@ -5,11 +5,11 @@ description: Directly delegate an explicitly requested, self-contained job or ho
 
 # Delegate — Direct One-Off Dispatch
 
-**Harness**: identify your controlling harness and read
-`<root>/skills/sdd/harnesses/<harness>.md` (claude-code, codex, grok, opencode, pi, agy) before setup — it
+**Controller**: identify your controller and read
+`<root>/controllers/<controller>.md` (claude-code, codex, grok, opencode, pi, agy) before setup — it
 maps skill-loading, native subagent dispatch, background jobs, completion observation,
 and asset-root resolution. `<root>` is this skill directory's grandparent (the directory
-containing `skills/`, `core/`, `providers/`, `contracts/`).
+containing `skills/`, `controllers/`, `core/`, `providers/`, `contracts/`).
 
 **Never dispatch from memory.** Before the first dispatch of a session, read
 `<root>/core/roles.md`, `<root>/core/playbook.md`, `<root>/core/safety-doctrine.md`,
@@ -67,7 +67,7 @@ Read these plugin documents when their policy is needed:
   requested write work into analysis.
 - **Supervision**: "supervised" / "unsupervised" — overrides the automatic trigger.
 - **Native**: the `native-subagents` lever ("all Claude" under Claude Code) bypasses
-  external dispatch per the harness adapter; provider routing, model resolution, and
+  external dispatch per the controller adapter; provider routing, model resolution, and
   supervision do not apply. Explicitly requested but unavailable → stop and ask;
   auto-selected (supervision) but unavailable → controller orchestrates, announced.
 - **"in a worktree"** / **"in my tree"** — dispatch the job isolated in the
@@ -242,7 +242,7 @@ BEFORE launch — a crash or compaction never loses the number→task mapping.
    Record BASE (= HEAD) and the current branch for both lanes.
 3. Dispatch with the active pack's canonical template inside the self-reaping wrapper
    (`core/liveness.md`), stdout to `NNN-dispatch.log`. Observe completion via the
-   harness adapter's declared mechanism (background-task notification, polling, or the
+   controller adapter's declared mechanism (background-task notification, polling, or the
    detached marker-file form — whichever the adapter specifies for the mode in use);
    never foreground stdout. Session capture is asynchronous and provider-specific:
    obtain the session id per the pack's `session-source` and append it to the ledger
@@ -283,15 +283,15 @@ BEFORE launch — a crash or compaction never loses the number→task mapping.
      **Recommend** (do not auto-file) recording it via the existing recording ladder and
      dedup in `core/verification-protocol.md` Recording: search existing `verification`
      issues first, then 👍 / comment / new-issue as the evidence warrants. The finding
-     captures plugin version, installed CLI version vs `verified-version`, the controlling
-     harness + its version, and the failure signature. Maintenance signal, not a user
+     captures plugin version, installed CLI version vs `verified-version`, the controller + its
+     version, and the failure signature. Maintenance signal, not a user
      block; quality failures are excluded (they are not drift evidence).
    - Every attempt appends:
      `model-attempt: job=NNN phase=<worker|review|reader2> attempt=<n> role=<role> provider=<id> model=<id> class=<scope> outcome=<failed|ok>`.
 
 ## Worktree dispatch (the delegate's own superpowers)
 
-Isolation is an instruction, not a mechanism: the delegated agent's harness does
+Isolation is an instruction, not a mechanism: the delegated agent's CLI does
 the work with its own installed superpowers. Before dispatching with this lane:
 
 1. **Prerequisite check** — the routed provider's record under the `superpowers`
@@ -317,7 +317,7 @@ HEAD and porcelain must be unchanged — every change belongs on the branch. The
 deliverable check is the branch: it exists, and the report names it and the
 final commit SHA. Review package = `git log` + `git diff <merge-base>..<branch>`.
 Landing is a controller act (merge / squash / cherry-pick per the user's commit
-request); where the controller's own harness has superpowers installed,
+request); where the controller itself has superpowers installed,
 `superpowers:finishing-a-development-branch` governs the finish —
 otherwise land with ordinary git. The branch is retention — on
 NEEDS_CONTEXT/BLOCKED keep branch and worktree, resume via the pack's resume
@@ -367,7 +367,7 @@ two reports and reconciles disagreements before answering.
 
 ## Supervised delegate (auto by cost, announced)
 
-One cheap harness-native subagent (per the harness adapter) runs the mechanical cycle —
+One cheap controller-native subagent (per the controller adapter) runs the mechanical cycle —
 prompt files, pack dispatch inside the liveness wrapper, completion watching, the
 mechanical gate reads (status block, porcelain/diff checks, report existence), reviewer
 dispatch when "with review", verdict collection — and returns ONE concise report with
@@ -449,5 +449,5 @@ model-attempt: job=NNN phase=<worker|review|reader2> attempt=<n> role=<role> pro
 Worker and reviewer session ids are BOTH recorded — fix rounds resume the worker's
 thread, re-reviews resume the reviewer's. The `task=` summary plus the prompt path make
 "ask that agent a follow-up" unambiguous after compaction or across a batch. Native
-routing records `NNN dispatched: route=native` and, where the harness provides one,
-`NNN native-ref: <harness ref>`. Never re-dispatch work the ledger records as complete.
+routing records `NNN dispatched: route=native` and, where the controller provides one,
+`NNN native-ref: <controller ref>`. Never re-dispatch work the ledger records as complete.

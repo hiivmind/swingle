@@ -1,6 +1,6 @@
 ---
 name: swingle-verify
-description: Re-verify one Swingle harness pack, or all active packs, against this plugin's living knowledge base. Use when a CLI version bump is observed, a vendor releases new models, a dispatch behaves contrary to documented gotchas, or the user asks to verify the dispatch reference.
+description: Re-verify one Swingle provider pack, or all active packs, against this plugin's living knowledge base. Use when a CLI version bump is observed, a vendor releases new models, a dispatch behaves contrary to documented gotchas, or the user asks to verify the dispatch reference.
 ---
 
 # Swingle Verification

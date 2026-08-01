@@ -7,7 +7,7 @@
     {
       "name": "swingle",
       "source": "./",
-      "description": "Local harness-to-harness dispatch with model tiering and a verified dispatch knowledge base"
+      "description": "Local controller-to-provider dispatch with model tiering and a verified dispatch knowledge base"
     }
   ]
 }

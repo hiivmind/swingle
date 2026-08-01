@@ -11,7 +11,7 @@ report-transport: captured-output
 sandbox: none
 ---
 
-## Cross-CLI comparison — agy cells (from archive/v1.1)
+## Cross-CLI comparison — agy cells
 
 | Property | agy 1.1.4 |
 | --- | --- |
@@ -27,7 +27,7 @@ sandbox: none
 | Output contract | stdout, **but** document tasks divert to brain files (see gotchas) |
 | Auth | OAuth — must run `agy` interactively once; headless fails **silently** if signed out |
 
-### Resume — a kill is a checkpoint, not a restart (from archive/v1.1)
+### Resume — a kill is a checkpoint, not a restart
 
 All three CLIs can continue a killed/expired session; **resume, don't re-dispatch from
 scratch** after any backstop kill or hang-kill where partial progress is real:
@@ -39,9 +39,9 @@ scratch** after any backstop kill or hang-kill where partial progress is real:
 Working-tree progress survives the kill too (agents write as they go) — `git diff` before
 resuming to see what's already landed.
 
-## agy (verified v1.1.4, 2026-07-22) (from archive/v1.1)
+## agy (verified v1.1.9, 2026-07-31)
 
-### Dispatch (from archive/v1.1)
+### Dispatch
 
 ```bash
 # -p "<PROMPT>" must be the LAST argument
@@ -49,7 +49,7 @@ agy --model gemini-3.6-flash --effort <low|medium|high> \
   --add-dir <repo> --print-timeout 5m -p "<PROMPT>" < /dev/null
 ```
 
-### Verified behavior (from archive/v1.1)
+### Verified behavior
 
 - agy print mode buffers output — a log-age watch WOULD kill healthy agy runs. Use
   process existence plus `--print-timeout` as the liveness signal and backstop.

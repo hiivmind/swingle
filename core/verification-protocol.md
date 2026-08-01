@@ -4,7 +4,7 @@ The repeatable probe suite for (re)verifying provider-pack behavior. Run it for 
 trigger fires (see README.md), then append results to the pack's verification log and update
 its pack.md / models.yaml / models.md.
 
-The invocable form of this process is the plugin's verification skill; the active harness
+The invocable form of this process is the plugin's verification skill; the active controller
 adapter supplies the command details.
 
 ## Ground rules
@@ -19,7 +19,7 @@ adapter supplies the command details.
 
 ## Probe suite
 
-Run per pack. `$SCRATCH` = a session scratchpad dir. The harness adapter provides the
+Run per pack. `$SCRATCH` = a session scratchpad dir. The controller adapter provides the
 pack-specific dispatch template and command surface.
 
 ### P1 — Version & surface
@@ -159,7 +159,7 @@ pack's retry) **while that drift is in effect**, the failure is evidence the pac
 on the running CLI version — an `anomaly` trigger. The controller does NOT file
 automatically: it runs the dedup search above and **recommends** the appropriate action
 (👍 / comment / new issue) to the user, with the fields below pre-filled — installed CLI
-version vs `verified-version`, plugin version, the controlling harness + its version, and
+version vs `verified-version`, plugin version, the controller + its version, and
 the verbatim failure signature. **Quality failures are excluded** (a reviewer rejecting the
 work is not drift evidence). The user decides whether to file.
 The full user loop is: file upstream → solve it locally if possible → comment the
@@ -181,7 +181,7 @@ Append to the appropriate verification log:
 Then:
 
 1. Update the active pack's pack.md and models.yaml (models.md for narrative).
-2. If findings change how SDD should dispatch, update the relevant harness adapter and
+2. If findings change how SDD should dispatch, update the relevant controller adapter and
    contracts in the same round.
 3. Clean up `$SCRATCH` artifacts, including any test writes outside the workspace.
 4. Commit in the plugin repo; bump the plugin version for behavior-fact changes.

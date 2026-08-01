@@ -1,6 +1,6 @@
 # CLAUDE.md — swingle plugin
 
-Harness-neutral plugin for SDD execution via external CLIs (codex / opencode / agy / grok / pi / claude).
+Controller-neutral plugin for SDD execution via external provider CLIs (codex / opencode / agy / grok / pi / claude).
 This repository is simultaneously a **Claude Code plugin** (`.claude-plugin/`), a
 **Codex plugin** (`.codex-plugin/` + `.agents/plugins/marketplace.json`), and a plain
 skills tree — treat all three distribution surfaces as first-class.
@@ -81,9 +81,12 @@ because the shell used `;`. The gate is a precondition, not a preceding step.
 ## Layout contract
 
 `skills/sdd/SKILL.md` and `skills/delegate/SKILL.md` both resolve the plugin root as their
-grandparent directory — `core/`, `providers/`, `contracts/` are load-bearing siblings of
-`skills/`. Anything that breaks that physical layout (moving skills out alone, flattening
-the tree) breaks every install route. Codex plugin installs cache the whole repo, so the
+grandparent directory — `controllers/`, `core/`, `providers/`, `contracts/` are load-bearing
+siblings of `skills/`. `controllers/<controller>.md` documents each CLI in its **driving**
+role (skill-loading, native subagents, background jobs, asset root); `providers/<id>/`
+documents each CLI as a **dispatch target** (pack manifest, dispatch template, model tables,
+verification log). The same CLI appears in both, once per role. Anything that breaks that
+physical layout (moving skills out alone, flattening the tree) breaks every install route. Codex plugin installs cache the whole repo, so the
 layout survives; the symlink route depends on it.
 
 The four skills and what they own (frontmatter names are `swingle-`-prefixed since v2.1.0

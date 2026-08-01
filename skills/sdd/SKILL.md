@@ -11,16 +11,16 @@ description: >-
 
 # SDD with Provider Packs
 
-**Harness**: identify your controlling harness and read `harnesses/<harness>.md`
+**Controller**: identify your controller and read `<root>/controllers/<controller>.md`
 (claude-code, codex, grok, opencode, pi, agy) before Step 0 — it maps skill-loading, native subagent
 dispatch, task tracking, background jobs, and asset-root resolution. All paths below
 are relative to the plugin tree root `<root>` (the directory containing `skills/`,
-`core/`, `providers/`).
+`controllers/`, `core/`, `providers/`).
 
 This skill wraps **superpowers:subagent-driven-development**. Its process governs the
 per-task loop, task briefs and review packages, statuses, two-verdict reviews, fix loops,
 ledger, pre-flight scan, and final review. This skill replaces its dispatch mechanism with
-the active provider pack or, when selected, harness-native subagents.
+the active provider pack or, when selected, controller-native subagents.
 
 **Never dispatch from memory.** The documents below are read at Step 0, before the first
 dispatch — not recalled. They change under you: packs are re-verified on every CLI version
@@ -39,7 +39,7 @@ Read these plugin documents when their policy is needed:
 
 ## Step 0 — Setup (once per session, before Task 1)
 
-1. Use the harness adapter's skill-loading mechanism to invoke
+1. Use the controller adapter's skill-loading mechanism to invoke
    `superpowers:subagent-driven-development`, then follow its process except for its
    dispatch steps, which this skill overrides.
 2. Run its `scripts/sdd-workspace`; copy the operating contracts into it from
@@ -49,7 +49,7 @@ Read these plugin documents when their policy is needed:
    `<root>/core/safety-doctrine.md`, and `<root>/core/liveness.md`; determine the routing
    lever in effect: silent means “floor it”, “play it safe” moves implementers one tier up,
    and a provider or lane directive steers eligible work. The `native-subagents` lever
-   uses the harness-native subagent mechanism; under Claude Code, “all Claude” is its
+   uses the controller-native subagent mechanism; under Claude Code, “all Claude” is its
    alias; under Grok, “all Grok” is its alias.
 4b. **Trust gate**: run `python3 <root>/scripts/validate-packs --root <root>` — refuse
    to proceed past a non-zero exit. THEN check `git -C <root> status --porcelain
@@ -78,7 +78,7 @@ Read these plugin documents when their policy is needed:
    pre-dispatch on drift alone.
 7. **Provider routing (before any model resolution)**: FIRST, if the `native-subagents`
    lever (or per-task native directive) is in effect → bypass external dispatch entirely
-   (harness-native subagents per adapter; no provider is selected). Otherwise: per-task
+   (controller-native subagents per adapter; no provider is selected). Otherwise: per-task
    provider directive → session lever → config providers_by_lane[lane-of-role] /
    default_provider → codex-if-active else sole-active-iff-exactly-one → ask. Inactive
    provider named anywhere → ask, never silently reroute.
@@ -121,7 +121,7 @@ Read these plugin documents when their policy is needed:
     version. **Recommend** (do not auto-file) recording it via the existing recording
     ladder and dedup in `core/verification-protocol.md` Recording (search existing
     `verification` issues → 👍 / comment / new), capturing plugin version, installed CLI
-    version vs `verified-version`, the controlling harness + its version, and the failure
+    version vs `verified-version`, the controller + its version, and the failure
     signature. Quality failures are excluded — they are not drift evidence.
 
 ## Dispatch overrides (replace the stock skill's dispatch steps)
@@ -129,7 +129,7 @@ Read these plugin documents when their policy is needed:
 For every external implementer, reviewer, final reviewer, and resumed fix, use the active
 pack's canonical dispatch template (pack.md) inside the self-reaping wrapper
 (`core/liveness.md`). The adapter specifies how that background work is started and
-observed in the current harness. Keep stdout in the per-task log and record the provider
+observed in the current controller. Keep stdout in the per-task log and record the provider
 session identifier for continuation.
 
 For native-subagent routing, use the adapter's native subagent mechanism instead. The

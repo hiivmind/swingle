@@ -11,7 +11,7 @@ report-transport: report-file
 sandbox: enforced
 ---
 
-## Cross-CLI comparison — codex cells (from archive/v1.1)
+## Cross-CLI comparison — codex cells
 
 | Property | codex 0.146.0 |
 | --- | --- |
@@ -96,7 +96,7 @@ This is a foreground command. Place it inside the self-reaping wrapper in
 `core/liveness.md`; that wrapper exclusively owns backgrounding, logging, and PID
 tracking. Record `BASE=$(git rev-parse HEAD)` before starting the wrapper.
 
-### Resume — a kill is a checkpoint, not a restart (from archive/v1.1)
+### Resume — a kill is a checkpoint, not a restart
 
 All three CLIs can continue a killed/expired session; **resume, don't re-dispatch from
 scratch** after any backstop kill or hang-kill where partial progress is real:

@@ -5,6 +5,16 @@ Format per [verification-protocol.md](../../core/verification-protocol.md).
 
 ---
 
+## 2026-08-02 — allow-rule matching guidance (trigger: back-population audit; effective from 1.1.8)
+
+**Guidance (implement):** a persisted `command(python)` (or any bare-name) allow rule
+matches only bare-name argv — an absolute-path interpreter such as `.venv/bin/python`
+does not match and is denied silently (exit 0, zero work; issue #50, observed at
+1.1.8). Invoke interpreters by bare name on PATH, or add explicit absolute-path allow
+rules for the venv idiom. This corrects, at read time, the unqualified
+`command(python)` baseline listing frozen in `versions/1.1.8.md` (the file is frozen
+and stands — this entry governs).
+
 ## 2026-07-31 — agy 1.1.9 (trigger: version bump; drift-verify run drift-verify-agy-20260731-063219-8A8D43B3)
 
 **Guidance (implement, review):** shell-restriction guidance from 2026-07-30 carries forward on 1.1.9 — forbid shell outright for reviewers; restrict implementers to single simple commands (no pipes, redirection, `&&`/`;`, `$()`, heredocs, or loops). Confirmed effective via P8: `command(git commit)` denied headlessly, banner-only exit 0. Also: `< /dev/null` is no longer required (P4 — completed 4/4 without it); `-p` flag position is no longer restricted (P11 — flags after `-p` parsed correctly). `--output-format json` (≥1.1.8) exposes token telemetry — token fields in result files are now available for agy dispatches.

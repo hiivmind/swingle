@@ -120,3 +120,14 @@ New capabilities confirmed (0.2.117):
 **Issue #26 reconciliation:** `--output-format json` stdout-buffering confirmed on 0.2.117 (log-age stall signal fires prematurely on healthy runs). Resolution path confirmed: `--output-format streaming-json` streams line-by-line and carries `sessionId` on the `end` event. Pack updated with gotcha #10 and revised session-id guidance. Struct fix (manifest-level `stall-signal` transport-dependence) out of scope for this PR — proposal filed as comment on #26 for operator triage.
 
 `verified-version` stamped `0.2.117` (matrix_green: all P1–P13 green; live dispatch included).
+
+## 2026-08-02 — standing session-capture guidance (trigger: back-population audit; effective from 0.2.111)
+
+**Guidance:** do not pair `stall-signal: log-age` with `--output-format json` — json
+output buffers stdout until process exit, so a healthy long run emits nothing and the
+self-reaping wrapper false-kills it (issue #26, observed at 0.2.111; reconciled in the
+0.2.117 round). For session-id capture use `--output-format streaming-json` (the `end`
+event carries `.sessionId`, line-by-line output keeps log-age valid) or plain output
+plus `grok sessions list`. This corrects, at read time, the `--output-format json`
+session-capture advice frozen in `versions/0.2.111.md` (distilled before issue
+evidence was a mandated source; the file is frozen and stands — this entry governs).

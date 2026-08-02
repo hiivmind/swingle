@@ -100,7 +100,7 @@ Read these plugin documents when their policy is needed:
    “Dispatch STOP Conditions”; ACTIVE = installed − disabled (− incompatible iff
    require-verified-version)) → provider detection (INSTALLED iff `command -v -- "<cli>"`
    succeeds for the manifest's validated cli; data-only manifests — never execute
-   manifest strings as shell) → drift advisory → routing precedence
+   manifest strings as shell) → drift advisory (routed provider only; the full active-set version probe runs only under require-verified-version, where it filters routing) → routing precedence
    (per-task/session directive → config lanes/default
    → codex-if-active → sole-active → ask) → model resolution (role → tier/lane per
    `core/roles.md` → the provider's layered `models.yaml` candidates) → readiness (the
@@ -112,7 +112,7 @@ Read these plugin documents when their policy is needed:
    | `STOP: …` | invalid input (e.g. unknown role) | halt; fix or surface |
    | `ASK: …` | a decision only the user can make | put the named question to the user; never guess |
    | `CHANNEL: …` | provider/environment failure | Failure handling |
-   | `warning: …` (exit 0) | drift or strict-mode removals with a valid route | note **drift is in effect** (Failure handling finding semantics unchanged) |
+   | `warning: …` (exit 0) | routed-provider drift, or strict-mode removals, with a valid route | note **drift is in effect** (Failure handling finding semantics unchanged) |
    | exit 0; `native-subagents: bypass external dispatch (no provider selected)` | native bypass | proceed with controller-native subagents, no provider/model resolution |
    A divergence between the script and this table is a bug adjudicated against the
    table.

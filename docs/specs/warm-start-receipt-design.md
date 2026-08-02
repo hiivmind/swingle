@@ -95,6 +95,20 @@ Expected effect: the ~4s `--step0` collapses to the routed provider's one-or-two
 `readiness-argv` *is* `version-argv`. **Rebenchmark after this change** — it likely makes
 Part C unnecessary.
 
+**Control flow reorder.** Without `require-verified-version` this changes Step-0 from
+loop-then-route to **route first, then probe only the routed provider's version +
+readiness**; the full active-set loop still precedes routing *only* under
+`require-verified-version`. State the reorder explicitly so an implementer does not
+preserve the old full loop.
+
+**Drift semantics narrow — say so.** Dropping the non-routed version probes means the
+five non-routed `warning: incompatible:` lines no longer fire in `--step0`. This is
+intended and arguably more correct: only the routed provider's drift bears on a
+channel-failure finding. Redefine both skills' "`warning:` ⇒ note **drift is in effect**"
+state to mean *the routed provider is in drift*. Non-routed drift remains reachable where
+it matters — the `require-verified-version` full loop, and `swingle-setup`'s `--health`
+sweep — so nothing is lost, only deferred to where it is relevant.
+
 ## Part B — Honest readiness/auth semantics
 
 The v1 claim "always live-probe readiness ⇒ fail-fast auth" is false for the four packs
@@ -107,10 +121,16 @@ The v1 claim "always live-probe readiness ⇒ fail-fast auth" is false for the f
    `opencode session list` are the pattern). This is a manifest-completeness task, gated on
    confirming each CLI exposes a cheap authenticated command — tracked as a follow-up, not
    assumed here.
-2. **Until (1) lands, report honestly**: a provider whose readiness is only `--version` is
-   `available (auth unverified)`, not `ready`. A dead-auth dispatch is then caught by the
-   existing first-dispatch Failure-handling (provider-wide STOP), not masked by a false
-   green. The controller gate never treats CLI availability as authentication.
+2. **Until (1) lands, report honestly.** Detection rule: `fm.get("readiness-argv")`
+   present ⇒ a real authenticated probe ⇒ `ready:` / `CHANNEL: provider not ready`;
+   absent ⇒ readiness falls back to `version-argv` ⇒ report `available (auth unverified)`,
+   not `ready`. This is a **new third readiness outcome** and the living-document rule
+   binds it: both `skills/delegate/SKILL.md` and `skills/sdd/SKILL.md` outcome tables gain
+   a row for `available (auth unverified)` with the exact action — "proceed; auth is
+   unverified, so a channel failure on this dispatch is a provider-wide STOP, not a
+   candidate glitch." A dead-auth dispatch is then caught by the existing first-dispatch
+   Failure-handling, not masked by a false green; the controller gate never treats CLI
+   availability as authentication.
 
 ## Part C — Optional cross-session probe cache (second phase, evidence-gated)
 
@@ -119,12 +139,17 @@ Only after Part A is measured. If a residual per-session probe cost still justif
 
 - Location: `${XDG_CACHE_HOME:-~/.cache}/swingle/receipt.json` (regenerable cache, not
   config).
-- Stores per-provider **version/drift advisory** results only, keyed by a **strong provider
-  identity** (resolved executable target after symlink/wrapper resolution + version-argv
-  output token), because path+mtime+size is a heuristic, not version identity (in-place
-  replace and stable-wrapper cases defeat it). For the four providers where readiness ==
-  version-argv, parse the version from the already-live readiness call rather than caching a
-  separate one.
+- Stores per-provider **version/drift advisory** results only, keyed by a **strong
+  identity**: the resolved executable target (`realpath` of the CLI, following symlinks;
+  resolution stops at the real binary and does not chase a shebang interpreter) + the
+  `version-argv` output token + the pack's manifest `verified-version` (so a re-verify
+  that bumps `verified-version` without changing the installed CLI still invalidates the
+  cached drift verdict). Path+mtime+size is only a heuristic, not version identity
+  (in-place replace and stable-wrapper cases defeat it). For the four providers where
+  readiness == version-argv, parse the version from the already-live readiness call rather
+  than caching a separate one. The untrusted-path ownership rule: the receipt file must be
+  a regular file owned by the current user with non-group/other-writable permissions, else
+  cold miss.
 - **Provider-universe aware**: records the full installed set (including absent providers) so
   an install/uninstall/PATH change is a cold miss even when the routed provider is unchanged.
 - **Never caches readiness/auth.**
@@ -141,13 +166,20 @@ Only after Part A is measured. If a residual per-session probe cost still justif
   readiness probe. Nothing about routing or the gate is taken from the cache.
 - Ownership: setup writes it with consent (all installed providers); delegate/sdd self-heal
   the routed provider's entry after a live probe.
+- **Marginal benefit under Part A is small — decide on measurement, not v1's framing.**
+  After Part A only the routed provider is probed, and for the four fallback providers its
+  version is parsed from the live readiness call; so the cache saves at most one
+  `version-argv` spawn for a routed `grok`/`opencode` dispatch. Rebenchmark after Part A
+  and state that number before building Part C.
 
 ## Friction responses (the ceremony source)
 
-1. **Robust, self-verifying root/adapter resolution.** Resolve `<root>` from the **physical
-   path of the running `SKILL.md`** (`<root> = dirname(dirname(SKILL.md))` for the delegate
-   skill; the harness adapter documents the package/cache cases), preferring a writable
-   source tree over a cache path when both resolve. Before reading a harness adapter, **glob
+1. **Robust, self-verifying root/adapter resolution.** Resolve `<root>` as the
+   **grandparent of the running skill's directory** — for `skills/delegate/SKILL.md` that
+   is `dirname(dirname(dirname(SKILL.md)))` (three levels up from the file: file →
+   `skills/delegate` → `skills` → `<root>`); a two-`dirname` formula lands on `skills/` and
+   every sibling read fails. The harness adapter documents the package/cache cases; prefer a
+   writable source tree over a cache path when both resolve. Before reading a harness adapter, **glob
    the adapter directory and verify the file exists** rather than guessing
    `controllers/` vs `skills/sdd/harnesses/`; a missing expected file is a stated finding,
    not a silent 404-and-retry. The skills already name the sibling layout — this makes the

@@ -18,7 +18,7 @@
 
 ## ⚠️ Part C gate (both design reviewers)
 
-**Do not start Part C (Task 5+) until Part A (`docs/specs/step0-part-a-plan.md`) is merged and rebenchmarked.** After Part A only the routed provider is probed, and for the four fallback providers its version is parsed from the live readiness call — so Part C saves at most one `version-argv` spawn for a routed `grok`/`opencode` dispatch. If that residual is negligible, **cancel Part C** and ship only Part B. Record the post-Part-A `--step0` timing here before deciding: `__________`.
+**Do not start Part C (Task 5+) until Part A (`docs/specs/step0-part-a-plan.md`) is merged and rebenchmarked.** After Part A only the routed provider is probed, and for the four fallback providers its version is parsed from the live readiness call — so Part C saves at most one `version-argv` spawn for a routed `grok`/`opencode` dispatch. If that residual is negligible, **cancel Part C** and ship only Part B. Measured after Part A landed (2026-08-02, same command as the 4.0s baseline, route→codex): **`--step0` 0.74s cold / 0.24s warm** (down from 4.0s). The routed provider here (codex) has no separable readiness call, so the cache would save ~0 for `codex`/`claude`/`agy`/`pi` and ~one spawn only for a routed `grok`/`opencode`. **Recommendation: cancel Part C; ship Part B only.**
 
 ---
 

@@ -76,11 +76,12 @@ Read these plugin documents when their policy is needed:
    manifest strings as shell) → drift advisory (routed provider only; the full active-set version probe runs only under require-verified-version, where it filters routing) → routing precedence
    (per-task/session directive → config lanes/default
    → codex-if-active → sole-active → ask) → model resolution (role → tier/lane per
-   `core/roles.md` → the provider's layered `models.yaml` candidates) → readiness (the
-   pack's bounded version+auth probe). Outcome contract:
+   `core/roles.md` → the provider's layered `models.yaml` candidates) → readiness (a
+   pack with a real `readiness-argv` yields `ready:`/`CHANNEL:`; a `version-argv` fallback yields `available (auth unverified):`). Outcome contract:
    | Output | Meaning | Action |
    | --- | --- | --- |
    | exit 0 | pipeline clean; `provider:`/`ready:` lines name the route | proceed |
+   | `available (auth unverified): <id>` (exit 0) | routed CLI present but readiness is a `--version` fallback that cannot prove auth | proceed; a channel failure on THIS dispatch is a provider-wide STOP (step 10), not a candidate glitch |
    | unprefixed finding | invalid manifest/config (implicit STOP) | halt; fix or surface |
    | `STOP: …` | invalid input (e.g. unknown role) | halt; fix or surface |
    | `ASK: …` | a decision only the user can make | put the named question to the user; never guess |

@@ -12,8 +12,8 @@ ask into a briefed dispatch to the right CLI at an appropriate model tier, then 
 result before trusting it. No command syntax to learn, no re-authentication: every target is
 a CLI you already installed and signed into.
 
-**The symmetry is the point.** Any of the six CLIs can drive, and any of the six can be
-dispatched to — all thirty-six pairings run through the same packs, contracts, and gates.
+**The symmetry is the point.** Any of the six harnesses can drive, and any provider can be
+dispatched to — every pairing runs through the same packs, contracts, and gates.
 The repo layout mirrors the two roles: `controllers/<controller>.md` documents each CLI as
 the **driver** (skill-loading, native subagents, background jobs), `providers/<id>/`
 documents it as the **dispatch target** (manifest-only `pack.md`, version registry,

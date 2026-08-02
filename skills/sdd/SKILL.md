@@ -2,7 +2,7 @@
 name: swingle-sdd
 description: >-
   Execute an implementation plan via subagent-driven development with
-  external-CLI dispatch (codex/opencode/agy/grok/pi/claude). Use whenever executing a
+  external-CLI dispatch (codex/opencode/agy/grok/pi/claude/omp). Use whenever executing a
   written plan with SDD — wraps superpowers:subagent-driven-development and
   applies the external-dispatch optimizations mechanically. Triggers: "run this
   plan with SDD", "/swingle-sdd", "/sdd", "execute the plan via subagents", the

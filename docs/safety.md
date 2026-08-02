@@ -19,7 +19,7 @@ and a stray agent commit is surfaced as a violation, not absorbed.
 
 - **They are not a sandbox.** A dispatched agent can, within its run, read and write files
   and run commands the way you can. `read-only` is an **opt-in** lane, not the default.
-- **Only two harnesses sandbox at the OS level** — `codex` and `grok`. The rest rely on the
+- **Only two provider CLIs sandbox at the OS level** — `codex` and `grok`. The rest rely on the
   gate plus your review.
 - **Prompt injection is a real surface.** A dispatched agent reads repository content you
   point it at; hostile content there can try to steer it. The gates catch *effects* (bad
@@ -38,7 +38,7 @@ sections above. Enforcement lives in `scripts/validate-packs`; the doctrine in
 
 A subscription seat hitting a usage/rate limit — or a metered key hitting a quota — surfaces
 as a **channel failure** (provider-wide). The controller does **not** silently fall back to
-another tier or another harness: it stops and adjudicates, surfacing the failure to you, with
+another tier or another provider: it stops and adjudicates, surfacing the failure to you, with
 the ledger left consistent (no partial commit is trusted past the gate). Automatic
 quota-aware fallback is a deliberate non-feature today — smarter handling is roadmap, tracked
 alongside the economics work in [#17](https://github.com/hiivmind/swingle/issues/17). See

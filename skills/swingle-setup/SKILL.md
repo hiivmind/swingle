@@ -1,17 +1,17 @@
 ---
 name: swingle-setup
-description: Environment onboarding and health check for swingle — inspect paths, configuration, registry layers, CLI presence and auth, migration residue, and harness setup, report status, and offer individual consented fixes. Explicit user invocation only.
+description: Environment onboarding and health check for swingle — inspect paths, configuration, registry layers, CLI presence and auth, migration residue, and controller setup, report status, and offer individual consented fixes. Explicit user invocation only.
 ---
 
 # Swingle Setup — Environment Onboarding & Health Check
 
-**Harness**: identify your controlling harness and read `<root>/skills/sdd/harnesses/<harness>.md` (claude-code, codex, grok, opencode, pi, agy) before setup — it maps skill-loading, native subagent dispatch, background jobs, completion observation, and asset-root resolution. `<root>` is this skill directory's grandparent (the directory containing `skills/`, `core/`, `providers/`, `contracts/`).
+**Controller**: identify your controller and read `<root>/controllers/<controller>.md` (claude-code, codex, grok, opencode, pi, agy) before setup — it maps skill-loading, native subagent dispatch, background jobs, completion observation, and asset-root resolution. `<root>` is this skill directory's grandparent (the directory containing `skills/`, `controllers/`, `core/`, `providers/`, `contracts/`).
 
 This skill has **no superpowers dependency**: it never invokes superpowers skills, never runs `scripts/sdd-workspace`, and never reads or writes `.superpowers/sdd/`.
 
 ## Boundary against existing skills
 
-- **`swingle-setup` checks the environment**: paths, configuration files, registry layers, CLI presence, authentication readiness, versions, migration residue, and harness install state.
+- **`swingle-setup` checks the environment**: paths, configuration files, registry layers, CLI presence, authentication readiness, versions, migration residue, and controller install state.
 - **`swingle-verify` probes provider behavior**: the P1–P13 dispatch suite. Setup NEVER dispatches a probe; where it finds version drift or a baseline requiring dispatch confirmation, it recommends `swingle-verify <id>`.
 - **`swingle-sdd` / `swingle-delegate` consume the environment**: their Step-0 remains self-sufficient; a dispatch must never require setup to have run. Setup changes nothing about their read-only stance toward user config; setup is the one skill with a mandate to write configuration because the user summoned it for exactly that.
 - **Setup↔verify criterion**: a pack-declared setup precondition is in setup's scope **iff it is a local-state inspection** — a file, environment-variable, or process read requiring no model dispatch (for example, checking persisted permission settings in local config files). Any precondition whose confirmation requires dispatching a model is a Phase D hand-off to `swingle-verify <id>`, exactly like version drift. Phase C baseline application is conditioned on this same criterion.
@@ -45,7 +45,7 @@ The setup skill operates in strictly ordered phases. Phase A is always read-only
    - **Set-but-unreadable `$SWINGLE_CONFIG`** (finding wording matches dispatch STOP; offered fix: unset or repair).
 4. **Registry layer record**: from `--health` output, record the **currently-resolving layer per provider** before any Phase C offer is composed — offers are computed against this record.
 5. **Legacy namespace residue**: check for presence of `<project>/.sdd-dispatch.json`, `<project>/.sdd-dispatch/`, `${XDG_CONFIG_HOME:-~/.config}/sdd-dispatch/`, and set `$SDD_DISPATCH_CONFIG` / `$SDD_DISPATCH_MODELS` environment variables. For a legacy project directory, classify its contents: **pure-untracked vs contains-tracked-files** (`git ls-files .sdd-dispatch/` non-empty), and whether the new-name target (`.swingle/`) already exists.
-6. **Harness/provider baselines**: inspect each installed provider's pack-declared, local-state-only setup preconditions read from pack manifests at run time. Inspect the driving harness's own install state (e.g. opencode `skills.paths` pinning) per its harness adapter.
+6. **Controller/provider baselines**: resolve the provider body using the Recording resolution rules in `<root>/core/verification-protocol.md` (the registry key resolved FROM the installed CLI version — exact match, else nearest at-or-below; the manifest-frontier file only when at or above it), then read the pack manifest and that resolved registry body before inspecting each installed provider's declared, local-state-only setup preconditions. Inspect the controller's own install state (e.g. opencode `skills.paths` pinning) per its controller adapter.
 7. **Workspace ignore state**: check whether `.swingle/` scratch directory is covered by `.git/info/exclude` or `.gitignore` in the current repository (informational; dispatch skills self-heal this).
 8. **Superpowers availability records**: read the `superpowers` key from the USER-layer config file directly (environment facts ignore the layered precedence walk): report each provider's recorded `installed`/`version`/`probed` fact and flag providers with no record. These facts gate the dispatch skills' worktree-dispatch lever.
 
@@ -67,7 +67,7 @@ config: none found (dispatch uses built-in defaults)      legacy paths: ~/.confi
 
 ### Phase C — Offer & apply (consent per item)
 
-- Each item is offered individually using the harness question tool where available, or a plain question otherwise.
+- Each item is offered individually using the controller's question tool where available, or a plain question otherwise.
 - A plain-question fallback must re-state the specific item in the question body so that a "yes" response can never be read as blanket consent.
 - "yes to all" is acceptable input for non-destructive items, but **never covers a destructive option** (`--force` overwrites, any file deletion or overwrite).
 - After applying a consented change, re-run the relevant Phase A check and display the before → after result. A write is confirmed by re-inspection, never assumed.
@@ -75,8 +75,10 @@ config: none found (dispatch uses built-in defaults)      legacy paths: ~/.confi
 ### Superpowers probe (per provider, one dispatch each)
 
 Offer per installed provider (consent — each probe costs one live dispatch).
-Dispatch mechanics, provider-neutral: the pack's canonical dispatch
-template; model = the cheapest-tier read lane per the roles table; readiness
+Dispatch mechanics, provider-neutral: resolve and read the provider body by the Recording
+resolution rules in `<root>/core/verification-protocol.md` (the registry key resolved
+from the installed CLI version, not unconditionally the manifest frontier); use the
+manifest plus that resolved body's canonical dispatch template; model = the cheapest-tier read lane per the roles table; readiness
 checked first via the pack's readiness/version argv (skip and report if not
 ready); output collected per the pack's `report-transport` (`captured-output`
 packs: the captured final message; `report-file` packs: STILL request no file —
@@ -116,7 +118,7 @@ The skill never performs the following operations directly:
 - **No writes to project-tracked files** (offer the `git mv`/diff for the user's own commit instead). Consented writes *outside* the project repo, such as a provider's persisted settings file or user-level config (`~/.config/swingle/config.json`), are legitimate Phase C writes, not exceptions to this rule.
 - No uninvited writes of any kind — every filesystem change is individually consented in Phase C.
 - No interactive authentication flows.
-- No provider-specific command strings hardcoded in the skill — every CLI name, argv, and baseline procedure is read from pack manifests and prose at run time. Purity boundary: `skills/**` stays free of model IDs and CLI invocation strings.
+- No provider-specific command strings hardcoded in the skill — every CLI name, argv, and baseline procedure is read from the pack manifest and registry-resolved provider body at run time. Purity boundary: `skills/**` stays free of model IDs and CLI invocation strings.
 
 ## Write inventory (Phase C)
 
@@ -144,8 +146,8 @@ Branch on the Phase A classification of legacy residue:
 
 Environment variable renames are always Phase D hand-offs.
 
-### Provider and harness baselines (§6.4)
+### Provider and controller baselines (§6.4)
 
 - Apply a pack-documented, local-state-only baseline exactly as the pack specifies it (e.g. persisted permission settings — a consented write outside the project repo), quoting the pack section in the offer.
-- Where the driving harness has a generator script (such as opencode `skills.paths`), offer to run it.
+- Where the controller has a generator script (such as opencode `skills.paths`), offer to run it.
 - A baseline whose confirmation would require a model dispatch is never applied here — route to Phase D.

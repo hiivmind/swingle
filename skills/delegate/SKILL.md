@@ -5,15 +5,16 @@ description: Directly delegate an explicitly requested, self-contained job or ho
 
 # Delegate — Direct One-Off Dispatch
 
-**Harness**: identify your controlling harness and read
-`<root>/skills/sdd/harnesses/<harness>.md` (claude-code, codex, grok, opencode, pi, agy) before setup — it
+**Controller**: identify your controller and read
+`<root>/controllers/<controller>.md` (claude-code, codex, grok, opencode, pi, agy) before setup — it
 maps skill-loading, native subagent dispatch, background jobs, completion observation,
 and asset-root resolution. `<root>` is this skill directory's grandparent (the directory
-containing `skills/`, `core/`, `providers/`, `contracts/`).
+containing `skills/`, `controllers/`, `core/`, `providers/`, `contracts/`).
 
 **Never dispatch from memory.** Before the first dispatch of a session, read
 `<root>/core/roles.md`, `<root>/core/playbook.md`, `<root>/core/safety-doctrine.md`,
-`<root>/core/liveness.md`, and the active `<root>/providers/<id>/pack.md`. Recalled
+`<root>/core/liveness.md`, and the active provider's `<root>/providers/<id>/pack.md`
+(manifest) plus its resolved registry body. Recalled
 doctrine is a paraphrase of whatever was true when it was learned, and these documents
 change under you — packs are re-verified on every CLI version bump, and tiering, roles,
 and dispatch templates move with them. A dispatch built from memory looks identical to a
@@ -45,9 +46,10 @@ Read these plugin documents when their policy is needed:
 - `<root>/core/playbook.md` — dispatch flavours, economics, and controller gates
 - `<root>/core/liveness.md` — required background and stall protocol
 - `<root>/core/safety-doctrine.md` — containment and controller-gate doctrine
-- `<root>/providers/<id>/pack.md`, `models.yaml`, and `models.md` — validated provider behavior,
-  canonical dispatch, session source, report transport, recovery rules, and
-  model candidates (models.yaml is the table of record; models.md is narrative)
+- `<root>/providers/<id>/pack.md` (manifest) and the resolved registry body under `versions/` —
+  validated provider behavior and canonical dispatch; `models.yaml` and `models.md` — model
+  candidates (models.yaml is the table of record; models.md is narrative); the manifest also
+  supplies session source, report transport, and recovery rules
 
 ## Levers (parsed from anywhere in the request)
 
@@ -67,7 +69,7 @@ Read these plugin documents when their policy is needed:
   requested write work into analysis.
 - **Supervision**: "supervised" / "unsupervised" — overrides the automatic trigger.
 - **Native**: the `native-subagents` lever ("all Claude" under Claude Code) bypasses
-  external dispatch per the harness adapter; provider routing, model resolution, and
+  external dispatch per the controller adapter; provider routing, model resolution, and
   supervision do not apply. Explicitly requested but unavailable → stop and ask;
   auto-selected (supervision) but unavailable → controller orchestrates, announced.
 - **"in a worktree"** / **"in my tree"** — dispatch the job isolated in the
@@ -80,54 +82,76 @@ Read these plugin documents when their policy is needed:
    proceed past a non-zero exit. THEN check `git -C <root> status --porcelain
    providers/` — any untracked or modified provider directory requires explicit user
    approval before its manifest or prose is used.
-2. **Detect providers**: read each `<root>/providers/*/pack.md` manifest; a provider is
-   INSTALLED iff `command -v -- "<cli>"` succeeds for its validated cli name (data-only
-   manifests — never execute manifest strings as shell).
-3. **Layered config** (first found): `$SWINGLE_CONFIG` →
-   `<project>/.swingle.json` →
-   `${XDG_CONFIG_HOME:-~/.config}/swingle/config.json` (See
-   [docs/config.md](../../docs/config.md) for the schema) — disable/steer only; the
-   same malformed-config STOP conditions as the `swingle-sdd` skill. ACTIVE = installed −
-   disabled (− incompatible iff require-verified-version).
-4. **Compatibility (advisory)**: compare `version-argv` output to `verified-version`. A
-   mismatch is a WARNING, not a gate — warn (installed X vs verified Y) and PROCEED.
-   Re-verifying a bumped CLI is maintenance (`swingle-verify <id>`), never a per-dispatch
-   stop; block only under config `require-verified-version`. Note that **drift is in
-   effect** for the session: if a later dispatch fails with a channel-class signature
-   (Failure handling), that failure IS a verification finding — recommend recording it
-   per the existing recording ladder and dedup (`core/verification-protocol.md`
-   Recording), capturing plugin + CLI versions. Never file automatically; never block the
-   user pre-dispatch on drift alone.
-5. **Routing**: per-request provider directive → session lever → config
-   `providers_by_lane[lane-of-role]` / `default_provider` → codex-if-active else
-   sole-active-iff-exactly-one → ask. Inactive provider named anywhere → ask, never
-   silently reroute.
-6. **Model resolution**: role → (tier, lane) via `core/roles.md` → the provider's
-   layered models.yaml (first found wins whole-file: `$SWINGLE_MODELS/<id>.yaml` →
-   `<project>/.swingle/models/<id>.yaml` →
-   `${XDG_CONFIG_HOME:-~/.config}/swingle/models/<id>.yaml` → the pack's
-   `models.yaml`) → ordered candidates (statuses verified/experimental; exact-lane rows
-   by priority, then (tier, any) rows by priority); take the first; none → ask, naming
-   the winning file. A found-but-malformed override, or set-but-unreadable
-   `$SWINGLE_MODELS`, is a STOP, never a fall-through.
-   (`scripts/validate-packs --resolve "<role>" <id> --project <repo>` prints the layer
-   and walk; `scripts/swingle-models which|init` inspects and seeds override layers.)
-   Resolving from the pack default is normal — but when no override layer exists at all,
-   mention ONCE per session to run `swingle-setup` to seed the machine-wide registry;
-   never create user config uninvited.
-7. **Readiness**: before the FIRST dispatch to a chosen provider, run its bounded
-   preflight per its pack (version + auth/session probe; agy: the headless permission
-   baseline check — on miss, STOP and hand the user the pack's baseline section).
-   Also read the routed provider's `providers/<id>/verification-log.md` and, if present,
+2. **Session gate — run the Step-0 pipeline** (where the controller can run shell;
+   otherwise execute the same table below in prose):
+   Branch for `native-subagents` immediately after manifest pre-validation; it bypasses
+   config discovery/loading and provider detection. For an external branch, discover the
+   first config found at `$SWINGLE_CONFIG` → `<project>/.swingle.json` →
+   `${XDG_CONFIG_HOME:-~/.config}/swingle/config.json` (schema:
+   [docs/config.md](../../docs/config.md)). A set-but-unreadable `$SWINGLE_CONFIG` is a
+   STOP. No file found is normal — omit `--config` below.
+   `python3 <root>/scripts/validate-packs --step0 --root <root> --project <repo>
+   --role "<roles.md row>" [--config <found-layer>]
+   [--task-provider <id> | --lever native-subagents]`
+   The script is the single implementation of: manifest pre-validation → native bypass
+   branch (when the `native-subagents` lever is set: print-and-proceed native; nothing
+   else runs) → config loading and gating (malformed-config STOP cases:
+   [docs/config.md](../../docs/config.md)
+   “Dispatch STOP Conditions”; ACTIVE = installed − disabled (− incompatible iff
+   require-verified-version)) → provider detection (INSTALLED iff `command -v -- "<cli>"`
+   succeeds for the manifest's validated cli; data-only manifests — never execute
+   manifest strings as shell) → drift advisory → routing precedence
+   (per-task/session directive → config lanes/default
+   → codex-if-active → sole-active → ask) → model resolution (role → tier/lane per
+   `core/roles.md` → the provider's layered `models.yaml` candidates) → readiness (the
+   pack's bounded version+auth probe). Outcome contract:
+   | Output | Meaning | Action |
+   | --- | --- | --- |
+   | exit 0 | pipeline clean; `provider:`/`ready:` lines name the route | proceed |
+   | unprefixed finding | invalid manifest/config (implicit STOP) | halt; fix or surface |
+   | `STOP: …` | invalid input (e.g. unknown role) | halt; fix or surface |
+   | `ASK: …` | a decision only the user can make | put the named question to the user; never guess |
+   | `CHANNEL: …` | provider/environment failure | Failure handling |
+   | `warning: …` (exit 0) | drift or strict-mode removals with a valid route | note **drift is in effect** (Failure handling finding semantics unchanged) |
+   | exit 0; `native-subagents: bypass external dispatch (no provider selected)` | native bypass | proceed with controller-native subagents, no provider/model resolution |
+   A divergence between the script and this table is a bug adjudicated against the
+   table.
+4. **Tier and model**: role → (tier, lane) via `core/roles.md`. Tier levers are
+   policy, never script inputs: silent = "floor it" (base tier); "play it safe" =
+   one tier up (most-capable is the ceiling — say so and proceed) — resolve the
+   roles-table row at the effective tier in the same lane. Resolve candidates with
+   `scripts/validate-packs --resolve "<role>" <provider> --project <repo>` (layered
+   models.yaml walk; found-but-malformed override or unreadable `$SWINGLE_MODELS` =
+   STOP; no candidates → ask, naming the winning file). When no override layer exists
+   at all, mention ONCE per session to run `swingle-setup`; never create user config
+   uninvited.
+5. **Pack-specific preflight (prose)**: before the FIRST dispatch to the routed
+   provider, run any preflight its pack defines beyond the generic probe (e.g. a
+   persisted-permission baseline check) — a miss is a STOP with the pack's fix
+   section.
+6. Also read the routed provider's `providers/<id>/log/` (monthly shards; read newest-first, all shards are evidence) and, if present,
    the user's local record at `${XDG_CONFIG_HOME:-~/.config}/swingle/verification/<id>.md`
-   (read additively — both are evidence). If an entry at or below the installed version
+   (read additively — both are evidence).
+   Take the installed version from the CLI's **raw version-output token**, accepting it
+   only when it full-matches the closed dotted-numeric grammar; a suffixed token is
+   unparseable — never resolve on a numeric prefix. Resolve the provider BODY from the
+   registry `providers/<id>/versions/`: exact key match → that file; between keys →
+   nearest at-or-below; above the manifest's `verified-version` → the current file
+   (`versions/<verified-version>.md`, silence — a newer release is not a defect); below
+   the oldest key, or unparseable → the current file plus the corresponding advisory; the
+   current file missing → STOP and surface (broken pack). The manifest (frontmatter)
+   always comes from `pack.md`; each registry file's first line declares its evidence
+   class (`> Verified:` round truth vs `> Distilled…:` assembled history) — weigh it.
+   Version comparison and edge rules are in `core/verification-protocol.md` Recording.
+   Guidance still applies additively on top of whichever body resolves.
+   If an entry at or below the installed version
    carries an operating instruction covering the lane about to be dispatched, **act on
    it** — apply prompt- and dispatch-shape restrictions directly and state what changed;
    version pins and provider changes are **recommended to the user**, never performed
    silently (cross-provider moves remain a user question, per Failure handling). An
    instruction applies from its version forward until a later entry lifts it. No
    applicable instruction ⇒ say nothing — a newer release is not a defect.
-8. **Workspace**: create `.swingle/delegate/` at the repo root. Check
+7. **Workspace**: create `.swingle/delegate/` at the repo root. Check
    `git check-ignore -q .swingle/delegate/.probe` (a child sentinel, so negation
    rules cannot silently expose workspace files); if not ignored, append
    `.swingle/delegate/` to the file resolved by `git rev-parse --git-path info/exclude`
@@ -233,8 +257,9 @@ BEFORE launch — a crash or compaction never loses the number→task mapping.
    status vocabulary **inline in the prompt** — the contract path carries each token's
    semantics, the prompt carries the tokens (playbook E1a): “End with a status block whose
    first line is exactly one of: STATUS: DONE | DONE_WITH_CONCERNS | NEEDS_CONTEXT |
-   BLOCKED.” Cheapest-tier conformance was 3/3 with the line inline and 0/3 by contract
-   reference alone; a missing block is still UNKNOWN, never DONE.
+   BLOCKED.” Inline tokens buy cheapest-tier conformance that a contract citation alone
+   does not (evidence in the core verification log); a missing block is still UNKNOWN,
+   never DONE.
 2. EVERY repository dispatch, both lanes: clean tree, OR offer worktree dispatch
    (one question — never a silent switch; sometimes the dispatch needs the dirty tree;
    the offer is subject to the worktree-dispatch prerequisite below — a `superpowers`
@@ -242,7 +267,7 @@ BEFORE launch — a crash or compaction never loses the number→task mapping.
    Record BASE (= HEAD) and the current branch for both lanes.
 3. Dispatch with the active pack's canonical template inside the self-reaping wrapper
    (`core/liveness.md`), stdout to `NNN-dispatch.log`. Observe completion via the
-   harness adapter's declared mechanism (background-task notification, polling, or the
+   controller adapter's declared mechanism (background-task notification, polling, or the
    detached marker-file form — whichever the adapter specifies for the mode in use);
    never foreground stdout. Session capture is asynchronous and provider-specific:
    obtain the session id per the pack's `session-source` and append it to the ledger
@@ -283,15 +308,15 @@ BEFORE launch — a crash or compaction never loses the number→task mapping.
      **Recommend** (do not auto-file) recording it via the existing recording ladder and
      dedup in `core/verification-protocol.md` Recording: search existing `verification`
      issues first, then 👍 / comment / new-issue as the evidence warrants. The finding
-     captures plugin version, installed CLI version vs `verified-version`, the controlling
-     harness + its version, and the failure signature. Maintenance signal, not a user
+     captures plugin version, installed CLI version vs `verified-version`, the controller + its
+     version, and the failure signature. Maintenance signal, not a user
      block; quality failures are excluded (they are not drift evidence).
    - Every attempt appends:
      `model-attempt: job=NNN phase=<worker|review|reader2> attempt=<n> role=<role> provider=<id> model=<id> class=<scope> outcome=<failed|ok>`.
 
 ## Worktree dispatch (the delegate's own superpowers)
 
-Isolation is an instruction, not a mechanism: the delegated agent's harness does
+Isolation is an instruction, not a mechanism: the delegated agent's CLI does
 the work with its own installed superpowers. Before dispatching with this lane:
 
 1. **Prerequisite check** — the routed provider's record under the `superpowers`
@@ -317,7 +342,7 @@ HEAD and porcelain must be unchanged — every change belongs on the branch. The
 deliverable check is the branch: it exists, and the report names it and the
 final commit SHA. Review package = `git log` + `git diff <merge-base>..<branch>`.
 Landing is a controller act (merge / squash / cherry-pick per the user's commit
-request); where the controller's own harness has superpowers installed,
+request); where the controller itself has superpowers installed,
 `superpowers:finishing-a-development-branch` governs the finish —
 otherwise land with ordinary git. The branch is retention — on
 NEEDS_CONTEXT/BLOCKED keep branch and worktree, resume via the pack's resume
@@ -367,7 +392,7 @@ two reports and reconciles disagreements before answering.
 
 ## Supervised delegate (auto by cost, announced)
 
-One cheap harness-native subagent (per the harness adapter) runs the mechanical cycle —
+One cheap controller-native subagent (per the controller adapter) runs the mechanical cycle —
 prompt files, pack dispatch inside the liveness wrapper, completion watching, the
 mechanical gate reads (status block, porcelain/diff checks, report existence), reviewer
 dispatch when "with review", verdict collection — and returns ONE concise report with
@@ -395,7 +420,7 @@ a killed supervisor loses no state.
 **Ledger writes are append-only — say it explicitly, then verify it.** A supervisor told
 merely to "append" has been observed recreating `ledger.md` with its own header,
 destroying the controller's pre-launch `NNN allocated:` lines — the exact state the
-pre-allocation exists to protect (2026-07-23). The supervisor's brief must say: append
+pre-allocation exists to protect. The supervisor's brief must say: append
 with `>>` only; never create, truncate, reorder, or rewrite the ledger; never remove a
 line you did not write. And because a brief is not enforcement, **the controller re-reads
 the ledger when the supervisor returns and confirms its own pre-launch lines survived** —
@@ -449,5 +474,5 @@ model-attempt: job=NNN phase=<worker|review|reader2> attempt=<n> role=<role> pro
 Worker and reviewer session ids are BOTH recorded — fix rounds resume the worker's
 thread, re-reviews resume the reviewer's. The `task=` summary plus the prompt path make
 "ask that agent a follow-up" unambiguous after compaction or across a batch. Native
-routing records `NNN dispatched: route=native` and, where the harness provides one,
-`NNN native-ref: <harness ref>`. Never re-dispatch work the ledger records as complete.
+routing records `NNN dispatched: route=native` and, where the controller provides one,
+`NNN native-ref: <controller ref>`. Never re-dispatch work the ledger records as complete.

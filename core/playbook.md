@@ -1,7 +1,7 @@
 # Mapping superpowers:subagent-driven-development onto Provider Packs
 
 > The token-efficient way to run the SDD skill's subagent roles through provider packs
-> instead of the harness's native subagent mechanism (see harness adapter).
+> instead of the controller's native subagent mechanism (see controller adapter).
 > Companion to [core/roles.md](roles.md) and the active provider's resolved models.yaml.
 
 ## Process authority: the invoked skill, not this document
@@ -38,11 +38,11 @@ provider's layered models.yaml; apply [core/liveness.md](liveness.md).
 
 “Dispatch” is ambiguous. Five execution modes, three currencies. The currencies, in order
 of scarcity: **main-thread context** (multiplicative — resident tokens are re-sent every
-turn and degrade the controller's judgment as they accumulate), **harness token budget**
+turn and degrade the controller's judgment as they accumulate), **controller token budget**
 (our spend; disposable subagent contexts are one-shot), **provider cost** (largely fixed by
 the task, with cold-start overhead per execution).
 
-| Mode | Main-ctx / task | Harness tokens | Provider cost | When |
+| Mode | Main-ctx / task | Controller tokens | Provider cost | When |
 | --- | --- | --- | --- | --- |
 | **Inline** (controller does it) | 15–40k+, grows with task size | full task, premium | 0 | below the orchestration floor (~2k of work, single-file mechanical), or judgment-core work |
 | **Sub-dispatch** (native subagent) | 1–3k (prompt + report) | full task, isolated context | 0 | judgment-heavy isolated work; the `native-subagents` lever |
@@ -82,16 +82,12 @@ again.
 
 **E1a — the status vocabulary is the one exception: state it inline in every dispatch
 prompt.** E1 moves contract text out of the prompt; the four-token status line stays in it.
-The cheapest tiers have been observed honoring the vocabulary 3/3 when the requirement sat
-inline in the dispatch prompt and 0/3 when the identical requirement reached the same model
-only as a reference to the contract file (2026-07-23, recorded in
-[core/verification-log.md](verification-log.md)). That is n=3 vs n=3 — a lead, not an
-established law — but the cost of acting on it is one line against a failure that forces
-the reader into UNKNOWN and costs the controller a full evidence sweep. Append to the
-dispatch prompt verbatim:
+Cheapest-tier conformance depends on the requirement sitting inline in the dispatch prompt
+rather than only in the referenced contract (see core/verification-log.md, "2026-07-23 —
+inline status instruction promoted from lead to playbook rule (E1a)" entry). Append to
+the dispatch prompt verbatim:
 
-> *“End with a status block whose first line is exactly one of: STATUS: DONE |
-> DONE_WITH_CONCERNS | NEEDS_CONTEXT | BLOCKED.”*
+> *“End with a status block whose first line is exactly one of: STATUS: DONE | DONE_WITH_CONCERNS | NEEDS_CONTEXT | BLOCKED.”*
 
 The contract file keeps the full semantics of each token; the prompt carries only the four
 words and where to put them. This changes what a *missing* block means not at all — see the

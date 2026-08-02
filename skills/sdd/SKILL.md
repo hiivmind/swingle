@@ -11,16 +11,16 @@ description: >-
 
 # SDD with Provider Packs
 
-**Harness**: identify your controlling harness and read `harnesses/<harness>.md`
+**Controller**: identify your controller and read `<root>/controllers/<controller>.md`
 (claude-code, codex, grok, opencode, pi, agy) before Step 0 — it maps skill-loading, native subagent
 dispatch, task tracking, background jobs, and asset-root resolution. All paths below
 are relative to the plugin tree root `<root>` (the directory containing `skills/`,
-`core/`, `providers/`).
+`controllers/`, `core/`, `providers/`).
 
 This skill wraps **superpowers:subagent-driven-development**. Its process governs the
 per-task loop, task briefs and review packages, statuses, two-verdict reviews, fix loops,
 ledger, pre-flight scan, and final review. This skill replaces its dispatch mechanism with
-the active provider pack or, when selected, harness-native subagents.
+the active provider pack or, when selected, controller-native subagents.
 
 **Never dispatch from memory.** The documents below are read at Step 0, before the first
 dispatch — not recalled. They change under you: packs are re-verified on every CLI version
@@ -35,11 +35,11 @@ Read these plugin documents when their policy is needed:
 - `<root>/core/liveness.md` — required background and stall protocol
 - `<root>/core/safety-doctrine.md` — containment and controller-gate doctrine
 - `<root>/core/verification-protocol.md` and `<root>/core/verification-log.md` — verification policy and history
-- `<root>/providers/<id>/pack.md`, `models.yaml`, and `models.md` — validated provider behavior, canonical dispatch, and model candidates (models.yaml is the table of record; models.md is narrative)
+- `<root>/providers/<id>/pack.md` (manifest) and the resolved registry body under `versions/` — validated provider behavior and canonical dispatch; `models.yaml` and `models.md` — model candidates (models.yaml is the table of record; models.md is narrative)
 
 ## Step 0 — Setup (once per session, before Task 1)
 
-1. Use the harness adapter's skill-loading mechanism to invoke
+1. Use the controller adapter's skill-loading mechanism to invoke
    `superpowers:subagent-driven-development`, then follow its process except for its
    dispatch steps, which this skill overrides.
 2. Run its `scripts/sdd-workspace`; copy the operating contracts into it from
@@ -49,59 +49,78 @@ Read these plugin documents when their policy is needed:
    `<root>/core/safety-doctrine.md`, and `<root>/core/liveness.md`; determine the routing
    lever in effect: silent means “floor it”, “play it safe” moves implementers one tier up,
    and a provider or lane directive steers eligible work. The `native-subagents` lever
-   uses the harness-native subagent mechanism; under Claude Code, “all Claude” is its
+   uses the controller-native subagent mechanism; under Claude Code, “all Claude” is its
    alias; under Grok, “all Grok” is its alias.
 4b. **Trust gate**: run `python3 <root>/scripts/validate-packs --root <root>` — refuse
    to proceed past a non-zero exit. THEN check `git -C <root> status --porcelain
    providers/` — any untracked or modified provider directory requires explicit user
    approval before its manifest or prose is used (git-tracked state is the trust anchor).
-5. **Detect providers**: read each <root>/providers/*/pack.md manifest; a provider is
-   INSTALLED iff `command -v -- "<cli>"` succeeds for its validated cli name (data-only
-   manifests — never execute manifest strings as shell; argv[0]==cli is
-   validator-enforced). Apply layered config (first found): $SWINGLE_CONFIG →
-   <project>/.swingle.json → ${XDG_CONFIG_HOME:-~/.config}/swingle/config.json
-   (See [docs/config.md](../../docs/config.md) for the schema) — disable/steer only;
-   malformed/wrong-typed config, an unknown provider ID in
-   `disable`, `default_provider`, or any `providers_by_lane` value, a disabled
-   default_provider or providers_by_lane target, a malformed `superpowers` block
-   (including an unknown provider ID within it), or set-but-unreadable
-   $SWINGLE_CONFIG = STOP with the error. ACTIVE = installed − disabled
-   (− incompatible iff require-verified-version).
-6. **Compatibility (advisory)**: compare `version-argv` output to `verified-version`. A
-   mismatch is a WARNING, not a gate — warn (installed X vs verified Y) and PROCEED.
-   Re-verifying a bumped CLI is maintenance (`swingle-verify <id>`), never a per-dispatch
-   stop; block only under config `require-verified-version`. Note that **drift is in
-   effect** for the session: if a later dispatch fails with a channel-class signature
-   (step 10), that failure IS a verification finding — recommend recording it per the
-   existing recording ladder and dedup (`core/verification-protocol.md` Recording),
-   capturing plugin + CLI versions. Never file automatically; never block the user
-   pre-dispatch on drift alone.
-7. **Provider routing (before any model resolution)**: FIRST, if the `native-subagents`
-   lever (or per-task native directive) is in effect → bypass external dispatch entirely
-   (harness-native subagents per adapter; no provider is selected). Otherwise: per-task
-   provider directive → session lever → config providers_by_lane[lane-of-role] /
-   default_provider → codex-if-active else sole-active-iff-exactly-one → ask. Inactive
-   provider named anywhere → ask, never silently reroute.
-8. **Resolve model within the routed provider**: role → (tier, lane) via core/roles.md →
-   the provider's layered models.yaml (first found wins whole-file:
-   `$SWINGLE_MODELS/<id>.yaml` → `<project>/.swingle/models/<id>.yaml` →
-   `${XDG_CONFIG_HOME:-~/.config}/swingle/models/<id>.yaml` → the pack's
-   `models.yaml`) → ordered candidates (eligible statuses verified/experimental;
-   exact-lane rows by priority, THEN (tier, any) rows by priority — this order is the
-   complete fallback sequence); take the first; none → ask the user, naming the winning
-   file. A found-but-malformed override, or set-but-unreadable `$SWINGLE_MODELS`,
-   is a STOP, never a fall-through.
-   (`scripts/validate-packs --resolve "<role>" <provider> --project <repo>` prints the
-   layer and the walk order; `scripts/swingle-models which|init` inspects and seeds
-   override layers.) Resolving from the pack default is normal — but when no override
-   layer exists at all, mention ONCE per session to run `swingle-setup` to seed the
-   machine-wide registry; never create user config uninvited.
-9. **Readiness**: before the FIRST dispatch to a chosen provider, run its bounded
-   preflight (version + session-list/auth probe per manifest); failures are
-   channel-class → fallback rules.
-   Also read the routed provider's `providers/<id>/verification-log.md` and, if present,
+5. **Session gate — run the Step-0 pipeline** (where the controller can run shell;
+   otherwise execute the same table below in prose):
+   Branch for `native-subagents` immediately after manifest pre-validation; it bypasses
+   config discovery/loading and provider detection. For an external branch, discover the
+   first config found at `$SWINGLE_CONFIG` → `<project>/.swingle.json` →
+   `${XDG_CONFIG_HOME:-~/.config}/swingle/config.json` (schema:
+   [docs/config.md](../../docs/config.md)). A set-but-unreadable `$SWINGLE_CONFIG` is a
+   STOP. No file found is normal — omit `--config` below.
+   `python3 <root>/scripts/validate-packs --step0 --root <root> --project <repo>
+   --role "<the plan's first task role>" [--config <found-layer>]
+   [--task-provider <id> | --lever native-subagents]`
+   The script is the single implementation of: manifest pre-validation → native bypass
+   branch (when the `native-subagents` lever is set: print-and-proceed native; nothing
+   else runs) → config loading and gating (malformed-config STOP cases:
+   [docs/config.md](../../docs/config.md)
+   “Dispatch STOP Conditions”; ACTIVE = installed − disabled (− incompatible iff
+   require-verified-version)) → provider detection (INSTALLED iff `command -v -- "<cli>"`
+   succeeds for the manifest's validated cli; data-only manifests — never execute
+   manifest strings as shell) → drift advisory → routing precedence
+   (per-task/session directive → config lanes/default
+   → codex-if-active → sole-active → ask) → model resolution (role → tier/lane per
+   `core/roles.md` → the provider's layered `models.yaml` candidates) → readiness (the
+   pack's bounded version+auth probe). Outcome contract:
+   | Output | Meaning | Action |
+   | --- | --- | --- |
+   | exit 0 | pipeline clean; `provider:`/`ready:` lines name the route | proceed |
+   | unprefixed finding | invalid manifest/config (implicit STOP) | halt; fix or surface |
+   | `STOP: …` | invalid input (e.g. unknown role) | halt; fix or surface |
+   | `ASK: …` | a decision only the user can make | put the named question to the user; never guess |
+   | `CHANNEL: …` | provider/environment failure | step 10's channel rules |
+   | `warning: …` (exit 0) | drift or strict-mode removals with a valid route | note **drift is in effect** (step 10 finding semantics unchanged) |
+   | exit 0; `native-subagents: bypass external dispatch (no provider selected)` | native bypass | proceed with controller-native subagents, no provider/model resolution |
+   A divergence between the script and this table is a bug adjudicated against the
+   table.
+   Re-run `--step0` before a task's first dispatch whenever any effective routing input
+   changes: its per-task provider directive, its per-task native directive, or a lane
+   whose config routing differs for that task.
+7. **Tier and model**: role → (tier, lane) via `core/roles.md`. Tier levers are
+   policy, never script inputs: silent = "floor it" (base tier); "play it safe" =
+   one tier up (most-capable is the ceiling — say so and proceed) — resolve the
+   roles-table row at the effective tier in the same lane. Resolve candidates with
+   `scripts/validate-packs --resolve "<role>" <provider> --project <repo>` (layered
+   models.yaml walk; found-but-malformed override or unreadable `$SWINGLE_MODELS` =
+   STOP; no candidates → ask, naming the winning file). When no override layer exists
+   at all, mention ONCE per session to run `swingle-setup`; never create user config
+   uninvited.
+8. **Pack-specific preflight (prose)**: before the FIRST dispatch to the routed
+   provider, run any preflight its pack defines beyond the generic probe (e.g. a
+   persisted-permission baseline check) — a miss is a STOP with the pack's fix
+   section.
+9. Also read the routed provider's `providers/<id>/log/` (monthly shards; read newest-first, all shards are evidence) and, if present,
    the user's local record at `${XDG_CONFIG_HOME:-~/.config}/swingle/verification/<id>.md`
-   (read additively — both are evidence). If an entry at or below the installed version
+   (read additively — both are evidence).
+   Take the installed version from the CLI's **raw version-output token**, accepting it
+   only when it full-matches the closed dotted-numeric grammar; a suffixed token is
+   unparseable — never resolve on a numeric prefix. Resolve the provider BODY from the
+   registry `providers/<id>/versions/`: exact key match → that file; between keys →
+   nearest at-or-below; above the manifest's `verified-version` → the current file
+   (`versions/<verified-version>.md`, silence — a newer release is not a defect); below
+   the oldest key, or unparseable → the current file plus the corresponding advisory; the
+   current file missing → STOP and surface (broken pack). The manifest (frontmatter)
+   always comes from `pack.md`; each registry file's first line declares its evidence
+   class (`> Verified:` round truth vs `> Distilled…:` assembled history) — weigh it.
+   Version comparison and edge rules are in `core/verification-protocol.md` Recording.
+   Guidance still applies additively on top of whichever body resolves.
+   If an entry at or below the installed version
    carries an operating instruction covering the lane about to be dispatched, **act on
    it** — apply prompt- and dispatch-shape restrictions directly and state what changed;
    version pins and provider changes are **recommended to the user**, never performed
@@ -121,15 +140,15 @@ Read these plugin documents when their policy is needed:
     version. **Recommend** (do not auto-file) recording it via the existing recording
     ladder and dedup in `core/verification-protocol.md` Recording (search existing
     `verification` issues → 👍 / comment / new), capturing plugin version, installed CLI
-    version vs `verified-version`, the controlling harness + its version, and the failure
+    version vs `verified-version`, the controller + its version, and the failure
     signature. Quality failures are excluded — they are not drift evidence.
 
 ## Dispatch overrides (replace the stock skill's dispatch steps)
 
 For every external implementer, reviewer, final reviewer, and resumed fix, use the active
-pack's canonical dispatch template (pack.md) inside the self-reaping wrapper
+pack's canonical dispatch template (the resolved registry body) inside the self-reaping wrapper
 (`core/liveness.md`). The adapter specifies how that background work is started and
-observed in the current harness. Keep stdout in the per-task log and record the provider
+observed in the current controller. Keep stdout in the per-task log and record the provider
 session identifier for continuation.
 
 For native-subagent routing, use the adapter's native subagent mechanism instead. The
@@ -199,7 +218,7 @@ path, so ask for NO file: the FULL report is the captured final message and the 
 saves it to the report path — on initial and resumed turns alike. Getting this wrong is
 not cosmetic: on a `captured-output` provider a report-file request fails intermittently
 while the exit code stays 0, so the report is simply missing and the reviewer silently
-loses an input (observed 2026-07-23).
+loses an input (see the provider verification logs).
 
 **Task reviewer:** use the review role and selected tier/lane. Provide the task reviewer
 contract, brief, report, review-package path, and global constraints verbatim. Say:

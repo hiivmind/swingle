@@ -14,16 +14,16 @@ else
   fail "skills/sdd/SKILL.md exists"
 fi
 
-if [ -f skills/sdd/harnesses/codex.md ]; then
-  pass "skills/sdd/harnesses/codex.md exists"
+if [ -f controllers/codex.md ]; then
+  pass "controllers/codex.md exists"
 else
-  fail "skills/sdd/harnesses/codex.md exists"
+  fail "controllers/codex.md exists"
 fi
 
-if [ -f skills/sdd/harnesses/grok.md ]; then
-  pass "skills/sdd/harnesses/grok.md exists"
+if [ -f controllers/grok.md ]; then
+  pass "controllers/grok.md exists"
 else
-  fail "skills/sdd/harnesses/grok.md exists"
+  fail "controllers/grok.md exists"
 fi
 
 if [ -f skills/delegate/SKILL.md ]; then

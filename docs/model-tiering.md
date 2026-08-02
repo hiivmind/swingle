@@ -18,7 +18,7 @@ eligible; a `verified` stamp comes from live dispatch evidence only.
 
 ## Override precedence
 
-At dispatch time the table is resolved per harness — **first file found wins whole-file** (no
+At dispatch time the table is resolved per provider — **first file found wins whole-file** (no
 merging):
 
 1. `$SWINGLE_MODELS/<id>.yaml` — env override (a directory)
@@ -35,7 +35,7 @@ resolved layer and walk with `scripts/swingle-models which` (or
 Override statuses are **your own assertion** — the `verified` stamps in pack defaults come
 from live dispatch evidence, yours do not inherit that weight. A malformed override is a hard
 error, never a silent fall-through. An override that omits a (tier, lane) slot resolves that
-slot to "no eligible model — ask", which is the supported way to keep a harness from
+slot to "no eligible model — ask", which is the supported way to keep a provider from
 auto-routing in one project.
 
 ## Economics, honestly

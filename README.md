@@ -12,9 +12,12 @@ ask into a briefed dispatch to the right CLI at an appropriate model tier, then 
 result before trusting it. No command syntax to learn, no re-authentication: every target is
 a CLI you already installed and signed into.
 
-**The symmetry is the point.** Any of the six harnesses can drive, and any of the six can be
-dispatched to — all thirty-six pairings run through the same provider packs, the same
-contracts, and the same gates.
+**The symmetry is the point.** Any of the six CLIs can drive, and any of the six can be
+dispatched to — all thirty-six pairings run through the same packs, contracts, and gates.
+The repo layout mirrors the two roles: `controllers/<controller>.md` documents each CLI as
+the **driver** (skill-loading, native subagents, background jobs), `providers/<id>/`
+documents it as the **dispatch target** (manifest-only `pack.md`, version registry,
+sharded verification logs, and model tables).
 
 ## Why "Swingle"
 
@@ -68,7 +71,7 @@ scripts/opencode-skills-path --merge ~/.config/opencode/opencode.json   # global
 
 Generates version-pinned `skills.paths` from Claude Code's plugin registry. opencode has
 known install pitfalls (a plugin-cache trap, two env-var caveats) — read
-[skills/sdd/harnesses/opencode.md](skills/sdd/harnesses/opencode.md) before your first
+[controllers/opencode.md](controllers/opencode.md) before your first
 dispatch.
 
 ### Pi
@@ -78,13 +81,13 @@ pi install https://github.com/hiivmind/swingle
 ```
 
 Pi clones the repository as a package and discovers `skills/` automatically. Details:
-[skills/sdd/harnesses/pi.md](skills/sdd/harnesses/pi.md).
+[controllers/pi.md](controllers/pi.md).
 
 ### Grok
 
 Grok discovers Claude-compatible plugins and skills: install via the Claude Code route
 above, or point Grok at a checkout. Details:
-[skills/sdd/harnesses/grok.md](skills/sdd/harnesses/grok.md).
+[controllers/grok.md](controllers/grok.md).
 
 ### Antigravity
 
@@ -94,7 +97,7 @@ agy plugin install http://github.com/hiivmind/swingle
 
 Then add a one-time `command(<cli>)` permission rule for each CLI you will dispatch to
 (a missing rule silently no-ops the dispatch). Details:
-[skills/sdd/harnesses/agy.md](skills/sdd/harnesses/agy.md).
+[controllers/agy.md](controllers/agy.md).
 
 ### After installing: run the `swingle-setup` skill
 
@@ -170,7 +173,7 @@ bump with the `swingle-verify` skill.
 | `swingle-setup` | Onboarding: paths, config, registry, CLI auth | *"run swingle-setup"* |
 | `swingle-verify` | A CLI version bumped or a model released | *"swingle-verify grok"* |
 
-Delegation levers, all optional: `via <harness>` pins the target; `floor it` (the default)
+Delegation levers, all optional: `via <provider>` pins the target; `floor it` (the default)
 picks the cheapest model clearing each task's bar and `play it safe` goes one tier up;
 `with review`, `read-only`, and `supervised` adjust the lane. Full lifecycle:
 [skills/delegate/SKILL.md](skills/delegate/SKILL.md). Artifacts and the ledger land in
@@ -192,7 +195,7 @@ Every ask becomes a briefed subagent before the target CLI runs:
 5. **Liveness + evidence gate** — the run is watched for stalls; after a write-lane job the
    controller checks the working tree and re-runs the covering tests before committing.
 
-Every dispatch is recorded in a ledger — role, harness, model, session id, returned
+Every dispatch is recorded in a ledger — role, provider, model, session id, returned
 status — so the run reproduces:
 
 ```text
@@ -219,7 +222,8 @@ model authored. The full threat model is [docs/safety.md](docs/safety.md); the e
   the `swingle-models` tool: [docs/model-tiering.md](docs/model-tiering.md).
 - **Credentials & subscription seats** — Swingle works best driving flat-rate seats you
   already pay for; auth modes and caps: [docs/credentials.md](docs/credentials.md).
-- **Adding a harness pack** — manifest-driven, no `core/` edits; grammar and validator:
+- **Adding a provider pack** — manifest-driven, no `core/` edits; `pack.md` is the
+  manifest, `versions/` holds provider bodies, and `log/` holds monthly verification shards:
   [docs/pack-authoring.md](docs/pack-authoring.md).
 - **Reporting verification findings** — packs are living documents; where to record what
   you observe: [core/verification-protocol.md](core/verification-protocol.md), or

@@ -1,4 +1,4 @@
-# codex models (ChatGPT seat) — verified dispatching 2026-07-22
+# codex models (ChatGPT seat)
 
 > The table of record is [models.yaml](models.yaml) (layered overrides: see README
 > "Model tables and overrides"). This file carries the documentary layer only —

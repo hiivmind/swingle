@@ -3,7 +3,7 @@
 Append-only. Never rewrite prior entries — a later contradiction dates a behavior change.
 Format per [verification-protocol.md](verification-protocol.md).
 
-Per-provider rounds: providers/<id>/verification-log.md. Pre-split history: archive/v1.1/verification-log.md.
+Per-provider rounds: providers/<id>/log/ (monthly shards; verification-log.md is a retained index). Pre-split history: archive/v1.1/verification-log.md.
 
 ---
 
@@ -300,4 +300,3 @@ dedup search and **recommends** 👍 / comment / new issue with plugin + CLI + h
 versions and the failure signature pre-filled; the user decides. Quality failures are
 excluded (not drift evidence). Behaviour change ⇒ patch bump 2.0.0 → 2.0.1. `verified-version`
 stamps unchanged (no live re-probe in this round).
-

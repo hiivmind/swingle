@@ -20,13 +20,12 @@ clean tree before, diff after (see safety doctrine).
 
 **Tiering rules:**
 
-- **The model is always passed explicitly on every dispatch.** A dispatch that omits the
-  model flag does not fall back to a documented default — it inherits whatever model the
-  caller's own session is running, which is typically the most expensive tier available.
-  The dispatch still succeeds, the report still arrives, and the log looks normal, so the
-  failure is silent: tiering is defeated and nothing surfaces it. Every pack's canonical
-  dispatch template carries the model flag for this reason; never strip it, and never
-  treat "the pack's default" as a thing that exists at dispatch time.
+- **The model is always passed explicitly on every dispatch.** An omitted model
+  flag does not fall back to a documented default — it inherits whatever model
+  the caller's own session is running, typically the most expensive tier,
+  defeating tiering with no surfaced signal. Every pack's canonical dispatch
+  template carries the model flag; never strip it, and never treat "the pack's
+  default" as a thing that exists at dispatch time.
 - **Turn count beats token price** — cheapest models take 2–3× the turns on multi-step work;
   standard is the floor for reviewers and prose-brief implementers.
 - Scale reviewer power to the **diff's** size/risk. Final whole-branch review is

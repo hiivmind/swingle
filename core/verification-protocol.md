@@ -2,9 +2,9 @@
 
 The repeatable probe suite for (re)verifying provider-pack behavior. Run it for a pack when a
 trigger fires (see README.md), then append results to the pack's verification log and update
-its pack.md / models.yaml / models.md.
+its pack.md manifest, current registry body, models.yaml, and models.md.
 
-The invocable form of this process is the plugin's verification skill; the active harness
+The invocable form of this process is the plugin's verification skill; the active controller
 adapter supplies the command details.
 
 ## Ground rules
@@ -19,13 +19,14 @@ adapter supplies the command details.
 
 ## Probe suite
 
-Run per pack. `$SCRATCH` = a session scratchpad dir. The harness adapter provides the
+Run per pack. `$SCRATCH` = a session scratchpad dir. The controller adapter provides the
 pack-specific dispatch template and command surface.
 
 ### P1 — Version & surface
 
 Record the pack version and inspect its supported dispatch surface and model inventory. Diff
-the findings against the pack's pack.md / models.yaml / models.md.
+the findings against the pack's pack.md manifest, current registry body, models.yaml, and
+models.md.
 
 ### P2 — Trivial dispatch + exit code (success path)
 
@@ -58,10 +59,9 @@ the minimum setting that permits writes.
 
 **P6 must also probe shell-command execution, not only file tools**: dispatch `Run the
 shell command 'echo P6CMD > cmdtest.txt' and report its output.` and verify on disk.
-File-tool and command permissions are separately gated on some providers (agy ≥1.1.4
-allows file read/write under default persisted policy but auto-denies the `command`
-permission headless — a gap the file-only probe missed for two verification rounds).
-Record the file-tool and command verdicts separately.
+File-tool and command permissions are separately gated on some providers (see
+the provider verification logs). Record the file-tool and command verdicts
+separately.
 
 ### P7 — Sandbox escape (only if a sandbox is claimed)
 
@@ -138,10 +138,67 @@ restriction is itself guidance. Publish instructions, never verdicts: between
 discovering a failure and understanding it, the honest artifact is an open issue, and
 *"pin the previous version for this lane / route the lane elsewhere, tracking #N"* is
 always available as the instruction when no workaround exists, so a published entry is
-never instruction-free. The worked example is agy 1.1.7: what that incident taught was
-not "broken" — it was *forbid shell for reviewers; restrict implementers to single
-simple commands*, the instruction that makes agy work, which later versions inherit
-without a second entry.
+never instruction-free. Example of the form:
+`**Guidance (review, implement):** forbid shell for reviewers; restrict
+implementers to single simple commands` — see the originating provider log entry
+for its evidence.
+
+**Living docs state the present tense; history lives in registry files and logs.** The
+living docs are the current registry file
+`providers/<id>/versions/<verified-version>.md` and `models.md`; they state present-tense
+truth. All other registry files are frozen structurally; `> Verified:` / `> Distilled:`
+non-current files are frozen absolutely, while the log-evidenced class may be promoted
+(lifecycle row 4). History markup is banned in living docs: no strikethrough refutation
+trails, no provenance/migration stamps, and no "no longer / previously / superseded"
+narration. What changed between versions is the diff between registry files plus the
+dated log entries.
+
+**Registry header rule.** Every registry file opens with a declared class header:
+`> Verified: <cli> <V>, round <date>.`, `> Distilled: …`, or
+`> Distilled (log-evidenced; never round-stamped): …`. The header's version MUST equal
+the filename; the manifest remains the only version *authority*.
+
+**Registry write lifecycle (R5-C2, rebuilt at R5.2 — ordered, mutually exclusive).**
+Standing rule, now normative: **at most one verification round runs per provider at a
+time** (the automation already serializes per-provider lanes; humans follow the same
+rule) — this is what makes candidate ownership below unambiguous. A round's steps are
+always: write body → bump manifest (only when moving forward) → append log entry;
+each step is idempotent-checkable. For a round targeting version Y with manifest
+stamp M, evaluate top-down; exactly one row applies:
+
+| # | State | Action |
+| --- | --- | --- |
+| 1 | Y > M, no `Y.md` | fresh: write candidate (temp file + atomic rename where available) → bump M to Y → append entry |
+| 2 | Y > M, `Y.md` exists | the prior interrupted round's unpublished candidate (single-round rule ⇒ ownership is structural): byte-identical to this round's intended body → continue at the bump; differing → overwrite the candidate and continue |
+| 3 | Y == M | same-version round (incl. the recovery for "body published + manifest bumped + log append lost"): rewrite the current file in place (atomically) where the round's evidence differs from the published body — else leave it — then append this round's entry if absent |
+| 4 | Y < M, `Y.md` has a `> Distilled (log-evidenced…)` header | **promotion**: a round verifying an older installed version rewrites the file to round truth, swaps the header to `> Verified: <cli> Y, round <date>.`, appends its entry; the manifest is untouched — the stamp never moves backward |
+| 5 | Y < M, no `Y.md` | historical verification: write `versions/Y.md` with a `> Verified:` header, append the entry; manifest untouched |
+| 6 | Y < M, `Y.md` has a `> Verified:` or `> Distilled:` header | frozen — STOP; a stamped historical body is never re-targeted (corrections ride version-scoped guidance) |
+
+Rows 4–5 are how a below-frontier round (a user verifying the CLI they actually run)
+enriches the registry without touching the frontier; row 6 is the only STOP. An
+above-frontier row-1/2 candidate may exist only transiently and uncommitted; it remains
+gate-invalid and always produces a validator finding until the manifest bump.
+
+**Resolution truth table (R5-I1)** — replaces the pack.md fallback everywhere:
+
+| Installed version | Resolves |
+| --- | --- |
+| exact registry match | that file |
+| between entries | nearest at-or-below |
+| above the manifest frontier | the current file (silence — a newer release is not a defect) |
+| below the oldest entry | the current file + the below-record advisory |
+| suffixed / unparseable | the current file + the cannot-determine advisory |
+| current target missing | broken pack: validator finding; a dispatching reader STOPs and surfaces |
+
+Registry keys above the manifest stamp are a validator finding (only an in-flight
+round's candidate may exceed it, and only until its bump). Strict mode
+(`require-verified-version`) binds to the manifest stamp alone, never to registry
+contents. Guidance applies additively over whichever body resolves, unchanged.
+
+**Log location.** Provider entries live in `providers/<id>/log/YYYY-MM.md`, chronological
+within a shard and append-only per shard. `verification-log.md` is a retained read-only
+index; the entry-format and guidance house style are unchanged.
 
 **A user's local record.** A user who cannot write to the source records their own
 operating instructions in `${XDG_CONFIG_HOME:-~/.config}/swingle/verification/<id>.md`
@@ -160,7 +217,7 @@ pack's retry) **while that drift is in effect**, the failure is evidence the pac
 on the running CLI version — an `anomaly` trigger. The controller does NOT file
 automatically: it runs the dedup search above and **recommends** the appropriate action
 (👍 / comment / new issue) to the user, with the fields below pre-filled — installed CLI
-version vs `verified-version`, plugin version, the controlling harness + its version, and
+version vs `verified-version`, plugin version, the controller + its version, and
 the verbatim failure signature. **Quality failures are excluded** (a reviewer rejecting the
 work is not drift evidence). The user decides whether to file.
 The full user loop is: file upstream → solve it locally if possible → comment the
@@ -181,11 +238,12 @@ Append to the appropriate verification log:
 
 Then:
 
-1. Update the active pack's pack.md and models.yaml (models.md for narrative).
-2. If findings change how SDD should dispatch, update the relevant harness adapter and
+1. Update the active pack's pack.md (manifest) and models.yaml (models.md for narrative),
+   plus the current registry body when the lifecycle requires it.
+2. If findings change how SDD should dispatch, update the relevant controller adapter and
    contracts in the same round.
 3. Clean up `$SCRATCH` artifacts, including any test writes outside the workspace.
-4. Commit in the plugin repo; bump the plugin version for behavior-fact changes.
+4. Commit in the plugin repo; never bump the plugin version — the release cut moves it.
 
 ## Cost note
 

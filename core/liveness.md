@@ -1,14 +1,13 @@
 # Background Dispatch and Liveness Protocol
 
-**The failure mode this kills:** a background-dispatched agent hangs or dies early; the
-controller keeps *believing* it is running (sometimes insisting so to the user) until asked
-to check the logs — which then show it stopped long ago. Belief is not evidence. The two
-rules below are mandatory for every background dispatch.
+Two rules are mandatory for every background dispatch. The failure mode they
+guard against: a background agent hangs or dies early while the controller
+continues to report it as running (see core/verification-log.md, "2026-07-23 — harness-kill of backgrounded wrappers (v1.2.0 execution run)" entry).
 
 ## Rule 1 — Observable launch, stall-based judgment, backstop cap
 
-**Wall-clock time is not evidence of a hang — activity is.** A fixed timeout that kills a
-healthy 40-minute run at minute 30 wastes the entire spend: the *stall check* (Rule 2) is
+**Wall-clock time is not evidence of a hang — activity is.** A fixed timeout kills a
+healthy long run that is merely slow: the *stall check* (Rule 2) is
 the primary kill criterion, and the wall-clock cap is only a **last-resort backstop** for
 when nobody is watching (session ended, controller distracted).
 
@@ -53,26 +52,25 @@ Thresholds are keyed to the manifest's `stall-signal`:
   evidence (or let the generous backstop reap a genuinely orphaned process).
 - **Check on cadence, not on suspicion**: after launching background dispatches, check
   liveness at the first stall threshold — don't wait for the user to ask.
-- **The user asking “is it still running?” is itself evidence it probably isn't.** Run the
-  check immediately; never answer from belief.
+- **A user asking whether a dispatch is still running triggers the liveness check
+  immediately; never answer from belief.**
 - **Kill by recorded PID, never by pattern, from any shell that also dispatches.** A wrapper
   shell can embed the dispatch string in its own command line and a pattern kill can kill the
   wrapper itself. Capture `$!` at dispatch time; pattern-kill only from a shell that
   dispatches nothing.
-- Use the self-reaping wrapper below for harness background tasks. It makes the harness
+- Use the self-reaping wrapper below for controller background tasks. It makes the controller
   notification mean “finished or stall-killed”, executes the stall rule with zero controller
   turns, and leaves the controller responsive throughout. A bare `&` + wrapper exit reports
   completion long before the dispatched process finishes; a watcher that only notifies adds
   controller turns before a kill; a foreground dispatch prevents the controller from serving
   the user and prevents the stall rule from firing.
-- **The wrapper must survive its supervisor** (verified 2026-07-23: a controlling harness
-  killed a backgrounded wrapper twice ~40–60s after launch, taking a healthy CLI down with
-  it — log frozen at startup, zero tree writes, "stopped" notifications). When the harness's
-  background mechanism can reap its own tasks, detach the wrapper from it: write the dispatch
-  script to a file and launch it with `setsid nohup <script> >/dev/null 2>&1 < /dev/null &`
-  plus `disown`; record the CLI pid to a pid file; have the wrapper append its terminal line
-  ("cli exit=N" or the stall-kill message) to a marker file; watch that marker with a
-  separate lightweight watcher (see harness adapter for the mechanism). Notification still
+- **The wrapper must survive its supervisor.** Where the controller's background
+  mechanism can reap its own tasks, a supervisor event can kill a healthy
+  backgrounded wrapper (see core/verification-log.md, "2026-07-23 — harness-kill of backgrounded wrappers (v1.2.0 execution run)" entry). Detached form: write the dispatch
+  script to a file; launch it with `setsid nohup <script> >/dev/null 2>&1 < /dev/null &`
+  plus `disown`; record the CLI pid to a pid file; the wrapper appends its terminal line
+  ("cli exit=N" or the stall-kill message) to a marker file; a separate lightweight watcher
+  watches that marker (see controller adapter for the mechanism). Notification still
   means finished-or-reaped, and no supervisor event can orphan-kill the dispatch. Two
   consecutive supervisor kills of the same dispatch = switch to the detached form.
 - On any early exit, the log tail is the diagnosis. Record any new hang/early-exit signature

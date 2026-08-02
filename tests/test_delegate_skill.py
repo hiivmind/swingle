@@ -214,10 +214,11 @@ def test_both_skills_route_unimplemented_artifacts_to_the_design_contract():
 
 def test_status_vocabulary_is_required_inline_in_prompts():
     # playbook E1a: contracts move by path, the four status tokens move in the prompt.
+    required = "STATUS: DONE | DONE_WITH_CONCERNS | NEEDS_CONTEXT | BLOCKED"
     for f in (ROOT / "core" / "playbook.md", SKILL, SDD_SKILL):
         text = " ".join(f.read_text().split())
-        assert "inline" in text.lower() and "STATUS: DONE" in text, \
-            f"{f}: inline status-vocabulary rule missing"
+        assert "inline" in text.lower() and required in text, \
+            f"{f}: complete inline status-vocabulary rule missing"
 
 
 def test_explicit_model_rule_is_stated_in_roles():
@@ -238,6 +239,30 @@ def test_worktree_lane_keeps_operational_independence():
     # The existing independence counts must survive unchanged.
     text = (ROOT / "skills" / "delegate" / "SKILL.md").read_text()
     assert text.count("scripts/sdd-workspace") == 1 and text.count(".superpowers/sdd") == 1
+
+
+def test_both_skills_define_registry_body_resolution_and_shard_logs():
+    expected = (
+        "Take the installed version from the CLI's **raw version-output token**, accepting it\n"
+        "only when it full-matches the closed dotted-numeric grammar; a suffixed token is\n"
+        "unparseable — never resolve on a numeric prefix. Resolve the provider BODY from the\n"
+        "registry `providers/<id>/versions/`: exact key match → that file; between keys →\n"
+        "nearest at-or-below; above the manifest's `verified-version` → the current file\n"
+        "(`versions/<verified-version>.md`, silence — a newer release is not a defect); below\n"
+        "the oldest key, or unparseable → the current file plus the corresponding advisory; the\n"
+        "current file missing → STOP and surface (broken pack). The manifest (frontmatter)\n"
+        "always comes from `pack.md`; each registry file's first line declares its evidence\n"
+        "class (`> Verified:` round truth vs `> Distilled…:` assembled history) — weigh it.\n"
+        "Version comparison and edge rules are in `core/verification-protocol.md` Recording.\n"
+        "Guidance still applies additively on top of whichever body resolves."
+    )
+    expected = "\n".join(f"   {line}" for line in expected.splitlines())
+    for skill in (SKILL, SDD_SKILL):
+        text = skill.read_text()
+        assert expected in text, f"{skill}: registry resolution paragraph drifted"
+        assert "providers/<id>/log/" in text, f"{skill}: monthly log shards not referenced"
+        assert "providers/<id>/verification-log.md" not in text, \
+            f"{skill}: obsolete provider log index read remains"
 
 
 def test_sdd_worktree_lane_present():

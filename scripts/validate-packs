@@ -515,16 +515,19 @@ def main():
             installed = detect_installed_providers(manifests, a.path_dir)
             print(f"installed: {' '.join(installed) or '(none)'}")
             active = [provider for provider in installed if provider not in set(cfg.get("disable", []))]
-            incompatible = []
-            for provider in active:
-                timeout = int(manifests[provider].get("readiness-timeout-seconds", 30))
-                rc, output, actual_ver = check_provider_version(manifests[provider], a.path_dir, timeout)
-                verified_ver = manifests[provider].get("verified-version")
-                if rc != 0 or not actual_ver or actual_ver != verified_ver:
-                    actual = actual_ver if actual_ver else "unparseable"
-                    print(f"warning: incompatible: {provider} ({actual} != {verified_ver})")
-                    incompatible.append(provider)
-            if cfg.get("require-verified-version"):
+            strict = bool(cfg.get("require-verified-version"))
+            if strict:
+                # Full active-set probe is required only here: it filters the active set
+                # before routing (an incompatible provider must not be routable).
+                incompatible = []
+                for provider in active:
+                    timeout = int(manifests[provider].get("readiness-timeout-seconds", 30))
+                    rc, output, actual_ver = check_provider_version(manifests[provider], a.path_dir, timeout)
+                    verified_ver = manifests[provider].get("verified-version")
+                    if rc != 0 or not actual_ver or actual_ver != verified_ver:
+                        actual = actual_ver if actual_ver else "unparseable"
+                        print(f"warning: incompatible: {provider} ({actual} != {verified_ver})")
+                        incompatible.append(provider)
                 dropped = set(incompatible)
                 if dropped: print(f"warning: incompatible providers removed: {' '.join(sorted(dropped))}")
                 active = [provider for provider in active if provider not in dropped]
@@ -547,6 +550,14 @@ def main():
                         if not order and layer in ("env", "project", "user"): find(f"ASK: no eligible model for {role_tier_lane} in {chosen} — override at {layer_path} does not cover {role_tier_lane}")
                         elif not order: find(f"ASK: no eligible model for {role_tier_lane} in {chosen}")
                         else: print(f"model: {order[0]['model']} (P{order[0]['prio']}); fallback: {', '.join(row['model'] for row in order)}")
+                    if not strict:
+                        # Part A: probe ONLY the routed provider for the drift advisory.
+                        timeout = int(manifests[chosen].get("readiness-timeout-seconds", 30))
+                        rc, output, actual_ver = check_provider_version(manifests[chosen], a.path_dir, timeout)
+                        verified_ver = manifests[chosen].get("verified-version")
+                        if rc != 0 or not actual_ver or actual_ver != verified_ver:
+                            actual = actual_ver if actual_ver else "unparseable"
+                            print(f"warning: incompatible: {chosen} ({actual} != {verified_ver})")
                     rc, _ = check_provider_readiness(manifests[chosen], a.path_dir, int(manifests[chosen].get("readiness-timeout-seconds", 30)))
                     if rc != 0: find(f"CHANNEL: provider not ready: {chosen} (exit {rc})")
                     else: print(f"ready: {chosen}")

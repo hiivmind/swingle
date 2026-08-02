@@ -17,14 +17,14 @@ from the opencode pack). Model ids use pi's combined `provider/model` form.
   `huggingface/*` open-weights directly. None are in a tier slot here because only
   `opencode-go` is authed on this machine — add rows only after a live dispatch through pi
   on a machine where the provider is authed.
-- **Model validation is remote** (pack.md): an unlisted id is forwarded as a "custom model
+- **Model validation is remote** (the provider body, the current registry file): an unlisted id is forwarded as a "custom model
   id" and rejected by the provider at dispatch (`401`, exit 1), never locally. Resolve ids
   from `pi --list-models <provider>`.
 
 ## Watch list (unevaluated arrivals, opencode-go catalog)
 
 **Dispatch-confirmed (P12, PONG exit 0) but not yet benchmarked for table slots** (see the
-pack's verification log):
+pack's [verification logs](log/)):
 - `opencode-go/kimi-k3` (1M ctx, Kimi) — dispatches; evaluate with P13 + implementer probe before table slot
 - `opencode-go/grok-4.5` (500K ctx) — dispatches; evaluate before table slot
 

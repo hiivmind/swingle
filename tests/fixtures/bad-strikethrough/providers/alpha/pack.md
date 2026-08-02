@@ -10,5 +10,3 @@ session-source: exec-output
 stall-signal: log-age
 sandbox: enforced
 ---
-
- ~~old fact~~ new fact

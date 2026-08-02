@@ -13,7 +13,8 @@ containing `skills/`, `controllers/`, `core/`, `providers/`, `contracts/`).
 
 **Never dispatch from memory.** Before the first dispatch of a session, read
 `<root>/core/roles.md`, `<root>/core/playbook.md`, `<root>/core/safety-doctrine.md`,
-`<root>/core/liveness.md`, and the active `<root>/providers/<id>/pack.md`. Recalled
+`<root>/core/liveness.md`, and the active provider's `<root>/providers/<id>/pack.md`
+(manifest) plus its resolved registry body. Recalled
 doctrine is a paraphrase of whatever was true when it was learned, and these documents
 change under you — packs are re-verified on every CLI version bump, and tiering, roles,
 and dispatch templates move with them. A dispatch built from memory looks identical to a
@@ -45,9 +46,10 @@ Read these plugin documents when their policy is needed:
 - `<root>/core/playbook.md` — dispatch flavours, economics, and controller gates
 - `<root>/core/liveness.md` — required background and stall protocol
 - `<root>/core/safety-doctrine.md` — containment and controller-gate doctrine
-- `<root>/providers/<id>/pack.md`, `models.yaml`, and `models.md` — validated provider behavior,
-  canonical dispatch, session source, report transport, recovery rules, and
-  model candidates (models.yaml is the table of record; models.md is narrative)
+- `<root>/providers/<id>/pack.md` (manifest) and the resolved registry body under `versions/` —
+  validated provider behavior and canonical dispatch; `models.yaml` and `models.md` — model
+  candidates (models.yaml is the table of record; models.md is narrative); the manifest also
+  supplies session source, report transport, and recovery rules
 
 ## Levers (parsed from anywhere in the request)
 
@@ -127,18 +129,21 @@ Read these plugin documents when their policy is needed:
    provider, run any preflight its pack defines beyond the generic probe (e.g. a
    persisted-permission baseline check) — a miss is a STOP with the pack's fix
    section.
-6. Also read the routed provider's `providers/<id>/verification-log.md` and, if present,
+6. Also read the routed provider's `providers/<id>/log/` (monthly shards; read newest-first, all shards are evidence) and, if present,
    the user's local record at `${XDG_CONFIG_HOME:-~/.config}/swingle/verification/<id>.md`
    (read additively — both are evidence).
-   Take the installed version for snapshot resolution from the CLI's **raw version-output
-   token**, accepting it only when it matches the closed dotted-numeric grammar. If that
-   raw token carries any suffix, treat the version as unparseable and use `pack.md`'s body;
-   never resolve on a numeric prefix extracted by the drift probe. When a parseable
-   installed version is BELOW the manifest's `verified-version` and
-   `providers/<id>/versions/` holds a file at-or-below it, read the NEAREST such file in
-   place of pack.md's body — the manifest (frontmatter) still comes from pack.md; version
-   comparison and edge rules are in `core/verification-protocol.md` Recording. Guidance
-   still applies additively on top of whichever body resolves.
+   Take the installed version from the CLI's **raw version-output token**, accepting it
+   only when it full-matches the closed dotted-numeric grammar; a suffixed token is
+   unparseable — never resolve on a numeric prefix. Resolve the provider BODY from the
+   registry `providers/<id>/versions/`: exact key match → that file; between keys →
+   nearest at-or-below; above the manifest's `verified-version` → the current file
+   (`versions/<verified-version>.md`, silence — a newer release is not a defect); below
+   the oldest key, or unparseable → the current file plus the corresponding advisory; the
+   current file missing → STOP and surface (broken pack). The manifest (frontmatter)
+   always comes from `pack.md`; each registry file's first line declares its evidence
+   class (`> Verified:` round truth vs `> Distilled…:` assembled history) — weigh it.
+   Version comparison and edge rules are in `core/verification-protocol.md` Recording.
+   Guidance still applies additively on top of whichever body resolves.
    If an entry at or below the installed version
    carries an operating instruction covering the lane about to be dispatched, **act on
    it** — apply prompt- and dispatch-shape restrictions directly and state what changed;

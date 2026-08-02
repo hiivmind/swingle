@@ -35,7 +35,7 @@ Read these plugin documents when their policy is needed:
 - `<root>/core/liveness.md` — required background and stall protocol
 - `<root>/core/safety-doctrine.md` — containment and controller-gate doctrine
 - `<root>/core/verification-protocol.md` and `<root>/core/verification-log.md` — verification policy and history
-- `<root>/providers/<id>/pack.md`, `models.yaml`, and `models.md` — validated provider behavior, canonical dispatch, and model candidates (models.yaml is the table of record; models.md is narrative)
+- `<root>/providers/<id>/pack.md` (manifest) and the resolved registry body under `versions/` — validated provider behavior and canonical dispatch; `models.yaml` and `models.md` — model candidates (models.yaml is the table of record; models.md is narrative)
 
 ## Step 0 — Setup (once per session, before Task 1)
 
@@ -105,18 +105,21 @@ Read these plugin documents when their policy is needed:
    provider, run any preflight its pack defines beyond the generic probe (e.g. a
    persisted-permission baseline check) — a miss is a STOP with the pack's fix
    section.
-9. Also read the routed provider's `providers/<id>/verification-log.md` and, if present,
+9. Also read the routed provider's `providers/<id>/log/` (monthly shards; read newest-first, all shards are evidence) and, if present,
    the user's local record at `${XDG_CONFIG_HOME:-~/.config}/swingle/verification/<id>.md`
    (read additively — both are evidence).
-   Take the installed version for snapshot resolution from the CLI's **raw version-output
-   token**, accepting it only when it matches the closed dotted-numeric grammar. If that
-   raw token carries any suffix, treat the version as unparseable and use `pack.md`'s body;
-   never resolve on a numeric prefix extracted by the drift probe. When a parseable
-   installed version is BELOW the manifest's `verified-version` and
-   `providers/<id>/versions/` holds a file at-or-below it, read the NEAREST such file in
-   place of pack.md's body — the manifest (frontmatter) still comes from pack.md; version
-   comparison and edge rules are in `core/verification-protocol.md` Recording. Guidance
-   still applies additively on top of whichever body resolves.
+   Take the installed version from the CLI's **raw version-output token**, accepting it
+   only when it full-matches the closed dotted-numeric grammar; a suffixed token is
+   unparseable — never resolve on a numeric prefix. Resolve the provider BODY from the
+   registry `providers/<id>/versions/`: exact key match → that file; between keys →
+   nearest at-or-below; above the manifest's `verified-version` → the current file
+   (`versions/<verified-version>.md`, silence — a newer release is not a defect); below
+   the oldest key, or unparseable → the current file plus the corresponding advisory; the
+   current file missing → STOP and surface (broken pack). The manifest (frontmatter)
+   always comes from `pack.md`; each registry file's first line declares its evidence
+   class (`> Verified:` round truth vs `> Distilled…:` assembled history) — weigh it.
+   Version comparison and edge rules are in `core/verification-protocol.md` Recording.
+   Guidance still applies additively on top of whichever body resolves.
    If an entry at or below the installed version
    carries an operating instruction covering the lane about to be dispatched, **act on
    it** — apply prompt- and dispatch-shape restrictions directly and state what changed;
@@ -143,7 +146,7 @@ Read these plugin documents when their policy is needed:
 ## Dispatch overrides (replace the stock skill's dispatch steps)
 
 For every external implementer, reviewer, final reviewer, and resumed fix, use the active
-pack's canonical dispatch template (pack.md) inside the self-reaping wrapper
+pack's canonical dispatch template (the resolved registry body) inside the self-reaping wrapper
 (`core/liveness.md`). The adapter specifies how that background work is started and
 observed in the current controller. Keep stdout in the per-task log and record the provider
 session identifier for continuation.

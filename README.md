@@ -16,7 +16,8 @@ a CLI you already installed and signed into.
 dispatched to — all thirty-six pairings run through the same packs, contracts, and gates.
 The repo layout mirrors the two roles: `controllers/<controller>.md` documents each CLI as
 the **driver** (skill-loading, native subagents, background jobs), `providers/<id>/`
-documents it as the **dispatch target** (pack manifest, dispatch template, model tables).
+documents it as the **dispatch target** (manifest-only `pack.md`, version registry,
+sharded verification logs, and model tables).
 
 ## Why "Swingle"
 
@@ -221,8 +222,8 @@ model authored. The full threat model is [docs/safety.md](docs/safety.md); the e
   the `swingle-models` tool: [docs/model-tiering.md](docs/model-tiering.md).
 - **Credentials & subscription seats** — Swingle works best driving flat-rate seats you
   already pay for; auth modes and caps: [docs/credentials.md](docs/credentials.md).
-- **Adding a provider pack** — manifest-driven, no `core/` edits; grammar, validator, and
-  per-version snapshot layout:
+- **Adding a provider pack** — manifest-driven, no `core/` edits; `pack.md` is the
+  manifest, `versions/` holds provider bodies, and `log/` holds monthly verification shards:
   [docs/pack-authoring.md](docs/pack-authoring.md).
 - **Reporting verification findings** — packs are living documents; where to record what
   you observe: [core/verification-protocol.md](core/verification-protocol.md), or

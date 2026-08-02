@@ -9,7 +9,7 @@ description: Re-verify one Swingle provider pack, or all active packs, against t
 
 The argument names exactly one provider id, or `--all-active`. A single-provider round
 edits only `<root>/providers/<id>/` and appends only that pack's
-`verification-log.md`. `--all-active` runs isolated single-provider rounds for every active
+`log/YYYY-MM.md` shard. `--all-active` runs isolated single-provider rounds for every active
 pack. After two or more packs have results worth comparing, append the cross-provider
 synthesis to `<root>/core/verification-log.md`; never put provider-specific evidence there.
 
@@ -17,9 +17,9 @@ Knowledge base (all paths are relative to the plugin tree root `<root>`):
 
 - `<root>/core/verification-protocol.md` — portable probe and benchmark requirements
 - `<root>/core/verification-log.md` — append-only cross-provider synthesis
-- `<root>/providers/<id>/pack.md` — provider facts, version stamp, and canonical dispatch
+- `<root>/providers/<id>/pack.md` — manifest with provider facts, version stamp, and canonical dispatch; its body is at `versions/<verified-version>.md`
 - `<root>/providers/<id>/models.yaml` — provider model table of record (statuses); `models.md` — narrative inventory
-- `<root>/providers/<id>/verification-log.md` — provider-specific append-only verdicts
+- `<root>/providers/<id>/log/` — provider-specific append-only monthly verdict shards
 
 ## Procedure
 
@@ -71,18 +71,20 @@ Knowledge base (all paths are relative to the plugin tree root `<root>`):
 1. **Validate before probing.** Run `scripts/validate-packs --root <root>` and proceed only
    when it passes. The validator and repository fixtures are the portable gate.
 
-2. **Read the selected pack first.** Read the verification protocol, then its `pack.md`,
-   `models.yaml`, `models.md`, and verification log. Compare the manifest's `version-argv` output with
-   `verified-version`, and identify the affected models and trigger.
+2. **Read the selected pack first.** Read the verification protocol, then its `pack.md`
+   (manifest) and current registry body, `models.yaml`, `models.md`, and verification-log
+   shards. Compare the manifest's `version-argv` output with `verified-version`, and
+   identify the affected models and trigger.
 
-2b. **Read the vendor changelog before probing.** Every pack carries a `Changelog` row
+2b. **Read the vendor changelog before probing.** Every pack carries a `Changelog` row in
+   its `pack.md` manifest; read it alongside the manifest's current registry body.
    (agy: https://antigravity.google/changelog?tab=cli; codex and opencode: their GitHub
    releases pages). Read the entries between `verified-version` and the installed version
    FIRST — they tell you which probes to weight and what new surface exists, and they
    date behavior changes precisely (e.g. agy 1.1.4's "headless honors persisted
    settings.json policies" explained a permission regression the probe suite initially
-   misattributed to 1.1.5). Quote the relevant changelog lines in the verification-log
-   entry alongside the observed evidence.
+   misattributed to 1.1.5). Quote the relevant changelog lines in the current month's log
+   shard entry alongside the observed evidence.
 
 3. **Run live smoke probes where the CLI exists.** P1–P12 are environment smoke tests, not
    portable assertions: run them only in an environment with the selected provider CLI.
@@ -97,15 +99,21 @@ Knowledge base (all paths are relative to the plugin tree root `<root>`):
    probe and verify its real working-tree result.
 
 5. **Record only the active pack.** Append a dated verdict matrix with raw evidence to
-   `providers/<id>/verification-log.md`. Update only that pack's `pack.md` and `models.yaml`
+   the current month's shard `providers/<id>/log/YYYY-MM.md`. Update only that pack's `pack.md` (manifest) and `models.yaml`
    when evidence changes facts, versions, or model status (stamps land in models.yaml — the
    table of record; models.md keeps the narrative entry). Never rewrite earlier log entries.
-   When the round moves `verified-version`, FIRST perform the snapshot-then-rewrite
-   protocol in `core/verification-protocol.md` Recording — copy the outgoing pack.md
-   body to `versions/<old>.md` with its `> Frozen:` line before any pack edit, honoring
-   its idempotence rules — and rewrite the affected pack/models sections to clean
-   present tense: superseded text is deleted, not struck through; version-scoped
-   operating deltas go to the log as guidance, never into pack prose.
+   Registry writes follow the lifecycle in `core/verification-protocol.md` Recording:
+   a round targeting version Y writes `versions/Y.md` (present-tense truth, first line
+   `> Verified: <cli> Y, round <date>.`), bumps the manifest only when moving forward,
+   and appends the round's entry to the current month's shard `log/YYYY-MM.md` — in that
+   order, each step idempotent-checkable. At most one round runs per provider at a time.
+   A round at or below the frontier follows the lifecycle's same-version, promotion,
+   historical, or frozen-STOP rows; a stamped historical body is never re-targeted —
+   corrections ride version-scoped guidance. Superseded prose is deleted, not struck
+   through; version-scoped operating deltas go to the log as guidance, never into
+   registry prose. Each round re-asserts, in its entry, any standing guidance still
+   applicable at the verified version (normative carry-forward — recent shards must be
+   self-sufficient).
    If the round produced an **operating instruction** — something a future dispatcher
    must do differently on this version and forward — record it per the guidance
    convention in `core/verification-protocol.md` Recording (house style
@@ -118,8 +126,8 @@ Knowledge base (all paths are relative to the plugin tree root `<root>`):
    core log unchanged.
 
 7. **Clean up and release.** Remove scratchpad artifacts and any test writes outside the
-   workspace. For every verification commit, bump the plugin version by one patch and keep
-   the repository version references aligned.
+   workspace. Never bump the plugin version — the release cut moves it (one bump on the
+   `release/*` branch).
 
 ## Cautions
 

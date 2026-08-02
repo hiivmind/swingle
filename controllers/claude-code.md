@@ -16,7 +16,7 @@ the `claude` provider pack. Both now exist under this controller, so keep them d
 - **“via claude”** → the external `claude` provider pack (`providers/claude/`), a real
   `claude -p` subprocess through the pack's dispatch template and model tiers. Use it only
   when isolation from this session is the point (a clean sub-context, cross-CLI parity).
-  It carries the self-dispatch traps in `providers/claude/pack.md`: the parent auto-mode
+  It carries the self-dispatch traps in the provider body (the current registry file): the parent auto-mode
   Bash classifier blocks the write-enabling flag, and the child-session env vars must be
   cleared. Prefer `native-subagents` for ordinary Claude-on-Claude work; reach for the
   provider only when its isolation is worth those two frictions.

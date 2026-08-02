@@ -2,7 +2,7 @@
 
 The repeatable probe suite for (re)verifying provider-pack behavior. Run it for a pack when a
 trigger fires (see README.md), then append results to the pack's verification log and update
-its pack.md / models.yaml / models.md.
+its pack.md manifest, current registry body, models.yaml, and models.md.
 
 The invocable form of this process is the plugin's verification skill; the active controller
 adapter supplies the command details.
@@ -25,7 +25,8 @@ pack-specific dispatch template and command surface.
 ### P1 — Version & surface
 
 Record the pack version and inspect its supported dispatch surface and model inventory. Diff
-the findings against the pack's pack.md / models.yaml / models.md.
+the findings against the pack's pack.md manifest, current registry body, models.yaml, and
+models.md.
 
 ### P2 — Trivial dispatch + exit code (success path)
 
@@ -142,37 +143,62 @@ never instruction-free. Example of the form:
 implementers to single simple commands` — see the originating provider log entry
 for its evidence.
 
-**Living docs state the present tense; history lives in snapshots and logs.** The
-living pack docs are `pack.md` and `models.md`; they state present-tense truth for the
-manifest's `verified-version`. `providers/<id>/versions/<v>.md` files are frozen
-present-tense historical artifacts — one per previously verified version, existing if
-and only if a round stamped that version. History markup is banned in living docs: no
-strikethrough refutation trails, no provenance/migration stamps, no
-"no longer / previously / superseded" narration; any such marker expires the first
-time its section is re-verified or rewritten. What changed between versions is the
-diff between snapshot files plus the dated log entries. The manifest's
-`verified-version` is the only version assertion in living docs.
+**Living docs state the present tense; history lives in registry files and logs.** The
+living docs are the current registry file
+`providers/<id>/versions/<verified-version>.md` and `models.md`; they state present-tense
+truth. All other registry files are frozen structurally; `> Verified:` / `> Distilled:`
+non-current files are frozen absolutely, while the log-evidenced class may be promoted
+(lifecycle row 4). History markup is banned in living docs: no strikethrough refutation
+trails, no provenance/migration stamps, and no "no longer / previously / superseded"
+narration. What changed between versions is the diff between registry files plus the
+dated log entries.
 
-**Snapshot-then-rewrite (every round that moves `verified-version` from X to Y):**
-(1) copy pack.md's entire body (below the frontmatter's closing `---`) to
-`versions/X.md`, prepending `> Frozen: <cli> X pack body, verified state as of commit
-<sha>.` — BEFORE any pack.md edit of the round; (2) verify the copy; (3) rewrite
-pack.md to Y's present tense. Idempotence: destination byte-identical → skip;
-destination differs → STOP, never overwrite a frozen snapshot. A same-version
-re-verification with a material correction snapshots nothing — the earlier body was
-wrong, and git history covers it. A frozen snapshot later proven wrong is never
-edited: a dispatch-affecting correction REQUIRES a version-scoped guidance entry; a
-non-dispatch fact gets a dated log note.
+**Registry header rule.** Every registry file opens with a declared class header:
+`> Verified: <cli> <V>, round <date>.`, `> Distilled: …`, or
+`> Distilled (log-evidenced; never round-stamped): …`. The header's version MUST equal
+the filename; the manifest remains the only version *authority*.
 
-**Resolution for older installed versions:** when the installed version is below
-`verified-version` and `versions/` holds a file at-or-below it, dispatch skills read
-the nearest such file in place of pack.md's body (the manifest still comes from
-pack.md). Versions are dotted-numeric only; compare numerically per component,
-zero-padding unequal lengths; a suffixed version string is unparseable — treated as
-above-frontier, never as its numeric prefix. Below every snapshot → pack.md's body
-plus the older-than-verified advisory. Guidance entries apply additively on top of
-whichever body resolves. `require-verified-version` strict mode remains frontier-only;
-a snapshot match does not satisfy it.
+**Registry write lifecycle (R5-C2, rebuilt at R5.2 — ordered, mutually exclusive).**
+Standing rule, now normative: **at most one verification round runs per provider at a
+time** (the automation already serializes per-provider lanes; humans follow the same
+rule) — this is what makes candidate ownership below unambiguous. A round's steps are
+always: write body → bump manifest (only when moving forward) → append log entry;
+each step is idempotent-checkable. For a round targeting version Y with manifest
+stamp M, evaluate top-down; exactly one row applies:
+
+| # | State | Action |
+| --- | --- | --- |
+| 1 | Y > M, no `Y.md` | fresh: write candidate (temp file + atomic rename where available) → bump M to Y → append entry |
+| 2 | Y > M, `Y.md` exists | the prior interrupted round's unpublished candidate (single-round rule ⇒ ownership is structural): byte-identical to this round's intended body → continue at the bump; differing → overwrite the candidate and continue |
+| 3 | Y == M | same-version round (incl. the recovery for "body published + manifest bumped + log append lost"): rewrite the current file in place (atomically) where the round's evidence differs from the published body — else leave it — then append this round's entry if absent |
+| 4 | Y < M, `Y.md` has a `> Distilled (log-evidenced…)` header | **promotion**: a round verifying an older installed version rewrites the file to round truth, swaps the header to `> Verified: <cli> Y, round <date>.`, appends its entry; the manifest is untouched — the stamp never moves backward |
+| 5 | Y < M, no `Y.md` | historical verification: write `versions/Y.md` with a `> Verified:` header, append the entry; manifest untouched |
+| 6 | Y < M, `Y.md` has a `> Verified:` or `> Distilled:` header | frozen — STOP; a stamped historical body is never re-targeted (corrections ride version-scoped guidance) |
+
+Rows 4–5 are how a below-frontier round (a user verifying the CLI they actually run)
+enriches the registry without touching the frontier; row 6 is the only STOP. An
+above-frontier row-1/2 candidate may exist only transiently and uncommitted; it remains
+gate-invalid and always produces a validator finding until the manifest bump.
+
+**Resolution truth table (R5-I1)** — replaces the pack.md fallback everywhere:
+
+| Installed version | Resolves |
+| --- | --- |
+| exact registry match | that file |
+| between entries | nearest at-or-below |
+| above the manifest frontier | the current file (silence — a newer release is not a defect) |
+| below the oldest entry | the current file + the below-record advisory |
+| suffixed / unparseable | the current file + the cannot-determine advisory |
+| current target missing | broken pack: validator finding; a dispatching reader STOPs and surfaces |
+
+Registry keys above the manifest stamp are a validator finding (only an in-flight
+round's candidate may exceed it, and only until its bump). Strict mode
+(`require-verified-version`) binds to the manifest stamp alone, never to registry
+contents. Guidance applies additively over whichever body resolves, unchanged.
+
+**Log location.** Provider entries live in `providers/<id>/log/YYYY-MM.md`, chronological
+within a shard and append-only per shard. `verification-log.md` is a retained read-only
+index; the entry-format and guidance house style are unchanged.
 
 **A user's local record.** A user who cannot write to the source records their own
 operating instructions in `${XDG_CONFIG_HOME:-~/.config}/swingle/verification/<id>.md`
@@ -212,11 +238,12 @@ Append to the appropriate verification log:
 
 Then:
 
-1. Update the active pack's pack.md and models.yaml (models.md for narrative).
+1. Update the active pack's pack.md (manifest) and models.yaml (models.md for narrative),
+   plus the current registry body when the lifecycle requires it.
 2. If findings change how SDD should dispatch, update the relevant controller adapter and
    contracts in the same round.
 3. Clean up `$SCRATCH` artifacts, including any test writes outside the workspace.
-4. Commit in the plugin repo; bump the plugin version for behavior-fact changes.
+4. Commit in the plugin repo; never bump the plugin version — the release cut moves it.
 
 ## Cost note
 

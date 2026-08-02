@@ -559,8 +559,13 @@ def main():
                             actual = actual_ver if actual_ver else "unparseable"
                             print(f"warning: incompatible: {chosen} ({actual} != {verified_ver})")
                     rc, _ = check_provider_readiness(manifests[chosen], a.path_dir, int(manifests[chosen].get("readiness-timeout-seconds", 30)))
-                    if rc != 0: find(f"CHANNEL: provider not ready: {chosen} (exit {rc})")
-                    else: print(f"ready: {chosen}")
+                    if rc != 0:
+                        find(f"CHANNEL: provider not ready: {chosen} (exit {rc})")
+                    elif manifests[chosen].get("readiness-argv"):
+                        print(f"ready: {chosen}")
+                    else:
+                        # readiness fell back to version-argv — proves CLI availability, not auth.
+                        print(f"available (auth unverified): {chosen}")
     elif a.resolve:
         role, provider = a.resolve[0].lower(), a.resolve[1]; roles = parse_roles(root); tier_lane = next((value for key, value in roles.items() if role in key), None)
         if not tier_lane: find(f"unknown role: {role}")

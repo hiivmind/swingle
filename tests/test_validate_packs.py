@@ -166,6 +166,23 @@ def test_step0_routed_provider_drift_still_warns(tmp_path):
     assert r.returncode == 0
     assert "provider: alpha" in r.stdout
     assert "warning: incompatible: alpha" in r.stdout
+def test_step0_ready_when_real_readiness_probe():
+    """A pack that declares a real readiness-argv reports ready: on success."""
+    r = run("--step0", "--root", str(FIX / "good-lanes"),
+            "--path-dir", str(FIX / "bins-alpha"), "--role", "per-task reviewer")
+    assert r.returncode == 0 and "ready: alpha" in r.stdout
+def test_step0_auth_unverified_when_readiness_falls_back(tmp_path):
+    """A pack with no readiness-argv falls back to --version, which cannot prove
+    auth, so report 'available (auth unverified):', never 'ready:'."""
+    cfg = tmp_path / "lane-beta.json"
+    cfg.write_text('{"providers_by_lane": {"review": "beta"}}')
+    r = run("--step0", "--root", str(FIX / "good-two-providers"),
+            "--path-dir", str(FIX / "bins-two"), "--config", str(cfg),
+            "--role", "per-task reviewer")
+    assert r.returncode == 0
+    assert "provider: beta" in r.stdout
+    assert "available (auth unverified): beta" in r.stdout
+    assert "ready: beta" not in r.stdout
 def test_step0_readiness_failure_reported():
     r = run("--step0", "--root", str(FIX / "good-lanes"), "--path-dir", str(FIX / "bins-alpha-notready"), "--role", "per-task reviewer"); assert r.returncode == 1 and "not ready" in r.stdout
 def test_step0_invalid_manifest_never_detects_or_executes_provider_argv(tmp_path):

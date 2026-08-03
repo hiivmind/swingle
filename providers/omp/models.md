@@ -27,10 +27,13 @@ default routes, so routing to omp does not incur per-token spend:
   pack. Verified this round (omp 17.2.4): `gemini-3.6-flash` (PONG + session resume),
   `claude-sonnet-4-5` (full write + bash tool-use under `--auto-approve`), `claude-opus-4-5`
   (PONG). See [log/](log/).
-- **Review lanes are `experimental` pending P13.** `gpt-5.6-terra` / `gpt-5.6-sol` dispatch
-  cleanly (PONG through omp) and are the doctrine-preferred review models, but the review
-  severity-qualification probe (P13 — rate a planted directory-crash defect ≥Important) has
-  not yet been run *through omp*. They stay eligible-but-flagged until it is.
+- **Review lanes pass P13 through omp.** `gpt-5.6-terra` (standard/review) and `gpt-5.6-sol`
+  (most-capable/review) each cited the planted `path.exists()`→`read_text()` directory/unreadable
+  crash at **Important** (no false-clean) against `tests/fixtures/p13/defect.diff` under the
+  standard task-reviewer contract — the ≥Important bar. Both are now `verified` for review. The
+  `claude-*` review fallbacks stay `experimental` (they clear P13 in the claude pack under the
+  nudged contract but were not re-run through omp). Severity adjudication still stays in the
+  controller — P13 is a prompt mitigation, not a guarantee.
 - **Model validation is remote/at-dispatch.** An unauthed or absent backend fails only when
   the dispatch runs (exit 1, "No API key found for <provider>"), never locally. `omp models`
   lists only authed backends but exits 0 even with none authed — it is a catalog, not an

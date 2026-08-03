@@ -1,0 +1,73 @@
+schema: 1
+provider: omp
+models:
+  - tier: cheapest
+    lane: any
+    priority: 1
+    model: gemini-3.6-flash
+    status: verified
+    pricing: "flat-rate (Antigravity OAuth)"
+    rationale: "google-antigravity; fast agentic/coding lane. PONG + session resume verified through omp 17.2.4"
+  - tier: cheapest
+    lane: any
+    priority: 2
+    model: claude-haiku-4-5
+    status: experimental
+    pricing: "flat-rate (Anthropic Max)"
+    rationale: "Anthropic Max fallback; not yet dispatched through omp"
+  - tier: standard
+    lane: implement
+    priority: 1
+    model: claude-sonnet-4-5
+    status: verified
+    pricing: "flat-rate (Anthropic Max)"
+    rationale: "Anthropic Max, 1M ctx. Full tool-use dispatch (write + bash under --auto-approve) verified through omp 17.2.4"
+  - tier: standard
+    lane: implement
+    priority: 2
+    model: gpt-5.5
+    status: experimental
+    pricing: "flat-rate (ChatGPT/codex)"
+    rationale: "openai-codex fallback; not yet dispatched through omp"
+  - tier: standard
+    lane: review
+    priority: 1
+    model: gpt-5.6-terra
+    status: verified
+    pricing: "flat-rate (ChatGPT/codex)"
+    rationale: "openai-codex; doctrine prefers GPT-5.6 for structured reviews. P13 review-qualification PASSED through omp 17.2.4 (directory-crash defect cited at Important)"
+  - tier: standard
+    lane: review
+    priority: 2
+    model: claude-sonnet-4-5
+    status: experimental
+    pricing: "flat-rate (Anthropic Max)"
+    rationale: "Anthropic Max review fallback; passes P13 in the claude pack under the nudged contract, not re-run through omp"
+  - tier: most-capable
+    lane: implement
+    priority: 1
+    model: claude-opus-4-5
+    status: verified
+    pricing: "flat-rate (Anthropic Max)"
+    rationale: "Anthropic Max; large-codebase / long-context implement. PONG verified through omp 17.2.4"
+  - tier: most-capable
+    lane: implement
+    priority: 2
+    model: gpt-5.6-sol
+    status: experimental
+    pricing: "flat-rate (ChatGPT/codex)"
+    rationale: "openai-codex heavy-implement fallback; PONG verified through omp"
+  - tier: most-capable
+    lane: review
+    priority: 1
+    model: gpt-5.6-sol
+    status: verified
+    pricing: "flat-rate (ChatGPT/codex)"
+    rationale: "openai-codex; architecture-class final review. P13 review-qualification PASSED through omp 17.2.4 (directory/unreadable-crash cited at Important)"
+  - tier: most-capable
+    lane: review
+    priority: 2
+    model: claude-opus-4-5
+    status: experimental
+    pricing: "flat-rate (Anthropic Max)"
+    rationale: "Anthropic Max final-review fallback; passes P13 in the claude pack under the nudged contract, not re-run through omp"

@@ -2,7 +2,7 @@
 name: swingle-sdd
 description: >-
   Execute an implementation plan via subagent-driven development with
-  external-CLI dispatch (codex/opencode/agy/grok/pi/claude). Use whenever executing a
+  external-CLI dispatch (codex/opencode/agy/grok/pi/claude/omp). Use whenever executing a
   written plan with SDD — wraps superpowers:subagent-driven-development and
   applies the external-dispatch optimizations mechanically. Triggers: "run this
   plan with SDD", "/swingle-sdd", "/sdd", "execute the plan via subagents", the
@@ -12,7 +12,7 @@ description: >-
 # SDD with Provider Packs
 
 **Controller**: identify your controller and read `<root>/controllers/<controller>.md`
-(claude-code, codex, grok, opencode, pi, agy) before Step 0 — it maps skill-loading, native subagent
+(claude-code, codex, grok, opencode, pi, agy, omp) before Step 0 — it maps skill-loading, native subagent
 dispatch, task tracking, background jobs, and asset-root resolution. All paths below
 are relative to the plugin tree root `<root>` (the directory containing `skills/`,
 `controllers/`, `core/`, `providers/`).
@@ -73,19 +73,20 @@ Read these plugin documents when their policy is needed:
    “Dispatch STOP Conditions”; ACTIVE = installed − disabled (− incompatible iff
    require-verified-version)) → provider detection (INSTALLED iff `command -v -- "<cli>"`
    succeeds for the manifest's validated cli; data-only manifests — never execute
-   manifest strings as shell) → drift advisory → routing precedence
+   manifest strings as shell) → drift advisory (routed provider only; the full active-set version probe runs only under require-verified-version, where it filters routing) → routing precedence
    (per-task/session directive → config lanes/default
    → codex-if-active → sole-active → ask) → model resolution (role → tier/lane per
-   `core/roles.md` → the provider's layered `models.yaml` candidates) → readiness (the
-   pack's bounded version+auth probe). Outcome contract:
+   `core/roles.md` → the provider's layered `models.yaml` candidates) → readiness (a
+   pack with a real `readiness-argv` yields `ready:`/`CHANNEL:`; a `version-argv` fallback yields `available (auth unverified):`). Outcome contract:
    | Output | Meaning | Action |
    | --- | --- | --- |
    | exit 0 | pipeline clean; `provider:`/`ready:` lines name the route | proceed |
+   | `available (auth unverified): <id>` (exit 0) | routed CLI present but readiness is a `--version` fallback that cannot prove auth | proceed; a channel failure on THIS dispatch is a provider-wide STOP (step 10), not a candidate glitch |
    | unprefixed finding | invalid manifest/config (implicit STOP) | halt; fix or surface |
    | `STOP: …` | invalid input (e.g. unknown role) | halt; fix or surface |
    | `ASK: …` | a decision only the user can make | put the named question to the user; never guess |
    | `CHANNEL: …` | provider/environment failure | step 10's channel rules |
-   | `warning: …` (exit 0) | drift or strict-mode removals with a valid route | note **drift is in effect** (step 10 finding semantics unchanged) |
+   | `warning: …` (exit 0) | routed-provider drift, or strict-mode removals, with a valid route | note **drift is in effect** (step 10 finding semantics unchanged) |
    | exit 0; `native-subagents: bypass external dispatch (no provider selected)` | native bypass | proceed with controller-native subagents, no provider/model resolution |
    A divergence between the script and this table is a bug adjudicated against the
    table.

@@ -1,12 +1,12 @@
 ---
 name: swingle-delegate
-description: Directly delegate an explicitly requested, self-contained job or homogeneous batch to an external CLI (codex/opencode/agy/grok/pi/claude) through validated provider packs — role inference, model tiering, liveness, evidence gates, and session resume — without a written implementation plan. Use the swingle-sdd skill for multi-task implementation plans; keep sub-triviality-floor tasks inline unless delegation was explicitly requested.
+description: Directly delegate an explicitly requested, self-contained job or homogeneous batch to an external CLI (codex/opencode/agy/grok/pi/claude/omp) through validated provider packs — role inference, model tiering, liveness, evidence gates, and session resume — without a written implementation plan. Use the swingle-sdd skill for multi-task implementation plans; keep sub-triviality-floor tasks inline unless delegation was explicitly requested.
 ---
 
 # Delegate — Direct One-Off Dispatch
 
 **Controller**: identify your controller and read
-`<root>/controllers/<controller>.md` (claude-code, codex, grok, opencode, pi, agy) before setup — it
+`<root>/controllers/<controller>.md` (claude-code, codex, grok, opencode, pi, agy, omp) before setup — it
 maps skill-loading, native subagent dispatch, background jobs, completion observation,
 and asset-root resolution. `<root>` is this skill directory's grandparent (the directory
 containing `skills/`, `controllers/`, `core/`, `providers/`, `contracts/`).
@@ -100,19 +100,20 @@ Read these plugin documents when their policy is needed:
    “Dispatch STOP Conditions”; ACTIVE = installed − disabled (− incompatible iff
    require-verified-version)) → provider detection (INSTALLED iff `command -v -- "<cli>"`
    succeeds for the manifest's validated cli; data-only manifests — never execute
-   manifest strings as shell) → drift advisory → routing precedence
+   manifest strings as shell) → drift advisory (routed provider only; the full active-set version probe runs only under require-verified-version, where it filters routing) → routing precedence
    (per-task/session directive → config lanes/default
    → codex-if-active → sole-active → ask) → model resolution (role → tier/lane per
-   `core/roles.md` → the provider's layered `models.yaml` candidates) → readiness (the
-   pack's bounded version+auth probe). Outcome contract:
+   `core/roles.md` → the provider's layered `models.yaml` candidates) → readiness (a
+   pack with a real `readiness-argv` yields `ready:`/`CHANNEL:`; a `version-argv` fallback yields `available (auth unverified):`). Outcome contract:
    | Output | Meaning | Action |
    | --- | --- | --- |
    | exit 0 | pipeline clean; `provider:`/`ready:` lines name the route | proceed |
+   | `available (auth unverified): <id>` (exit 0) | routed CLI present but readiness is a `--version` fallback that cannot prove auth | proceed; a channel failure on THIS dispatch is a provider-wide STOP (Failure handling), not a candidate glitch |
    | unprefixed finding | invalid manifest/config (implicit STOP) | halt; fix or surface |
    | `STOP: …` | invalid input (e.g. unknown role) | halt; fix or surface |
    | `ASK: …` | a decision only the user can make | put the named question to the user; never guess |
    | `CHANNEL: …` | provider/environment failure | Failure handling |
-   | `warning: …` (exit 0) | drift or strict-mode removals with a valid route | note **drift is in effect** (Failure handling finding semantics unchanged) |
+   | `warning: …` (exit 0) | routed-provider drift, or strict-mode removals, with a valid route | note **drift is in effect** (Failure handling finding semantics unchanged) |
    | exit 0; `native-subagents: bypass external dispatch (no provider selected)` | native bypass | proceed with controller-native subagents, no provider/model resolution |
    A divergence between the script and this table is a bug adjudicated against the
    table.

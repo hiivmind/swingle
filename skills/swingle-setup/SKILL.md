@@ -5,7 +5,7 @@ description: Environment onboarding and health check for swingle — inspect pat
 
 # Swingle Setup — Environment Onboarding & Health Check
 
-**Controller**: identify your controller and read `<root>/controllers/<controller>.md` (claude-code, codex, grok, opencode, pi, agy) before setup — it maps skill-loading, native subagent dispatch, background jobs, completion observation, and asset-root resolution. `<root>` is this skill directory's grandparent (the directory containing `skills/`, `controllers/`, `core/`, `providers/`, `contracts/`).
+**Controller**: identify your controller and read `<root>/controllers/<controller>.md` (claude-code, codex, grok, opencode, pi, agy, omp) before setup — it maps skill-loading, native subagent dispatch, background jobs, completion observation, and asset-root resolution. `<root>` is this skill directory's grandparent (the directory containing `skills/`, `controllers/`, `core/`, `providers/`, `contracts/`).
 
 This skill has **no superpowers dependency**: it never invokes superpowers skills, never runs `scripts/sdd-workspace`, and never reads or writes `.superpowers/sdd/`.
 

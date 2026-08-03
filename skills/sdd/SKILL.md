@@ -12,7 +12,7 @@ description: >-
 # SDD with Provider Packs
 
 **Controller**: identify your controller and read `<root>/controllers/<controller>.md`
-(claude-code, codex, grok, opencode, pi, agy) before Step 0 — it maps skill-loading, native subagent
+(claude-code, codex, grok, opencode, pi, agy, omp) before Step 0 — it maps skill-loading, native subagent
 dispatch, task tracking, background jobs, and asset-root resolution. All paths below
 are relative to the plugin tree root `<root>` (the directory containing `skills/`,
 `controllers/`, `core/`, `providers/`).

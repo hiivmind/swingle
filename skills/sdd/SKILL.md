@@ -2,7 +2,7 @@
 name: swingle-sdd
 description: >-
   Execute an implementation plan via subagent-driven development with
-  external-CLI dispatch (codex/opencode/agy/grok/pi/claude). Use whenever executing a
+  external-CLI dispatch (codex/opencode/agy/grok/pi/claude/omp). Use whenever executing a
   written plan with SDD — wraps superpowers:subagent-driven-development and
   applies the external-dispatch optimizations mechanically. Triggers: "run this
   plan with SDD", "/swingle-sdd", "/sdd", "execute the plan via subagents", the
@@ -12,7 +12,7 @@ description: >-
 # SDD with Provider Packs
 
 **Controller**: identify your controller and read `<root>/controllers/<controller>.md`
-(claude-code, codex, grok, opencode, pi, agy) before Step 0 — it maps skill-loading, native subagent
+(claude-code, codex, grok, opencode, pi, agy, omp) before Step 0 — it maps skill-loading, native subagent
 dispatch, task tracking, background jobs, and asset-root resolution. All paths below
 are relative to the plugin tree root `<root>` (the directory containing `skills/`,
 `controllers/`, `core/`, `providers/`).

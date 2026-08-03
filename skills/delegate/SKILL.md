@@ -1,12 +1,12 @@
 ---
 name: swingle-delegate
-description: Directly delegate an explicitly requested, self-contained job or homogeneous batch to an external CLI (codex/opencode/agy/grok/pi/claude) through validated provider packs — role inference, model tiering, liveness, evidence gates, and session resume — without a written implementation plan. Use the swingle-sdd skill for multi-task implementation plans; keep sub-triviality-floor tasks inline unless delegation was explicitly requested.
+description: Directly delegate an explicitly requested, self-contained job or homogeneous batch to an external CLI (codex/opencode/agy/grok/pi/claude/omp) through validated provider packs — role inference, model tiering, liveness, evidence gates, and session resume — without a written implementation plan. Use the swingle-sdd skill for multi-task implementation plans; keep sub-triviality-floor tasks inline unless delegation was explicitly requested.
 ---
 
 # Delegate — Direct One-Off Dispatch
 
 **Controller**: identify your controller and read
-`<root>/controllers/<controller>.md` (claude-code, codex, grok, opencode, pi, agy) before setup — it
+`<root>/controllers/<controller>.md` (claude-code, codex, grok, opencode, pi, agy, omp) before setup — it
 maps skill-loading, native subagent dispatch, background jobs, completion observation,
 and asset-root resolution. `<root>` is this skill directory's grandparent (the directory
 containing `skills/`, `controllers/`, `core/`, `providers/`, `contracts/`).

@@ -5,15 +5,15 @@
 # Swingle
 
 Swingle lets the coding-agent harness you are already driving — Claude Code, Codex,
-opencode, Grok, Pi, or Antigravity — dispatch work to the other agent CLIs installed on the
+opencode, Grok, Pi, Antigravity, or Oh My Pi — dispatch work to the other agent CLIs installed on the
 same machine. You ask in natural language — *"ask Grok for ideas on this"*, *"review this in
 GLM 5.2"*, *"spec this in Kimi and Codex and merge the results"* — and the harness turns the
 ask into a briefed dispatch to the right CLI at an appropriate model tier, then checks the
 result before trusting it. No command syntax to learn, no re-authentication: every target is
 a CLI you already installed and signed into.
 
-**The symmetry is the point.** Any of the six CLIs can drive, and any of the six can be
-dispatched to — all thirty-six pairings run through the same packs, contracts, and gates.
+**The symmetry is the point.** Any of the seven harnesses can drive, and any of the seven
+providers can be dispatched to — every pairing runs through the same packs, contracts, and gates.
 The repo layout mirrors the two roles: `controllers/<controller>.md` documents each CLI as
 the **driver** (skill-loading, native subagents, background jobs), `providers/<id>/`
 documents it as the **dispatch target** (manifest-only `pack.md`, version registry,
@@ -41,7 +41,7 @@ different vendor's CLI, a different model, without leaving the harness you are d
 
 ## Install
 
-Swingle installs on **six supported harnesses**. Pick yours, run the commands, then finish with
+Swingle installs on **seven supported harnesses**. Pick yours, run the commands, then finish with
 the [post-install step](#after-installing-run-the-swingle-setup-skill) — it is the same on every
 harness.
 
@@ -98,6 +98,16 @@ agy plugin install http://github.com/hiivmind/swingle
 Then add a one-time `command(<cli>)` permission rule for each CLI you will dispatch to
 (a missing rule silently no-ops the dispatch). Details:
 [controllers/agy.md](controllers/agy.md).
+
+### Oh My Pi (omp)
+
+```bash
+omp plugin marketplace add hiivmind/swingle
+omp plugin install swingle@swingle-marketplace
+```
+
+omp installs the plugin as a full-repo clone and discovers `skills/` automatically. Details:
+[controllers/omp.md](controllers/omp.md).
 
 ### After installing: run the `swingle-setup` skill
 

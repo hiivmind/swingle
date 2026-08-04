@@ -154,7 +154,7 @@ a status report.
 ### Prerequisites
 
 - **Target CLIs on `PATH`, each authenticated once** — whichever of `claude`, `codex`,
-  `opencode`, `agy`, `grok`, `pi` you want to dispatch to. Auth modes and headless-CI
+  `opencode`, `agy`, `grok`, `pi`, `omp` you want to dispatch to. Auth modes and headless-CI
   consequences: [docs/credentials.md](docs/credentials.md).
 - **The [superpowers](https://github.com/obra/superpowers) plugin — only for `swingle-sdd`**
   (it wraps superpowers' subagent-driven-development). `swingle-delegate` needs nothing
@@ -173,6 +173,7 @@ bump with the `swingle-verify` skill.
 | Grok | `grok` | 0.2.111 | ✅ | ✅ |
 | Pi | `pi` | 0.81.1 | ✅ | ✅ |
 | Antigravity | `agy` | 1.1.5 | ✅ | ✅ |
+| Oh My Pi | `omp` | 17.2.4 | ✅ | ✅ |
 
 ## The four skills
 

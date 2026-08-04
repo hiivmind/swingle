@@ -240,6 +240,17 @@ model authored. The full threat model is [docs/safety.md](docs/safety.md); the e
   you observe: [core/verification-protocol.md](core/verification-protocol.md), or
   [open an issue](https://github.com/hiivmind/swingle/issues/new?template=verification-finding.md).
 
+## Supporting Swingle
+
+Swingle is free and MIT-licensed. If it earns a place in your daily workflow, two ways to
+give back:
+
+- **[GitHub Sponsors](https://github.com/sponsors/hiivmind)** — recurring support for hiivmind.
+- **[Buy Me a Coffee](https://buymeacoffee.com/rambeaux)** — one-off.
+
+Swingle carries no provider referral or affiliate links; funding never influences pack
+facts, model tiering, or default routing, which stay evidence-based.
+
 ## License
 
 [MIT](LICENSE) © 2026 Nathaniel Ramm

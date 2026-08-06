@@ -151,33 +151,41 @@ existing caller is untouched. `codex-smoke` and `opencode-skills-path` stay pure
 ## The one real decision: what the trust-gate command runs
 
 - **Option A — behaviour-preserving (CHOSEN for this work).** `validate-packs --root`
-  runs integrity **and** authoring checks exactly as today; the split is purely at the
-  module level. To keep the promised **byte-identical stdout**, the default mode calls,
-  in this exact order: (1) `packs.load_packs` bootstrap validation, (2)
-  `packs.check_tree_integrity`, (3) `audit.repo.check_authoring`, (4) print the single
-  shared findings list once. Naming two functions is not enough — the ordering is part
-  of the contract. Lowest risk; covered by the retained subprocess tests.
+  runs the same checks in the **same execution order** as today. Critically, the
+  default-mode repo scan is NOT re-sequenced: `check_repo_docs` survives as a single
+  **orchestration façade** whose five sections run in their existing order — (1)
+  version-sync, (2) per-pack structural, (3) hygiene, (4) purity, (5) one global
+  path-sorted `rglob("*.md")` link scan (`scripts/validate-packs:344-473`). The façade
+  lives in `audit/repo.py` and calls integrity primitives owned by `packs.py`; the
+  single link scan stays one traversal emitting findings in global path order (splitting
+  it into shipped-tree vs repo-only groups would reorder findings and break the
+  byte-identical contract — verified in review). The runtime/authoring distinction is
+  therefore **code ownership + per-finding classification**, NOT an execution split.
+  `cli.validate_packs_main` default mode: `packs.load_packs` bootstrap →
+  `audit.repo.check_repo_docs` → print the single shared findings list once.
 - **Option B — boundary-enforcing (BACKLOG).** Trust gate runs integrity only; a new
   `--audit` flag runs authoring checks; CI switches to `--audit`. Tighter/faster runtime
   gate, but it changes what the trust-gate command does and needs CI + `CLAUDE.md` +
   skill-doc updates. Deserves its own spec.
 
-## Runtime/authoring classification — refined by scanned surface (review)
+## Runtime/authoring classification — by scanned surface, execution unchanged (review)
 
-The a/b line is drawn by **what surface a check scans**, not by "repo niceties":
+The a/b line is documentary under Option A (it enables the future Option B split); it
+never reorders execution. Drawn by **what surface a check scans**:
 
-- **Integrity (runtime trust anchor — ships, runs at the skills' trust gate):**
-  registry file/header/log-shard structure, `pack.md` manifest-only, hygiene, **purity
-  of `core/`+`contracts/`** (protects runtime dispatch doctrine from embedded model ids;
-  `CLAUDE.md:40-44`), and **link/anchor integrity within runtime-shipped trees**
-  (`core/`, `contracts/`, `providers/`, `skills/` — a broken link there can stop an
-  installed skill finding normative content; `CLAUDE.md:92-101`). → `packs.check_tree_integrity`.
-- **Authoring-only (source repo only):** `plugin.json`↔README↔`.codex-plugin`
-  version-sync and link/anchor scanning over **repo-only** docs (`docs/`, `docs/specs`,
-  top-level README prose). → `audit.repo.check_authoring`.
+- **Integrity (runtime trust anchor — ships, runs at the trust gate):** registry
+  file/header/log-shard structure, `pack.md` manifest-only, hygiene, **purity of
+  `core/`+`contracts/`** (`CLAUDE.md:40-44`), and link/anchor integrity within
+  runtime-shipped trees (`core/`, `contracts/`, `providers/`, `skills/`;
+  `CLAUDE.md:92-101`). Primitives owned by `packs.py`.
+- **Authoring-only (source repo):** `plugin.json`↔README↔`.codex-plugin` version-sync
+  and link/anchor scanning over repo-only docs (`docs/`, `docs/specs`, README prose).
+  Owned by `audit/repo.py`.
 
-Under Option A both run on `--root`, so behaviour is unchanged; this classification is
-what makes the eventual Option B split correct rather than arbitrary.
+Because the link scan is one traversal, findings from shipped and repo-only trees
+interleave in path order; classification is a per-finding **tag**, not a separate pass.
+Option B (backlog) is the only place execution would actually split — and it must
+re-derive the two ordered groups deliberately, not by reusing this façade.
 
 ## Tests, CI, distribution
 

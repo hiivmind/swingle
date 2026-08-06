@@ -100,32 +100,50 @@ conftest.py        # inserts <root>/lib on sys.path for tests
 | `step0.py` | **new** `run_step0(...)` = the entire `elif a.step0:` block (lines 502-568), composing config+environment+resolve |
 | `audit/repo.py` | the (b) half of `check_repo_docs` (version-sync, link/anchor scan, `core/`+`contracts/` purity) |
 | `audit/logs.py` | all of `shard-logs` (`parse_log`, `migrate_provider`, parity, `main`) |
-| `models.py` | all of `swingle-models` (`which`/`init`), importing `resolve.resolve_models`, `packs.parse_front_matter`, `report.findings` instead of the `SourceFileLoader` hack |
+| `models.py` | all of `swingle-models` (`which`/`init`), importing `resolve.resolve_models`, `packs.parse_front_matter`, `report.findings` instead of the `SourceFileLoader` hack. **Root:** `models.main(default_root)` takes the plugin root as a parameter — the shim passes it; `models.py` carries no `parents[N]` layout assumption (blocking-1) |
 | `cli.py` | `validate_packs_main()` = today's `main()` argparse + dispatch, calling `report.reset()`, `packs.load_packs`, then routing to config/health/step0/resolve/audit |
 
-Dependency graph (acyclic):
-`report` <- `packs` <- {`config`, `resolve`, `environment`, `audit/repo`} <- `step0` <- `cli`;
-`models` -> {`resolve`, `packs`, `report`}; `audit/logs` -> `report`.
+Dependency graph (acyclic), corrected after review:
+`report <- packs <- resolve`; `config -> {packs, report}`;
+`environment -> {packs, resolve}` (environment calls **no** `find()` — no `report`
+edge; `run_health` calls `resolve_models`, so `environment -> resolve`);
+`audit/repo -> {packs, report}`; `step0 -> {config, environment, resolve, report}`;
+`models -> {resolve, packs, report}`; `cli` composes all.
+**`audit/logs` is independent** — `shard-logs` uses no findings collector; it owns its
+own `shard-logs: <error>` stderr + `sys.exit` contract (`scripts/shard-logs:210-227`).
 
 ## Findings collector
 
-Centralise the module-global in `report.py` (`findings: list`, `find()`, `reset()`).
-Every validator calls `report.find(...)`; `cli.validate_packs_main` calls
-`report.reset()` first (today's `findings.clear()`). `models.py` reads `report.findings`
-(the same object the old code read via `vp.findings`). Behaviour-preserving; the
-"malformed = STOP finding, never silent drop" doctrine is unchanged.
+Centralise the module-global in `report.py`: `findings: list`, `find()`, and
+`reset()` (which calls `findings.clear()` in place — **never rebinds** the list, so
+object identity is preserved for importers). `models.py` reads `report.findings` — the
+same object the old code read via `vp.findings`.
+
+**Per-entrypoint reset (blocking-3).** As importable modules, `report.findings`
+persists across calls in one interpreter, which never happened when each script was a
+fresh process. Therefore **every** command entrypoint that owns an invocation calls
+`report.reset()` first — both `cli.validate_packs_main()` and `models.main()`.
+(`audit/logs` does not touch the collector.) A prior failed validation must not poison
+a later `models` call in the same interpreter. Doctrine unchanged: "malformed = STOP
+finding, never silent drop."
 
 ## Shim mechanism (the compatibility guarantee)
 
-Each Python shim is a 4-line bootstrap, e.g. `scripts/validate-packs`:
+Each Python shim is a small bootstrap that inserts `<root>/lib` on `sys.path` (absolute,
+resolved, index 0) and hands the derived root to entrypoints that need it. e.g.
+`scripts/validate-packs`:
 
 ```python
 #!/usr/bin/env python3
 import sys, pathlib
-sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "lib"))
+root = pathlib.Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(root / "lib"))
 from swingle.cli import validate_packs_main
 sys.exit(validate_packs_main())
 ```
+
+`scripts/swingle-models` additionally passes the root:
+`sys.exit(main(default_root=root))` — resolving blocking-1.
 
 Same file path, same executable bit, same argparse, same stdout/exit codes, so every
 existing caller is untouched. `codex-smoke` and `opencode-skills-path` stay pure bash.
@@ -134,23 +152,58 @@ existing caller is untouched. `codex-smoke` and `opencode-skills-path` stay pure
 
 - **Option A — behaviour-preserving (CHOSEN for this work).** `validate-packs --root`
   runs integrity **and** authoring checks exactly as today; the split is purely at the
-  module level (`packs.check_tree_integrity` + `audit.repo.check_authoring` both invoked
-  under the default flag). Pure refactor, lowest risk, fully covered by the existing
-  subprocess tests.
+  module level. To keep the promised **byte-identical stdout**, the default mode calls,
+  in this exact order: (1) `packs.load_packs` bootstrap validation, (2)
+  `packs.check_tree_integrity`, (3) `audit.repo.check_authoring`, (4) print the single
+  shared findings list once. Naming two functions is not enough — the ordering is part
+  of the contract. Lowest risk; covered by the retained subprocess tests.
 - **Option B — boundary-enforcing (BACKLOG).** Trust gate runs integrity only; a new
   `--audit` flag runs authoring checks; CI switches to `--audit`. Tighter/faster runtime
   gate, but it changes what the trust-gate command does and needs CI + `CLAUDE.md` +
   skill-doc updates. Deserves its own spec.
 
+## Runtime/authoring classification — refined by scanned surface (review)
+
+The a/b line is drawn by **what surface a check scans**, not by "repo niceties":
+
+- **Integrity (runtime trust anchor — ships, runs at the skills' trust gate):**
+  registry file/header/log-shard structure, `pack.md` manifest-only, hygiene, **purity
+  of `core/`+`contracts/`** (protects runtime dispatch doctrine from embedded model ids;
+  `CLAUDE.md:40-44`), and **link/anchor integrity within runtime-shipped trees**
+  (`core/`, `contracts/`, `providers/`, `skills/` — a broken link there can stop an
+  installed skill finding normative content; `CLAUDE.md:92-101`). → `packs.check_tree_integrity`.
+- **Authoring-only (source repo only):** `plugin.json`↔README↔`.codex-plugin`
+  version-sync and link/anchor scanning over **repo-only** docs (`docs/`, `docs/specs`,
+  top-level README prose). → `audit.repo.check_authoring`.
+
+Under Option A both run on `--root`, so behaviour is unchanged; this classification is
+what makes the eventual Option B split correct rather than arbitrary.
+
 ## Tests, CI, distribution
 
-- **Tests:** keep the existing subprocess-through-shim tests (they now exercise
-  shim -> package end to end — valuable coverage of the compat guarantee); add direct
-  `import swingle.<module>` unit tests where they sharpen a boundary. Fixtures unchanged.
-  Add root `conftest.py` guaranteeing `lib/` on `sys.path`. The `swingle-models`
-  `SourceFileLoader` hack is deleted.
-- **CI:** `.github/workflows/ci.yml` triggers only on `main`; add `develop` (this is why
-  back-merge PRs show "no checks reported"). In-scope because tests move in this change.
+- **Tests (blocking-2).** Today two suites import the scripts as modules, not purely by
+  subprocess: `tests/test_validate_packs.py:36` `SourceFileLoader`s the script and calls
+  `vp.main()` (lines 46/50); `tests/test_shard_logs.py:10` loads the script and reaches
+  into its classes. The thin shims `sys.exit(...)` at import, so these break at
+  collection. Migration is explicit:
+  - Re-point the in-process import at `tests/test_validate_packs.py:36` to
+    `from swingle.cli import validate_packs_main` (the `vp.main()` re-entrancy test).
+  - Re-point `tests/test_shard_logs.py` to `import swingle.audit.logs`.
+  - **Keep** every subprocess `run()` test — they invoke the shims as scripts and are
+    the coverage of the path-preserving contract.
+  - **Add** subprocess smoke tests for the `swingle-models` and `shard-logs` shims (not
+    only `validate-packs`), and a cross-entrypoint findings test: a failing
+    `validate_packs_main()` followed by a clean `models.main()` in one interpreter must
+    not leak findings.
+  - `conftest.py` inserts the absolute resolved `<root>/lib` at `sys.path` index 0.
+    Subprocess tests keep their scrubbed `XDG_CONFIG_HOME`/`SWINGLE_CONFIG`/`SWINGLE_MODELS`
+    env; **direct-import** tests run in the pytest process and need an autouse
+    env-isolation fixture (monkeypatch the same vars) so ambient config cannot leak.
+  - The `swingle-models` `SourceFileLoader` hack is deleted. Fixtures unchanged.
+- **CI (separate change).** `.github/workflows/ci.yml` triggers only on `main`; add
+  `develop` (this is why back-merge PRs show "no checks reported"). This is a distinct
+  workflow fix, **not** part of the behaviour-preserving reorg — land it as its own
+  commit/PR so the decomposition stays purely mechanical.
 - **Distribution:** no `pyproject.toml`/`setup.py`. Explicitly vendored + stdlib-only.
   Packaging would imply an install step the plugin contract forbids — the reason we do
   not extract to an external library.
@@ -161,12 +214,49 @@ existing caller is untouched. `codex-smoke` and `opencode-skills-path` stay pure
   via `__file__`, independent of cwd/`PYTHONPATH`.
 - **Hidden global-state coupling (`findings`)** — the collector module preserves object
   identity and semantics; the subprocess tests catch any drift.
-- **Docs referencing internals** — `CLAUDE.md`/`docs/pack-authoring.md` say "update
-  `REQ`/`OPTIONAL`/`ENUMS` in `scripts/validate-packs`". Those pointers must be updated to
-  `lib/swingle/packs.py`. Cleanup phase, tracked.
+
+## Acceptance criteria — live-pointer updates (not deferred "cleanup")
+
+Updating living doctrine that names `scripts/validate-packs` internals is an acceptance
+criterion of this change, done in the same PR (historical `docs/specs/*` and migration
+docs are dated records — left as-is):
+
+- `CLAUDE.md:50-52` and `docs/pack-authoring.md:49` — "update `REQ`/`OPTIONAL`/`ENUMS` in
+  `scripts/validate-packs`" → `lib/swingle/packs.py`.
+- `docs/safety.md:34` — "enforcement lives in `scripts/validate-packs`" → name the package.
+- `CLAUDE.md:153-154` — inaccurately states all validator testing is subprocess-based;
+  correct it to reflect the import + subprocess split.
+- **Lockstep pointers** — `CLAUDE.md:27-30`, `skills/sdd/SKILL.md:80-92`,
+  `skills/delegate/SKILL.md:107-118` point maintainers at `scripts/validate-packs` for
+  the Step-0 outcome table. Re-point them at `lib/swingle/step0.py`, and add a
+  structural test asserting the typed `STOP:`/`ASK:`/`CHANNEL:`/`warning:` outcome set in
+  `step0.py` matches both skills' Markdown tables (a new file does not, by itself,
+  enforce lockstep — it can make drift *easier* if the doctrine still points elsewhere).
+- **Consumer inventory** must also list the live references at
+  `core/verification-log.md:82` and `core/verification-log.md:94`.
 
 ## Out of scope / backlog
 
 - Option B (trust-gate tightening + `--audit`).
 - Any change to manifest schema, resolution semantics, or the Step-0 outcome table.
 - Extraction to an external/installable package.
+
+## Adversarial review (Codex gpt-5.6-sol, 2026-08-02)
+
+Verdict: **needs rework → resolved in this revision.** Four blocking issues, all
+verified against source and folded in above:
+
+1. `swingle-models` default root would become `<root>/lib` after a verbatim move —
+   fixed by `models.main(default_root)` passed from the shim.
+2. Thin shims `sys.exit` at import, breaking the in-process `SourceFileLoader` tests
+   (`test_validate_packs.py:36`, `test_shard_logs.py:10`) — fixed by explicit test
+   re-pointing to `swingle.cli` / `swingle.audit.logs`, keeping subprocess tests.
+3. Shared `report.findings` persists across in-interpreter calls — fixed by
+   per-entrypoint `report.reset()` (both `validate_packs_main` and `models.main`).
+4. Dependency graph was inaccurate (`environment -> resolve` missing; `audit/logs`
+   is independent, not `-> report`) — corrected.
+
+Non-blocking items folded in: scanned-surface classification, explicit trust-gate
+stdout ordering, lockstep pointer/test acceptance criteria, `conftest`/direct-import
+env-isolation, CI-trigger as a separate change, live-pointer updates as acceptance
+criteria.

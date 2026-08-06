@@ -31,7 +31,7 @@ and a stray agent commit is surfaced as a violation, not absorbed.
 Every manifest value is validator-enforced: `*-argv` arrays are data (`argv[0]` must equal
 `cli`, shell metacharacters rejected), so a pack cannot smuggle in a command to execute.
 That is a narrow, deliberately-closed surface — **not** the whole threat model, which is the
-sections above. Enforcement lives in `scripts/validate-packs`; the doctrine in
+sections above. Enforcement lives in the swingle validator (`lib/swingle/`, run via `scripts/validate-packs`); the doctrine in
 `core/safety-doctrine.md`.
 
 ## When a seat hits its cap

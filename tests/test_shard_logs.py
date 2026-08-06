@@ -1,17 +1,6 @@
-import importlib.machinery
-import importlib.util
-import sys
-from pathlib import Path
-
 import pytest
 
-ROOT = Path(__file__).resolve().parents[1]
-SCRIPT = ROOT / "scripts" / "shard-logs"
-loader = importlib.machinery.SourceFileLoader("shard_logs", str(SCRIPT))
-spec = importlib.util.spec_from_loader("shard_logs", loader)
-sl = importlib.util.module_from_spec(spec)
-sys.modules[spec.name] = sl
-spec.loader.exec_module(sl)
+import swingle.audit.logs as sl
 
 
 def test_parse_and_render_preserve_payloads_and_report_provider_preamble():

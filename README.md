@@ -154,7 +154,7 @@ a status report.
 ### Prerequisites
 
 - **Target CLIs on `PATH`, each authenticated once** — whichever of `claude`, `codex`,
-  `opencode`, `agy`, `grok`, `pi` you want to dispatch to. Auth modes and headless-CI
+  `opencode`, `agy`, `grok`, `pi`, `omp` you want to dispatch to. Auth modes and headless-CI
   consequences: [docs/credentials.md](docs/credentials.md).
 - **The [superpowers](https://github.com/obra/superpowers) plugin — only for `swingle-sdd`**
   (it wraps superpowers' subagent-driven-development). `swingle-delegate` needs nothing
@@ -173,6 +173,7 @@ bump with the `swingle-verify` skill.
 | Grok | `grok` | 0.2.111 | ✅ | ✅ |
 | Pi | `pi` | 0.81.1 | ✅ | ✅ |
 | Antigravity | `agy` | 1.1.5 | ✅ | ✅ |
+| Oh My Pi | `omp` | 17.2.4 | ✅ | ✅ |
 
 ## The four skills
 
@@ -238,6 +239,17 @@ model authored. The full threat model is [docs/safety.md](docs/safety.md); the e
 - **Reporting verification findings** — packs are living documents; where to record what
   you observe: [core/verification-protocol.md](core/verification-protocol.md), or
   [open an issue](https://github.com/hiivmind/swingle/issues/new?template=verification-finding.md).
+
+## Supporting Swingle
+
+Swingle is free and MIT-licensed. If it earns a place in your daily workflow, two ways to
+give back:
+
+- **[GitHub Sponsors](https://github.com/sponsors/hiivmind)** — recurring support for hiivmind.
+- **[Buy Me a Coffee](https://buymeacoffee.com/rambeaux)** — one-off.
+
+Swingle carries no provider referral or affiliate links; funding never influences pack
+facts, model tiering, or default routing, which stay evidence-based.
 
 ## License
 

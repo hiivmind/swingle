@@ -27,7 +27,8 @@ because the shell used `;`. The gate is a precondition, not a preceding step.
 - **Step 0 is script-executed where shell exists.** The dispatch skills run
   `scripts/validate-packs --step0` and adjudicate its typed outcomes
   (`STOP:`/`ASK:`/`CHANNEL:`/`warning:`); the skills' outcome table is normative and
-  the script is its executable rendering — change them together.
+  its executable rendering is `lib/swingle/step0.py` (invoked via that shim) — change
+  them together. `tests/test_step0_lockstep.py` asserts the two stay in sync.
 - **Verification logs are append-only.** Provider entries live in chronological
   `providers/<id>/log/YYYY-MM.md` shards; `verification-log.md` is a retained read-only
   index. Follow [the Recording doctrine](core/verification-protocol.md#recording) for
@@ -48,7 +49,7 @@ because the shell used `;`. The gate is a precondition, not a preceding step.
   `report-transport: report-file | captured-output` (added v1.4.0) is the worked example:
   agy cannot reliably write an agent-authored file to a workspace path, so it declares
   `captured-output` and both skills ask for no file. Adding a field means updating `REQ`
-  or `OPTIONAL` plus `ENUMS` in `scripts/validate-packs`, declaring it in every shipped
+  or `OPTIONAL` plus `ENUMS` in `lib/swingle/packs.py`, declaring it in every shipped
   pack, and documenting it in the README's "Adding a provider" table.
 - **Provider registry layout is structural.** `pack.md` is manifest-only; every provider
   body lives in `providers/<id>/versions/<version>.md` with a declared class header, and
@@ -150,8 +151,9 @@ worse than no exception at all.
 
 **CI does not replace the hard gate.** `.github/workflows/ci.yml` runs `pytest` only, as
 the `tests` required status check; `.github/workflows/release.yml` tags and publishes the
-GitHub release on pushes to `main` (see the git-flow section). `pytest` drives `scripts/validate-packs` via subprocess
-(`tests/test_validate_packs.py`), so the validator IS enforced on GitHub — but
+GitHub release on pushes to `main` (see the git-flow section). `pytest` drives the
+validator in `lib/swingle/` both by direct import and through the `scripts/validate-packs`
+shim (`tests/test_validate_packs.py`, `tests/test_cli_contract.py`), so it IS enforced on GitHub — but
 `./scripts/codex-smoke` is **not** in CI by deliberate choice: it asserts developer-workspace
 layout, not repo correctness. Run the full gate locally, chained with `&&`, as above.
 

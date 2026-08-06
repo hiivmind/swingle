@@ -46,7 +46,7 @@ This is the worked example of the wider rule — **provider capabilities are man
 not skill special-cases.** When a CLI behaves differently in a way a skill must branch on,
 add a validated manifest field and have the skills read it; never hardcode a provider name in
 skill logic. Adding a field means updating `REQ`/`OPTIONAL` and `ENUMS` in
-`scripts/validate-packs`, declaring it in every shipped pack, and documenting it here.
+`lib/swingle/packs.py`, declaring it in every shipped pack, and documenting it here.
 
 ## Enforcement invariants
 

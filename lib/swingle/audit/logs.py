@@ -1,0 +1,230 @@
+"""Shard provider verification logs while proving entry-payload parity (stdlib only).
+
+Moved verbatim from the former scripts/shard-logs. Independent of the findings
+collector: it owns its own `shard-logs: <error>` stderr + exit-code contract.
+"""
+import argparse
+import hashlib
+import re
+import subprocess
+import sys
+from dataclasses import dataclass
+from pathlib import Path
+
+HEADING = re.compile(br"(?m)^## ")
+DATE = re.compile(br"\b(\d{4}-\d{2}-\d{2})\b")
+REVERIFY = (
+    b"Primary docs for re-verify (read first on every CLI bump):\n"
+    b"`~/.grok/docs/user-guide/14-headless-mode.md`, `17-sessions.md`, `18-sandbox.md`,\n"
+    b"`22-permissions-and-safety.md`.\n"
+)
+PROVIDERS = ("agy", "claude", "codex", "grok", "opencode", "pi")
+
+
+@dataclass(frozen=True)
+class Entry:
+    date: str
+    ordinal: int
+    payload: bytes
+
+
+@dataclass(frozen=True)
+class Mapping:
+    old: Entry
+    shard: str
+    new: Entry
+
+
+def parse_log(data):
+    """Return preamble and payloads, excluding only terminal separator blocks."""
+    starts = [match.start() for match in HEADING.finditer(data)]
+    if not starts:
+        raise ValueError("no top-level verification-log entries")
+    entries = []
+    for ordinal, start in enumerate(starts):
+        end = starts[ordinal + 1] if ordinal + 1 < len(starts) else len(data)
+        payload = trim_separator(data[start:end])
+        match = DATE.search(payload.splitlines()[0])
+        if not match:
+            raise ValueError("entry heading has no YYYY-MM-DD date")
+        entries.append(Entry(match.group(1).decode("ascii"), ordinal, payload))
+    return data[:starts[0]], entries
+
+
+def trim_separator(payload):
+    """Remove the maximal final run of blank and horizontal-rule lines."""
+    lines = payload.splitlines(keepends=True)
+    while lines and lines[-1].strip() in (b"", b"---"):
+        lines.pop()
+    return b"".join(lines)
+
+
+def shard_preamble(provider, month):
+    return (
+        f"# SDD Dispatch Verification Log — {provider}, {month}\n\n"
+        "Append-only. Never rewrite prior entries — a later contradiction dates a behavior change.\n"
+        "Format per [verification-protocol.md](../../../core/verification-protocol.md).\n"
+        "Chronological within shard; older and newer shards are siblings in this directory.\n\n"
+        "---\n\n"
+    ).encode()
+
+
+def index_text(provider):
+    return (
+        f"# SDD Dispatch Verification Log — {provider} (index)\n\n"
+        "This log now lives in [log/](log/) as monthly shards (`YYYY-MM.md`), chronological\n"
+        "within each shard. This file is a stable read-only pointer retained because frozen\n"
+        "registry headers and external links cite it as their evidence source; new entries go\n"
+        "to the current month's shard, never here.\n"
+    )
+
+
+def render_shard(provider, month, entries):
+    body = shard_preamble(provider, month)
+    for entry in entries:
+        body += entry.payload + b"\n---\n\n"
+    return body
+
+
+def entry_hashes(entries):
+    return [hashlib.sha256(entry.payload).hexdigest() for entry in entries]
+
+
+def heading(entry):
+    return entry.payload.splitlines()[0].decode("utf-8")
+
+
+def source_at_revision(root, relative_path, revision):
+    result = subprocess.run(
+        ["git", "show", f"{revision}:{relative_path.as_posix()}"], cwd=root,
+        capture_output=True,
+    )
+    if result.returncode:
+        raise ValueError(
+            f"cannot read {relative_path} at {revision}: {result.stderr.decode().strip()}"
+        )
+    return result.stdout
+
+
+def map_entries(provider, old_entries, shard_entries):
+    """Pair each source entry with its exact chronological destination entry."""
+    old_ordered = sorted(old_entries, key=lambda item: (item.date, item.ordinal))
+    new_ordered = [
+        (month, entry) for month in sorted(shard_entries)
+        for entry in shard_entries[month]
+    ]
+    if len(old_ordered) != len(new_ordered):
+        raise ValueError(f"{provider}: entry count differs after sharding")
+    mappings = []
+    for old, (month, new) in zip(old_ordered, new_ordered):
+        if old.date != new.date or old.payload != new.payload:
+            raise ValueError(
+                f"{provider}: source entry {old.ordinal} ({heading(old)}) does not match "
+                f"log/{month}.md entry {new.ordinal} ({heading(new)})"
+            )
+        mappings.append(Mapping(old, month, new))
+    return mappings
+
+
+def unexpected_preamble_paragraphs(provider, preamble):
+    """Return non-boilerplate paragraphs that require an explicit relocation."""
+    allowed_lines = {
+        "Append-only. Never rewrite prior entries — a later contradiction dates a behavior change.",
+        "Format per [verification-protocol.md](../../core/verification-protocol.md).",
+        "Format per [verification-protocol.md](../../../core/verification-protocol.md).",
+    }
+    titles = {
+        "# SDD Dispatch Verification Log",
+        f"# SDD Dispatch Verification Log — {provider}",
+    }
+    unexpected = []
+    for paragraph in re.split(r"\n[ \t]*\n", preamble.decode("utf-8")):
+        lines = [line.strip() for line in paragraph.splitlines() if line.strip()]
+        if not lines or all(line == "---" or line in titles or line in allowed_lines
+                            for line in lines):
+            continue
+        unexpected.append(paragraph)
+    return unexpected
+
+
+def migrate_provider(root, provider, write, source_revision=None):
+    log_path = root / "providers" / provider / "verification-log.md"
+    relative_log = log_path.relative_to(root)
+    data = (source_at_revision(root, relative_log, source_revision)
+            if source_revision else log_path.read_bytes())
+    preamble, old_entries = parse_log(data)
+    relocation = None
+    if provider == "grok":
+        if REVERIFY not in preamble:
+            raise ValueError("grok re-verify reading list missing from preamble")
+        relocation = "grok preamble: Primary docs for re-verify → versions/0.2.117.md#re-verify-reading-list"
+        preamble = preamble.replace(REVERIFY, b"")
+    unexpected = unexpected_preamble_paragraphs(provider, preamble)
+    if unexpected:
+        details = "\n\n".join(unexpected)
+        raise ValueError(f"{provider}: preamble requires relocation: {details}")
+    grouped = {}
+    for entry in sorted(old_entries, key=lambda item: (item.date, item.ordinal)):
+        grouped.setdefault(entry.date[:7], []).append(entry)
+    rendered = {month: render_shard(provider, month, entries) for month, entries in grouped.items()}
+    if source_revision and not write:
+        destination = {}
+        for month in grouped:
+            _, destination[month] = parse_log(
+                (log_path.parent / "log" / f"{month}.md").read_bytes()
+            )
+    else:
+        destination = {month: parse_log(body)[1] for month, body in rendered.items()}
+    mappings = map_entries(provider, old_entries, destination)
+    if write:
+        log_dir = log_path.parent / "log"
+        log_dir.mkdir(exist_ok=True)
+        for month, body in rendered.items():
+            (log_dir / f"{month}.md").write_bytes(body)
+        log_path.write_text(index_text(provider))
+        if relocation:
+            version = root / "providers" / "grok" / "versions" / "0.2.117.md"
+            version_data = version.read_bytes()
+            section = b"## Re-verify reading list\n\n" + REVERIFY
+            if section not in version_data:
+                version.write_bytes(version_data.rstrip(b"\n") + b"\n\n" + section)
+    return old_entries, [mapping.new for mapping in mappings], relocation, mappings
+
+
+def report_provider(provider, old_entries, new_entries, relocation, mappings):
+    lines = [f"{provider}: old entries={len(old_entries)} new entries={len(new_entries)}"]
+    for mapping in mappings:
+        old_digest = hashlib.sha256(mapping.old.payload).hexdigest()
+        new_digest = hashlib.sha256(mapping.new.payload).hexdigest()
+        lines.append(
+            f"  source ordinal={mapping.old.ordinal} heading={heading(mapping.old)!r} "
+            f"sha256={old_digest} -> log/{mapping.shard}.md ordinal={mapping.new.ordinal} "
+            f"heading={heading(mapping.new)!r} sha256={new_digest}"
+        )
+    if relocation:
+        lines.append(f"  relocation: {relocation}")
+    return "\n".join(lines)
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--root", type=Path, default=Path("."))
+    parser.add_argument("--write", action="store_true", help="write shards, indexes, and the grok relocation")
+    parser.add_argument("--parity", type=Path, help="write parity report to this path")
+    parser.add_argument("--source-revision", help="read original verification logs from this git revision")
+    args = parser.parse_args()
+    try:
+        reports = []
+        for provider in PROVIDERS:
+            old_entries, new_entries, relocation, mappings = migrate_provider(
+                args.root, provider, args.write, args.source_revision
+            )
+            reports.append(report_provider(provider, old_entries, new_entries, relocation, mappings))
+        report = "Migration parity: PASS\n" + "\n".join(reports) + "\n"
+        if args.parity:
+            args.parity.write_text(report)
+        print(report, end="")
+        return 0
+    except (OSError, ValueError) as error:
+        print(f"shard-logs: {error}", file=sys.stderr)
+        return 1

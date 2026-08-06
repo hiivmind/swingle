@@ -1,4 +1,5 @@
 import json, os, shutil, subprocess, sys
+import pytest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -32,22 +33,29 @@ def test_no_such_xdg_fixture_stays_absent():
     """isolated_env's XDG redirect only isolates while this path does not exist."""
     assert not (FIX / "no-such-xdg").exists()
 
-import importlib.machinery, importlib.util, io, contextlib
-loader = importlib.machinery.SourceFileLoader("validate_packs", str(SCRIPT))
-vp_spec = importlib.util.spec_from_loader("validate_packs", loader)
-vp = importlib.util.module_from_spec(vp_spec)
-vp_spec.loader.exec_module(vp)
+import io, contextlib
+from swingle.cli import validate_packs_main
+from swingle import packs, environment, report
+
+@pytest.fixture(autouse=True)
+def _isolate_ambient_config(monkeypatch):
+    """In-process tests run in the pytest process; scrub ambient Swingle config so
+    validate_packs_main()/environment probes cannot read it. Subprocess tests pass their
+    own isolated_env() and are unaffected."""
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(FIX / "no-such-xdg"))
+    monkeypatch.delenv("SWINGLE_CONFIG", raising=False)
+    monkeypatch.delenv("SWINGLE_MODELS", raising=False)
 
 def test_main_is_reentrant(tmp_path, monkeypatch):
     """A failing invocation must not leak findings into the next one."""
     out = io.StringIO()
     with contextlib.redirect_stdout(out):
         monkeypatch.setattr(sys, "argv", ["validate-packs", "--root", str(FIX / "bad-missing-p1")])
-        assert vp.main() == 1
+        assert validate_packs_main() == 1
     out2 = io.StringIO()
     with contextlib.redirect_stdout(out2):
         monkeypatch.setattr(sys, "argv", ["validate-packs", "--root", str(FIX / "good-lanes")])
-        assert vp.main() == 0, out2.getvalue()
+        assert validate_packs_main() == 0, out2.getvalue()
     assert "priority 1" not in out2.getvalue()
 
 def run(*args):
@@ -219,8 +227,8 @@ def test_version_probe_rejects_a_suffixed_raw_version_token(tmp_path):
     alpha = bin_dir / "alpha"
     alpha.write_text("#!/bin/sh\necho 'alpha 1.0.0-rc1'\n")
     alpha.chmod(0o755)
-    manifest = vp.parse_front_matter(FIX / "good-lanes" / "providers" / "alpha" / "pack.md")
-    rc, _, version = vp.check_provider_version(manifest, [str(bin_dir)], 1)
+    manifest = packs.parse_front_matter(FIX / "good-lanes" / "providers" / "alpha" / "pack.md")
+    rc, _, version = environment.check_provider_version(manifest, [str(bin_dir)], 1)
     assert rc == 0
     assert version is None
 
@@ -383,7 +391,7 @@ def test_links_inside_log_shards_remain_scanned(tmp_path):
     assert r.returncode == 1 and "broken link missing.md" in r.stdout
 
 def test_version_cmp_key_zero_pads_components():
-    assert vp.version_cmp_key("1.2", 3) < vp.version_cmp_key("1.2.1", 3)
+    assert packs.version_cmp_key("1.2", 3) < packs.version_cmp_key("1.2.1", 3)
 
 def test_body_strikethrough_fails():
     r = run("--root", str(FIX / "bad-strikethrough"))
@@ -497,26 +505,26 @@ def test_yaml_rejects_single_quoted_scalar(tmp_path):
 FM = {"version-argv": ["x", "--version"], "verified-version": "1.0.0"}
 
 def test_version_probe_timeout_never_scrapes(monkeypatch):
-    monkeypatch.setattr(vp, "run_argv", lambda argv, pd, t: (-2, "timed out after 0.5 seconds"))
-    rc, out, ver = vp.check_provider_version(FM, [], 1)
+    monkeypatch.setattr(environment, "run_argv", lambda argv, pd, t: (-2, "timed out after 0.5 seconds"))
+    rc, out, ver = environment.check_provider_version(FM, [], 1)
     assert rc == -2 and ver is None
 
 def test_version_probe_oserror_never_scrapes(monkeypatch):
-    monkeypatch.setattr(vp, "run_argv", lambda argv, pd, t: (-1, "Errno 2 no such file 1.2.3"))
-    assert vp.check_provider_version(FM, [], 1)[2] is None
+    monkeypatch.setattr(environment, "run_argv", lambda argv, pd, t: (-1, "Errno 2 no such file 1.2.3"))
+    assert environment.check_provider_version(FM, [], 1)[2] is None
 
 def test_version_probe_garbage_output(monkeypatch):
-    monkeypatch.setattr(vp, "run_argv", lambda argv, pd, t: (0, "no digits here"))
-    assert vp.check_provider_version(FM, [], 1)[2] is None
+    monkeypatch.setattr(environment, "run_argv", lambda argv, pd, t: (0, "no digits here"))
+    assert environment.check_provider_version(FM, [], 1)[2] is None
 
 def test_version_probe_extracts_dotted(monkeypatch):
-    monkeypatch.setattr(vp, "run_argv", lambda argv, pd, t: (0, "tool v2.3.4 (build x)"))
-    assert vp.check_provider_version(FM, [], 1)[2] == "2.3.4"
+    monkeypatch.setattr(environment, "run_argv", lambda argv, pd, t: (0, "tool v2.3.4 (build x)"))
+    assert environment.check_provider_version(FM, [], 1)[2] == "2.3.4"
 
 def test_readiness_status_mapping(monkeypatch):
     for rc_in, status in ((0, "ok"), (-2, "timeout"), (1, "fail"), (-1, "fail")):
-        monkeypatch.setattr(vp, "run_argv", lambda argv, pd, t, r=rc_in: (r, ""))
-        assert vp.check_provider_readiness(FM, [], 1)[1] == status
+        monkeypatch.setattr(environment, "run_argv", lambda argv, pd, t, r=rc_in: (r, ""))
+        assert environment.check_provider_readiness(FM, [], 1)[1] == status
 
 def test_list_models_argv_accepted_and_validated(tmp_path):
     import shutil as _sh
@@ -606,12 +614,12 @@ def test_health_installed_and_uninstalled_inprocess(tmp_path, monkeypatch):
     monkeypatch.setenv("XDG_CONFIG_HOME", str(FIX / "no-such-xdg"))
     monkeypatch.delenv("SWINGLE_CONFIG", raising=False)
     monkeypatch.delenv("SWINGLE_MODELS", raising=False)
-    monkeypatch.setattr(vp, "is_provider_installed", lambda fm, pd: fm["id"] == "alpha")
-    monkeypatch.setattr(vp, "run_argv", lambda argv, pd, t: (0, "1.0.0" if "--version" in argv else "ready"))
+    monkeypatch.setattr(environment, "is_provider_installed", lambda fm, pd: fm["id"] == "alpha")
+    monkeypatch.setattr(environment, "run_argv", lambda argv, pd, t: (0, "1.0.0" if "--version" in argv else "ready"))
     out = io.StringIO()
     with contextlib.redirect_stdout(out):
         monkeypatch.setattr(sys, "argv", ["validate-packs", "--health", "--root", str(root)])
-        assert vp.main() == 0
+        assert validate_packs_main() == 0
     assert health_line("alpha", installed="yes", version="1.0.0", readiness="ok") in out.getvalue()
     assert health_line("beta") in out.getvalue()
     assert "config-layer=none" in out.getvalue()
@@ -621,12 +629,12 @@ def test_health_version_drift_inprocess(tmp_path, monkeypatch):
     monkeypatch.setenv("XDG_CONFIG_HOME", str(FIX / "no-such-xdg"))
     monkeypatch.delenv("SWINGLE_CONFIG", raising=False)
     monkeypatch.delenv("SWINGLE_MODELS", raising=False)
-    monkeypatch.setattr(vp, "is_provider_installed", lambda fm, pd: fm["id"] == "alpha")
-    monkeypatch.setattr(vp, "run_argv", lambda argv, pd, t: (0, "2.0.0" if "--version" in argv else "ready"))
+    monkeypatch.setattr(environment, "is_provider_installed", lambda fm, pd: fm["id"] == "alpha")
+    monkeypatch.setattr(environment, "run_argv", lambda argv, pd, t: (0, "2.0.0" if "--version" in argv else "ready"))
     out = io.StringIO()
     with contextlib.redirect_stdout(out):
         monkeypatch.setattr(sys, "argv", ["validate-packs", "--health", "--root", str(root)])
-        assert vp.main() == 0
+        assert validate_packs_main() == 0
     assert health_line("alpha", installed="yes", version="2.0.0", drift="yes", readiness="ok") in out.getvalue()
 
 def test_health_readiness_fail_inprocess(tmp_path, monkeypatch):
@@ -634,12 +642,12 @@ def test_health_readiness_fail_inprocess(tmp_path, monkeypatch):
     monkeypatch.setenv("XDG_CONFIG_HOME", str(FIX / "no-such-xdg"))
     monkeypatch.delenv("SWINGLE_CONFIG", raising=False)
     monkeypatch.delenv("SWINGLE_MODELS", raising=False)
-    monkeypatch.setattr(vp, "is_provider_installed", lambda fm, pd: fm["id"] == "alpha")
-    monkeypatch.setattr(vp, "run_argv", lambda argv, pd, t: (0, "1.0.0") if "--version" in argv else (1, ""))
+    monkeypatch.setattr(environment, "is_provider_installed", lambda fm, pd: fm["id"] == "alpha")
+    monkeypatch.setattr(environment, "run_argv", lambda argv, pd, t: (0, "1.0.0") if "--version" in argv else (1, ""))
     out = io.StringIO()
     with contextlib.redirect_stdout(out):
         monkeypatch.setattr(sys, "argv", ["validate-packs", "--health", "--root", str(root)])
-        assert vp.main() == 0
+        assert validate_packs_main() == 0
     assert health_line("alpha", installed="yes", version="1.0.0", readiness="fail") in out.getvalue()
 
 def test_health_readiness_timeout(tmp_path, monkeypatch):
@@ -656,12 +664,12 @@ def test_health_readiness_timeout(tmp_path, monkeypatch):
     monkeypatch.setenv("XDG_CONFIG_HOME", str(FIX / "no-such-xdg"))
     monkeypatch.delenv("SWINGLE_CONFIG", raising=False)
     monkeypatch.delenv("SWINGLE_MODELS", raising=False)
-    monkeypatch.setattr(vp, "HEALTH_PROBE_TIMEOUT_SECONDS", 0.5)
+    monkeypatch.setattr(environment, "HEALTH_PROBE_TIMEOUT_SECONDS", 0.5)
 
     out = io.StringIO()
     with contextlib.redirect_stdout(out):
         monkeypatch.setattr(sys, "argv", ["validate-packs", "--health", "--root", str(root), "--path-dir", str(bin_dir)])
-        exit_code = vp.main()
+        exit_code = validate_packs_main()
 
     output = out.getvalue()
     assert exit_code == 0
@@ -680,12 +688,12 @@ def test_health_version_probe_timeout_reports_no_version(tmp_path, monkeypatch):
     monkeypatch.setenv("XDG_CONFIG_HOME", str(FIX / "no-such-xdg"))
     monkeypatch.delenv("SWINGLE_CONFIG", raising=False)
     monkeypatch.delenv("SWINGLE_MODELS", raising=False)
-    monkeypatch.setattr(vp, "HEALTH_PROBE_TIMEOUT_SECONDS", 0.1)
+    monkeypatch.setattr(environment, "HEALTH_PROBE_TIMEOUT_SECONDS", 0.1)
 
     out = io.StringIO()
     with contextlib.redirect_stdout(out):
         monkeypatch.setattr(sys, "argv", ["validate-packs", "--health", "--root", str(root), "--path-dir", str(bin_dir)])
-        exit_code = vp.main()
+        exit_code = validate_packs_main()
 
     assert exit_code == 0
     assert health_line("alpha", installed="yes", drift="yes", readiness="timeout") in out.getvalue()

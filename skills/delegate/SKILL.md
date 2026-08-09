@@ -5,21 +5,28 @@ description: Directly delegate an explicitly requested, self-contained job or ho
 
 # Delegate — Direct One-Off Dispatch
 
-**Controller**: identify your controller and read
-`<root>/controllers/<controller>.md` (claude-code, codex, grok, opencode, pi, agy, omp) before setup — it
-maps skill-loading, native subagent dispatch, background jobs, completion observation,
-and asset-root resolution. `<root>` is this skill directory's grandparent (the directory
-containing `skills/`, `controllers/`, `core/`, `providers/`, `contracts/`).
+**Controller**: at the first actual background launch, identify your controller and read
+`<root>/controllers/<controller>.md` (claude-code, codex, grok, opencode, pi, agy, omp) —
+it maps that launch's background-job, completion-observation, and asset-root mechanism.
+Reuse it for later jobs while the installed plugin version is unchanged. `<root>` is this
+skill directory's grandparent (the directory containing `skills/`, `controllers/`, `core/`,
+`providers/`).
 
-**Never dispatch from memory.** Before the first dispatch of a session, read
-`<root>/core/roles.md`, `<root>/core/playbook.md`, `<root>/core/safety-doctrine.md`,
-`<root>/core/liveness.md`, and the active provider's `<root>/providers/<id>/pack.md`
-(manifest) plus its resolved registry body. Recalled
-doctrine is a paraphrase of whatever was true when it was learned, and these documents
-change under you — packs are re-verified on every CLI version bump, and tiering, roles,
-and dispatch templates move with them. A dispatch built from memory looks identical to a
-correct one and fails silently: a stale flag, a superseded model id, a tier that no longer
-matches the role. Read the files; they are short by design.
+**Check by exception.** `validate-packs --step0` is the mandatory fast gate before a
+first routed dispatch. It deterministically checks provider selection, model readiness,
+config STOP/ASK cases, and provider-version drift; the trust gate remains before it. Do not
+pre-explore `<root>` with orientation commands. Do not independently re-run a provider
+`--version` after the gate on the clean fast path.
+
+**Core doctrine is read by exception, not as a first-dispatch wall.** Read `roles.md` only
+for genuine role/tier/lane ambiguity or a Step-0 role finding; read `playbook.md`,
+`safety-doctrine.md`, and `verification-protocol.md` only when a specific recovery,
+containment, or drift decision needs policy beyond this skill's inline rule. Read
+`liveness.md` immediately before constructing the background wrapper. Before the first
+dispatch to a routed provider/role, read that routed provider's manifest/body and the
+applicable role contract at the point their canonical command shape and output protocol are
+needed. Reuse every document read for the installed plugin version within this controller
+session; re-read only when its relevant provider, role, lane, or version changes.
 
 **Boundary (semantic, not transport-based)**: `swingle-sdd` = dependency-aware execution
 of a multi-task implementation plan (task reviews, plan ledger, final review) — use it
@@ -130,9 +137,14 @@ Read these plugin documents when their policy is needed:
    provider, run any preflight its pack defines beyond the generic probe (e.g. a
    persisted-permission baseline check) — a miss is a STOP with the pack's fix
    section.
-6. Also read the routed provider's `providers/<id>/log/` (monthly shards; read newest-first, all shards are evidence) and, if present,
-   the user's local record at `${XDG_CONFIG_HOME:-~/.config}/swingle/verification/<id>.md`
-   (read additively — both are evidence).
+6. **Provider body and evidence**: on a clean Step-0 result (no drift warning), read the
+   routed provider's manifest and current `versions/<verified-version>.md` body before its
+   first dispatch. Read the routed provider's `providers/<id>/log/` (monthly shards;
+   newest-first) and, if present, the user's local record at
+   `${XDG_CONFIG_HOME:-~/.config}/swingle/verification/<id>.md` only when `--step0` reports
+   drift or the routed body requires lane-specific preflight/guidance. In that exception,
+   obtain the raw version token with the manifest's validated version argv and resolve the
+   provider body as follows:
    Take the installed version from the CLI's **raw version-output token**, accepting it
    only when it full-matches the closed dotted-numeric grammar; a suffixed token is
    unparseable — never resolve on a numeric prefix. Resolve the provider BODY from the
@@ -266,11 +278,13 @@ BEFORE launch — a crash or compaction never loses the number→task mapping.
    the offer is subject to the worktree-dispatch prerequisite below — a `superpowers`
    config record for the routed provider).
    Record BASE (= HEAD) and the current branch for both lanes.
-3. Dispatch with the active pack's canonical template inside the self-reaping wrapper
-   (`core/liveness.md`), stdout to `NNN-dispatch.log`. Observe completion via the
-   controller adapter's declared mechanism (background-task notification, polling, or the
-   detached marker-file form — whichever the adapter specifies for the mode in use);
-   never foreground stdout. Session capture is asynchronous and provider-specific:
+3. Immediately before constructing the background wrapper, read `core/liveness.md` and
+   the controller adapter if this is their first launch for the installed plugin version.
+   Dispatch with the active pack's canonical template inside the self-reaping wrapper,
+   stdout to `NNN-dispatch.log`. Observe completion via the controller adapter's declared
+   mechanism (background-task notification, polling, or the detached marker-file form —
+   whichever the adapter specifies for the mode in use); never foreground stdout. Session
+   capture is asynchronous and provider-specific:
    obtain the session id per the pack's `session-source` and append it to the ledger
    the moment it is observed.
 4. **Evidence gate** (exit codes are never evidence of work):

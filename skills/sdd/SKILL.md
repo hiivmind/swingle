@@ -11,10 +11,11 @@ description: >-
 
 # SDD with Provider Packs
 
-**Controller**: identify your controller and read `<root>/controllers/<controller>.md`
-(claude-code, codex, grok, opencode, pi, agy, omp) before Step 0 — it maps skill-loading, native subagent
-dispatch, task tracking, background jobs, and asset-root resolution. All paths below
-are relative to the plugin tree root `<root>` (the directory containing `skills/`,
+**Controller**: at the first actual background launch, identify your controller and read
+`<root>/controllers/<controller>.md` (claude-code, codex, grok, opencode, pi, agy, omp) —
+it maps that launch's task tracking, background-job, completion-observation, and asset-root
+mechanism. Reuse it for later tasks while the installed plugin version is unchanged. All paths
+below are relative to the plugin tree root `<root>` (the directory containing `skills/`,
 `controllers/`, `core/`, `providers/`).
 
 This skill wraps **superpowers:subagent-driven-development**. Its process governs the
@@ -22,11 +23,21 @@ per-task loop, task briefs and review packages, statuses, two-verdict reviews, f
 ledger, pre-flight scan, and final review. This skill replaces its dispatch mechanism with
 the active provider pack or, when selected, controller-native subagents.
 
-**Never dispatch from memory.** The documents below are read at Step 0, before the first
-dispatch — not recalled. They change under you: packs are re-verified on every CLI version
-bump, and tiering, roles, and dispatch templates move with them. A dispatch built from
-remembered doctrine looks identical to a correct one and fails silently — a stale flag, a
-superseded model id, a tier that no longer matches the role.
+**Check by exception.** `validate-packs --step0` is the mandatory fast gate before a first
+routed dispatch. It deterministically checks provider selection, model readiness, config
+STOP/ASK cases, and provider-version drift; the trust gate remains before it. Do not
+pre-explore `<root>` with orientation commands. Do not independently re-run a provider
+`--version` after the gate on the clean fast path.
+
+**Core doctrine is read by exception, not as a Step-0 wall.** Read `roles.md` only for
+genuine role/tier/lane ambiguity or a Step-0 role finding; read `playbook.md`,
+`safety-doctrine.md`, and `verification-protocol.md` only when a specific recovery,
+containment, or drift decision needs policy beyond this skill's inline rule. Read
+`liveness.md` immediately before constructing the background wrapper. Before the first
+dispatch to a routed provider/role, read that routed provider's manifest/body and the
+applicable role contract at the point their canonical command shape and output protocol are
+needed. Reuse every document read for the installed plugin version within this controller
+session; re-read only when its relevant provider, role, lane, or version changes.
 
 Read these plugin documents when their policy is needed:
 
@@ -45,17 +56,15 @@ Read these plugin documents when their policy is needed:
 2. Run its `scripts/sdd-workspace`; copy the operating contracts into it from
    `<root>/contracts/`.
 3. Check the ledger (`$WORKSPACE/progress.md`) — never re-dispatch a completed task.
-4. Read `<root>/core/roles.md`, `<root>/core/playbook.md`,
-   `<root>/core/safety-doctrine.md`, and `<root>/core/liveness.md`; determine the routing
-   lever in effect: silent means “floor it”, “play it safe” moves implementers one tier up,
-   and a provider or lane directive steers eligible work. The `native-subagents` lever
-   uses the controller-native subagent mechanism; under Claude Code, “all Claude” is its
-   alias; under Grok, “all Grok” is its alias.
-4b. **Trust gate**: run `python3 <root>/scripts/validate-packs --root <root>` — refuse
+4. Determine the routing lever in effect: silent means “floor it”, “play it safe” moves
+   implementers one tier up, and a provider or lane directive steers eligible work. The
+   `native-subagents` lever uses the controller-native subagent mechanism; under Claude Code,
+   “all Claude” is its alias; under Grok, “all Grok” is its alias.
+5. **Trust gate**: run `python3 <root>/scripts/validate-packs --root <root>` — refuse
    to proceed past a non-zero exit. THEN check `git -C <root> status --porcelain
    providers/` — any untracked or modified provider directory requires explicit user
    approval before its manifest or prose is used (git-tracked state is the trust anchor).
-5. **Session gate — run the Step-0 pipeline** (where the controller can run shell;
+6. **Session gate — run the Step-0 pipeline** (where the controller can run shell;
    otherwise execute the same table below in prose):
    Branch for `native-subagents` immediately after manifest pre-validation; it bypasses
    config discovery/loading and provider detection. For an external branch, discover the
@@ -106,9 +115,14 @@ Read these plugin documents when their policy is needed:
    provider, run any preflight its pack defines beyond the generic probe (e.g. a
    persisted-permission baseline check) — a miss is a STOP with the pack's fix
    section.
-9. Also read the routed provider's `providers/<id>/log/` (monthly shards; read newest-first, all shards are evidence) and, if present,
-   the user's local record at `${XDG_CONFIG_HOME:-~/.config}/swingle/verification/<id>.md`
-   (read additively — both are evidence).
+9. **Provider body and evidence**: on a clean Step-0 result (no drift warning), read the
+   routed provider's manifest and current `versions/<verified-version>.md` body before its
+   first dispatch. Read the routed provider's `providers/<id>/log/` (monthly shards;
+   newest-first) and, if present, the user's local record at
+   `${XDG_CONFIG_HOME:-~/.config}/swingle/verification/<id>.md` only when `--step0` reports
+   drift or the routed body requires lane-specific preflight/guidance. In that exception,
+   obtain the raw version token with the manifest's validated version argv and resolve the
+   provider body as follows:
    Take the installed version from the CLI's **raw version-output token**, accepting it
    only when it full-matches the closed dotted-numeric grammar; a suffixed token is
    unparseable — never resolve on a numeric prefix. Resolve the provider BODY from the
@@ -146,11 +160,12 @@ Read these plugin documents when their policy is needed:
 
 ## Dispatch overrides (replace the stock skill's dispatch steps)
 
-For every external implementer, reviewer, final reviewer, and resumed fix, use the active
-pack's canonical dispatch template (the resolved registry body) inside the self-reaping wrapper
-(`core/liveness.md`). The adapter specifies how that background work is started and
-observed in the current controller. Keep stdout in the per-task log and record the provider
-session identifier for continuation.
+Immediately before constructing the background wrapper for every external implementer,
+reviewer, final reviewer, or resumed fix, read `core/liveness.md` and the controller adapter
+if this is their first launch for the installed plugin version. Use the active pack's canonical
+dispatch template (the resolved registry body) inside the self-reaping wrapper. The adapter
+specifies how that background work is started and observed in the current controller. Keep
+stdout in the per-task log and record the provider session identifier for continuation.
 
 For native-subagent routing, use the adapter's native subagent mechanism instead. The
 controller still supplies the applicable contract, brief, scene, interface list, and report

@@ -271,3 +271,32 @@ def test_sdd_worktree_lane_present():
     assert "swingle/sdd-" in text
     assert text.count('"in a worktree"') == 1 and text.count('"in my tree"') == 1
     assert "continue on the existing branch" in text          # continuation form
+
+
+def test_both_skills_make_step0_the_fast_gate():
+    for skill in (SKILL, SDD_SKILL):
+        text = " ".join(skill.read_text().split())
+        assert "`validate-packs --step0` is the mandatory fast gate" in text
+        assert "Do not pre-explore `<root>`" in text
+        assert "Do not independently re-run a provider `--version`" in text
+        assert "Core doctrine is read by exception" in text
+
+
+def test_both_skills_keep_launch_time_requirements():
+    for skill in (SKILL, SDD_SKILL):
+        text = " ".join(skill.read_text().split())
+        assert "routed provider's manifest/body" in text
+        assert "applicable role contract" in text
+        assert "immediately before constructing the background wrapper" in text
+
+
+def test_delegate_reads_provider_evidence_only_by_exception():
+    text = " ".join(SKILL.read_text().split())
+    assert "only when `--step0` reports drift" in text
+    assert "immediately before constructing the background wrapper" in text
+
+
+def test_sdd_does_not_require_a_prophylactic_core_document_wall():
+    text = " ".join(SDD_SKILL.read_text().split())
+    assert "Core doctrine is read by exception" in text
+    assert "Read `<root>/core/roles.md`, `<root>/core/playbook.md`" not in text

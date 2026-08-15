@@ -3,6 +3,7 @@
 Moved verbatim from the former scripts/shard-logs. Independent of the findings
 collector: it owns its own `shard-logs: <error>` stderr + exit-code contract.
 """
+
 import argparse
 import hashlib
 import re
@@ -11,8 +12,8 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-HEADING = re.compile(br"(?m)^## ")
-DATE = re.compile(br"\b(\d{4}-\d{2}-\d{2})\b")
+HEADING = re.compile(rb"(?m)^## ")
+DATE = re.compile(rb"\b(\d{4}-\d{2}-\d{2})\b")
 REVERIFY = (
     b"Primary docs for re-verify (read first on every CLI bump):\n"
     b"`~/.grok/docs/user-guide/14-headless-mode.md`, `17-sessions.md`, `18-sandbox.md`,\n"
@@ -48,7 +49,7 @@ def parse_log(data):
         if not match:
             raise ValueError("entry heading has no YYYY-MM-DD date")
         entries.append(Entry(match.group(1).decode("ascii"), ordinal, payload))
-    return data[:starts[0]], entries
+    return data[: starts[0]], entries
 
 
 def trim_separator(payload):
@@ -96,7 +97,8 @@ def heading(entry):
 
 def source_at_revision(root, relative_path, revision):
     result = subprocess.run(
-        ["git", "show", f"{revision}:{relative_path.as_posix()}"], cwd=root,
+        ["git", "show", f"{revision}:{relative_path.as_posix()}"],
+        cwd=root,
         capture_output=True,
     )
     if result.returncode:
@@ -110,7 +112,8 @@ def map_entries(provider, old_entries, shard_entries):
     """Pair each source entry with its exact chronological destination entry."""
     old_ordered = sorted(old_entries, key=lambda item: (item.date, item.ordinal))
     new_ordered = [
-        (month, entry) for month in sorted(shard_entries)
+        (month, entry)
+        for month in sorted(shard_entries)
         for entry in shard_entries[month]
     ]
     if len(old_ordered) != len(new_ordered):
@@ -140,8 +143,9 @@ def unexpected_preamble_paragraphs(provider, preamble):
     unexpected = []
     for paragraph in re.split(r"\n[ \t]*\n", preamble.decode("utf-8")):
         lines = [line.strip() for line in paragraph.splitlines() if line.strip()]
-        if not lines or all(line == "---" or line in titles or line in allowed_lines
-                            for line in lines):
+        if not lines or all(
+            line == "---" or line in titles or line in allowed_lines for line in lines
+        ):
             continue
         unexpected.append(paragraph)
     return unexpected
@@ -150,8 +154,11 @@ def unexpected_preamble_paragraphs(provider, preamble):
 def migrate_provider(root, provider, write, source_revision=None):
     log_path = root / "providers" / provider / "verification-log.md"
     relative_log = log_path.relative_to(root)
-    data = (source_at_revision(root, relative_log, source_revision)
-            if source_revision else log_path.read_bytes())
+    data = (
+        source_at_revision(root, relative_log, source_revision)
+        if source_revision
+        else log_path.read_bytes()
+    )
     preamble, old_entries = parse_log(data)
     relocation = None
     if provider == "grok":
@@ -166,7 +173,10 @@ def migrate_provider(root, provider, write, source_revision=None):
     grouped = {}
     for entry in sorted(old_entries, key=lambda item: (item.date, item.ordinal)):
         grouped.setdefault(entry.date[:7], []).append(entry)
-    rendered = {month: render_shard(provider, month, entries) for month, entries in grouped.items()}
+    rendered = {
+        month: render_shard(provider, month, entries)
+        for month, entries in grouped.items()
+    }
     if source_revision and not write:
         destination = {}
         for month in grouped:
@@ -192,7 +202,9 @@ def migrate_provider(root, provider, write, source_revision=None):
 
 
 def report_provider(provider, old_entries, new_entries, relocation, mappings):
-    lines = [f"{provider}: old entries={len(old_entries)} new entries={len(new_entries)}"]
+    lines = [
+        f"{provider}: old entries={len(old_entries)} new entries={len(new_entries)}"
+    ]
     for mapping in mappings:
         old_digest = hashlib.sha256(mapping.old.payload).hexdigest()
         new_digest = hashlib.sha256(mapping.new.payload).hexdigest()
@@ -209,9 +221,16 @@ def report_provider(provider, old_entries, new_entries, relocation, mappings):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, default=Path("."))
-    parser.add_argument("--write", action="store_true", help="write shards, indexes, and the grok relocation")
+    parser.add_argument(
+        "--write",
+        action="store_true",
+        help="write shards, indexes, and the grok relocation",
+    )
     parser.add_argument("--parity", type=Path, help="write parity report to this path")
-    parser.add_argument("--source-revision", help="read original verification logs from this git revision")
+    parser.add_argument(
+        "--source-revision",
+        help="read original verification logs from this git revision",
+    )
     args = parser.parse_args()
     try:
         reports = []
@@ -219,7 +238,11 @@ def main():
             old_entries, new_entries, relocation, mappings = migrate_provider(
                 args.root, provider, args.write, args.source_revision
             )
-            reports.append(report_provider(provider, old_entries, new_entries, relocation, mappings))
+            reports.append(
+                report_provider(
+                    provider, old_entries, new_entries, relocation, mappings
+                )
+            )
         report = "Migration parity: PASS\n" + "\n".join(reports) + "\n"
         if args.parity:
             args.parity.write_text(report)

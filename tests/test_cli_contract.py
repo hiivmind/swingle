@@ -9,6 +9,7 @@ The multi-region tree is built in tmp_path, never tracked: `validate-packs --roo
 rglobs every *.md in the repo, so a tracked broken-link fixture would fail the real
 gate. Building it at runtime keeps the ordering lock isolated from the repo scan.
 """
+
 import os, re, subprocess, sys
 from pathlib import Path
 
@@ -29,8 +30,12 @@ def isolated_env(**overrides):
 
 
 def run(script, *args):
-    return subprocess.run([sys.executable, str(SCRIPTS / script), *args],
-                          capture_output=True, text=True, env=isolated_env())
+    return subprocess.run(
+        [sys.executable, str(SCRIPTS / script), *args],
+        capture_output=True,
+        text=True,
+        env=isolated_env(),
+    )
 
 
 def norm(text, *roots):
@@ -44,16 +49,20 @@ def build_multi_region(root: Path):
     """Materialise a tree that fires exactly one finding in each default-mode region,
     exercised in order: version-sync, per-pack structural, hygiene, purity, link scan."""
     import shutil
+
     shutil.copytree(GOOD, root, dirs_exist_ok=True)
     (root / ".claude-plugin").mkdir(parents=True, exist_ok=True)
     (root / ".claude-plugin" / "plugin.json").write_text('{\n  "version": "9.9.9"\n}\n')
-    (root / "README.md").write_text("# Fixture\n\n**Version:** 0.0.0\n\n[dead](nope.md)\n")
+    (root / "README.md").write_text(
+        "# Fixture\n\n**Version:** 0.0.0\n\n[dead](nope.md)\n"
+    )
     with (root / "providers" / "alpha" / "pack.md").open("a") as f:
         f.write("body extra\n")
     with (root / "providers" / "alpha" / "models.md").open("a") as f:
         f.write("\nSome ~~struck~~ text.\n")
     (root / "core" / "doctrine.md").write_text(
-        "# doctrine\n\nUse gpt-5.6 for this.\n\nSee [missing](missing.md) for details.\n")
+        "# doctrine\n\nUse gpt-5.6 for this.\n\nSee [missing](missing.md) for details.\n"
+    )
 
 
 def test_default_mode_ordering_lock(tmp_path):
@@ -73,7 +82,9 @@ def test_default_mode_ordering_lock(tmp_path):
 
 
 def test_resolve_output(tmp_path):
-    r = run("validate-packs", "--root", str(GOOD), "--resolve", "per-task reviewer", "alpha")
+    r = run(
+        "validate-packs", "--root", str(GOOD), "--resolve", "per-task reviewer", "alpha"
+    )
     assert r.returncode == 0
     assert norm(r.stdout, ROOT) == (
         "layer: default path=<ROOT>/tests/fixtures/good-lanes/providers/alpha/models.yaml\n"
@@ -85,7 +96,9 @@ def test_resolve_output(tmp_path):
 def test_step0_output():
     r = run("validate-packs", "--step0", "--root", str(GOOD), "--path-dir", str(BINS))
     assert r.returncode == 0
-    assert r.stdout == "installed: alpha\nactive: alpha\nprovider: alpha\nready: alpha\n"
+    assert (
+        r.stdout == "installed: alpha\nactive: alpha\nprovider: alpha\nready: alpha\n"
+    )
 
 
 def test_health_output():
@@ -107,10 +120,15 @@ def test_swingle_models_which():
     r = run("swingle-models", "which")
     assert r.returncode == 0
     lines = norm(r.stdout, ROOT).splitlines()
-    providers = sorted(p.name for p in (ROOT / "providers").glob("*/") if (p / "pack.md").exists())
+    providers = sorted(
+        p.name for p in (ROOT / "providers").glob("*/") if (p / "pack.md").exists()
+    )
     assert len(lines) == len(providers)
     for line in lines:
-        assert re.fullmatch(r"[a-z0-9-]+: layer=default path=<ROOT>/providers/[a-z0-9-]+/models\.yaml", line), line
+        assert re.fullmatch(
+            r"[a-z0-9-]+: layer=default path=<ROOT>/providers/[a-z0-9-]+/models\.yaml",
+            line,
+        ), line
 
 
 def test_shard_logs_read_only_index_only():

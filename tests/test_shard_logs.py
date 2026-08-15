@@ -12,7 +12,11 @@ def test_parse_and_render_preserve_payloads_and_report_provider_preamble():
     )
     preamble, entries = sl.parse_log(data)
     assert b"Provider-specific instruction." in preamble
-    assert [entry.date for entry in entries] == ["2026-08-02", "2026-07-01", "2026-08-02"]
+    assert [entry.date for entry in entries] == [
+        "2026-08-02",
+        "2026-07-01",
+        "2026-08-02",
+    ]
     assert b"### addendum\nkept\n---\ninside payload" in entries[0].payload
     assert not entries[0].payload.endswith(b"\n\n---\n\n")
     grouped = {}
@@ -23,7 +27,10 @@ def test_parse_and_render_preserve_payloads_and_report_provider_preamble():
     _, july_entries = sl.parse_log(july)
     _, august_entries = sl.parse_log(august)
     assert july_entries[0].payload == entries[1].payload
-    assert [entry.payload for entry in august_entries] == [entries[0].payload, entries[2].payload]
+    assert [entry.payload for entry in august_entries] == [
+        entries[0].payload,
+        entries[2].payload,
+    ]
     assert b"../../../core/verification-protocol.md" in july
 
 
@@ -49,10 +56,14 @@ def test_grok_provider_preamble_is_relocated_not_dropped(tmp_path):
     assert mappings[0].old.ordinal == mappings[0].new.ordinal == 0
     mapped_report = sl.report_provider("grok", old, new, relocation, mappings)
     assert "source ordinal=0 heading='## 2026-07-01 -- entry'" in mapped_report
-    assert "-> log/2026-07.md ordinal=0 heading='## 2026-07-01 -- entry'" in mapped_report
+    assert (
+        "-> log/2026-07.md ordinal=0 heading='## 2026-07-01 -- entry'" in mapped_report
+    )
     assert relocation and "Primary docs for re-verify" in relocation
     assert sl.REVERIFY in (tmp_path / "providers/grok/versions/0.2.117.md").read_bytes()
-    assert (tmp_path / "providers/grok/verification-log.md").read_text() == sl.index_text("grok")
+    assert (
+        tmp_path / "providers/grok/verification-log.md"
+    ).read_text() == sl.index_text("grok")
 
 
 def test_original_claude_preamble_is_known_boilerplate():
@@ -64,7 +75,9 @@ def test_original_claude_preamble_is_known_boilerplate():
         "---\n\n"
     ).encode()
     assert sl.unexpected_preamble_paragraphs("claude", preamble) == []
-    generic = preamble.replace(" — claude".encode(), b"").replace(b"../../", b"../../../")
+    generic = preamble.replace(" — claude".encode(), b"").replace(
+        b"../../", b"../../../"
+    )
     assert sl.unexpected_preamble_paragraphs("claude", generic) == []
 
 

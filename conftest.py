@@ -4,6 +4,7 @@ Subprocess tests invoke scripts/* which bootstrap lib/ themselves; this is only 
 in-process `import swingle.*` tests. Absolute resolved path at index 0 so an installed
 third-party `swingle` cannot shadow the vendored one during tests.
 """
+
 import sys
 from pathlib import Path
 

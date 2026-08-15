@@ -73,7 +73,9 @@ def test_boundary_guard_passes_on_setup_skill():
     text = SKILL.read_text(encoding="utf-8")
     violations = _check_boundary_guard(text, clis)
     assert not violations, f"Boundary guard violations found in SKILL.md: {violations}"
-    assert "swingle-verify <id>" in text, "bare recommendation string swingle-verify <id> must be present"
+    assert "swingle-verify <id>" in text, (
+        "bare recommendation string swingle-verify <id> must be present"
+    )
 
 
 def test_boundary_guard_fails_on_violating_fixtures():
@@ -110,12 +112,13 @@ def test_consent_invariants_present():
 
 def test_superpowers_probe_present():
     text = SKILL.read_text(encoding="utf-8")
-    assert "superpowers: <version>" in text and "superpowers: none" in text   # exact probe reply grammar
-    assert "superpowers: unknown-version" in text                             # installed-but-undiscoverable case
-    assert text.count("worktree-dispatch") >= 1                               # names its consumer
+    assert (
+        "superpowers: <version>" in text and "superpowers: none" in text
+    )  # exact probe reply grammar
+    assert "superpowers: unknown-version" in text  # installed-but-undiscoverable case
+    assert text.count("worktree-dispatch") >= 1  # names its consumer
 
 
 def test_superpowers_probe_is_consented_and_recorded():
     text = SKILL.read_text(encoding="utf-8")
-    assert '"probed"' in text and '"installed"' in text                       # records the validated shape
-
+    assert '"probed"' in text and '"installed"' in text  # records the validated shape

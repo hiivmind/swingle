@@ -5,6 +5,7 @@ interpreter — a state that never existed when each script was a fresh process.
 owning entrypoint must report.reset() first, so a prior failed validation cannot poison
 a later call. Asserts on the cleared list, not merely the return code.
 """
+
 import sys
 
 import pytest
@@ -44,7 +45,10 @@ def test_failed_validate_does_not_poison_models(monkeypatch, tmp_path, capsys):
     assert report.findings == []  # models.main reset at entry
     # models output carries only provider layer lines, none of the validate findings
     assert "version mismatch" not in out.out and "purity violation" not in out.out
-    assert out.out.strip().splitlines() == ["alpha: layer=default path=" + str((GOOD / "providers/alpha/models.yaml").resolve())]
+    assert out.out.strip().splitlines() == [
+        "alpha: layer=default path="
+        + str((GOOD / "providers/alpha/models.yaml").resolve())
+    ]
 
 
 def test_clean_models_then_validate_reports_only_its_own(monkeypatch, tmp_path, capsys):

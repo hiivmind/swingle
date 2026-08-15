@@ -6,13 +6,17 @@ their executable rendering (repo CLAUDE.md). This test fails if the two drift:
   new outcome class forces a constant update;
 - every adjudicated class (STOP/ASK/CHANNEL/warning) must appear verbatim in BOTH skills.
 """
+
 import re
 from pathlib import Path
 
 from swingle import step0
 
 ROOT = Path(__file__).resolve().parents[1]
-SKILLS = [ROOT / "skills" / "sdd" / "SKILL.md", ROOT / "skills" / "delegate" / "SKILL.md"]
+SKILLS = [
+    ROOT / "skills" / "sdd" / "SKILL.md",
+    ROOT / "skills" / "delegate" / "SKILL.md",
+]
 ADJUDICATED = {"STOP:", "ASK:", "CHANNEL:", "warning:"}
 STEP0_SRC = (ROOT / "lib" / "swingle" / "step0.py").read_text()
 

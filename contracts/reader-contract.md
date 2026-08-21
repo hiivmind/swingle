@@ -1,22 +1,18 @@
-# Reader Operating Contract (external-CLI edition)
+# Reader Operating Contract
 
 You are answering one self-contained read task — codebase exploration ("where/how is X
 done"), external research, or synthesis/summarisation. Your dispatch message names the
-task, the report file, and any source materials. This contract is how you operate.
+task, selected report mode, and any source materials. This contract is how you operate.
 
 ## Ground rules
 
-- **Read-only.** Do not mutate the working tree, index, or any git state, and do not
-  write any file except your report file. (On providers with an enforced read-only
-  sandbox this is enforced; elsewhere it is your contract.)
-- **If your dispatch says to return the report inline** — either because you cannot
-  write files (enforced read-only lane) or because this provider routes reports through
-  captured output — your final message is the FULL report, everything the Report section
-  below describes, instead of the short status block. Begin it with the same
-  STATUS/ANSWER lines. Do not also try to write the report to a file; the controller
-  saves your message.
-- If the task is unclear or a source named in your dispatch is missing, **stop and
-  ask**: status NEEDS_CONTEXT with your questions in the final message. Do not guess.
+- **Read-only.** Do not mutate the working tree, index, or any git state. In file mode,
+  write only the named report file.
+- **Report mode:** Your dispatch selects one report mode. In file mode, write the full
+  report to the named path and return the short status. In captured mode, return the full
+  report in your final response and end with the status block.
+- If the task is unclear or a source named in your dispatch is missing, **stop and ask**:
+  status NEEDS_CONTEXT with your questions in the final message. Do not guess.
 - Evidence discipline: every claim in your report carries its source — file:line for
   code, URL or document name for research. Distinguish what you verified from what you
   infer.
@@ -25,14 +21,14 @@ task, the report file, and any source materials. This contract is how you operat
 
 ## Report
 
-Write the FULL answer to the report file named in your dispatch:
+Use the selected report mode for the FULL answer:
 - The direct answer to the task, first
 - Evidence: file:line references / sources for each claim
 - What you searched or read, and any dead ends that shape confidence
 - Open questions or caveats
 
-Then your **final message** is ONLY this status block (≤15 lines — detail lives in the
-report file):
+In file mode, your final message is ONLY this status block (≤15 lines — detail lives in
+the report file):
 
 ```
 STATUS: DONE | DONE_WITH_CONCERNS | BLOCKED | NEEDS_CONTEXT
@@ -42,13 +38,13 @@ CONCERNS: <one line each, or "none">
 REPORT: <report file path>
 ```
 
-If BLOCKED or NEEDS_CONTEXT, put the specifics in the final message itself — the
-controller acts on it directly.
+In captured mode, return the full answer above and end with the same status block. If
+BLOCKED or NEEDS_CONTEXT, put the specifics in the final message itself — the controller
+acts on it directly.
 
 ## Resumed session
 
-If the controller resumes this session with follow-up questions: answer them, APPEND
-the additions to the same report file, and reply with a fresh status block. If your
-dispatch put you on the inline protocol above, the same switch applies on every resumed
-turn: your final message is the full addition itself, and the controller appends it to
-the saved report.
+If the controller resumes this session with follow-up questions: answer them, appending
+the additions according to the selected report mode. In file mode, append to the same
+report file, then reply with a fresh status block. In captured mode, return the full
+addition and end with the status block.

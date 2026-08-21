@@ -1,7 +1,0 @@
-interface:
-  display_name: "Swingle Verify"
-  short_description: "Re-verify one Swingle provider pack (or all active packs) against live CLI behavior after a version bump, model release, or anomaly."
-  default_prompt: "Re-verify the named provider pack with swingle-verify."
-
-policy:
-  allow_implicit_invocation: false

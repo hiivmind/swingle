@@ -1,6 +1,6 @@
 interface:
   display_name: "Delegate to External CLI"
-  short_description: "Directly delegate an explicitly requested, self-contained job or homogeneous batch to an external CLI (codex/opencode/agy/grok) through validated provider packs, without a written implementation plan."
+  short_description: "Delegate one explicitly requested self-contained job or homogeneous batch through an installed provider CLI using Swingle contracts, live help, configuration, and ledgers."
   default_prompt: "Delegate this task with the swingle-delegate skill."
 
 policy:

@@ -569,6 +569,7 @@ from pathlib import Path
 import re
 
 TITLE_RE = re.compile(r"^# .+ gotchas$")
+PROVIDER_ID_RE = re.compile(r"^[a-z0-9-]+$")
 CLI_RE = re.compile(r"^CLI: `([a-z0-9-]+)`$")
 TABLE_HEADER = "| Failure signature | Impact | Recovery | Evidence |"
 TABLE_RULE = "| --- | --- | --- | --- |"
@@ -625,6 +626,13 @@ def load_provider_notes(root: Path) -> dict[str, ProviderNote]:
     return {
         path.parent.name: load_provider_note(path)
         for path in sorted((root / "providers").glob("*/pack.md"))
+    }
+
+def discover_provider_ids(root: Path) -> set[str]:
+    return {
+        path.name
+        for path in (root / "providers").iterdir()
+        if path.is_dir() and PROVIDER_ID_RE.fullmatch(path.name)
     }
 ```
 
@@ -774,6 +782,21 @@ def test_config_show_returns_machine_readable_effective_configuration(tmp_path):
     assert payload["layer"] == "env"
     assert payload["config"]["default_provider"] == "codex"
 
+def test_config_show_does_not_parse_unrelated_provider_notes(tmp_path):
+    root = tmp_path / "root"
+    provider = root / "providers" / "codex"
+    provider.mkdir(parents=True)
+    (provider / "pack.md").write_text("malformed note")
+    config = tmp_path / "config.json"
+    config.write_text(json.dumps({"default_provider": "codex"}))
+
+    result = run_cli(
+        "config", "show", "--config", str(config), "--root", str(root)
+    )
+
+    assert result.returncode == 0
+    assert json.loads(result.stdout)["config"]["default_provider"] == "codex"
+
 
 def test_config_validate_reports_malformed_json(tmp_path):
     path = tmp_path / "config.json"
@@ -865,14 +888,14 @@ def main(
 ```
 
 ```text
-swingle config init (--user | --project PATH | --path PATH) [--force]
-swingle config show [--config PATH] [--project PATH] [--root PATH]
-swingle config validate PATH [--root PATH]
-swingle config set --path PATH KEY JSON_VALUE [--root PATH]
-swingle ledger init --path PATH
-swingle ledger append --path PATH EVENT
-swingle ledger show --path PATH
-swingle check [--root PATH]
+python3 scripts/swingle config init (--user | --project PATH | --path PATH) [--force]
+python3 scripts/swingle config show [--config PATH] [--project PATH] [--root PATH]
+python3 scripts/swingle config validate PATH [--root PATH]
+python3 scripts/swingle config set --path PATH KEY JSON_VALUE [--root PATH]
+python3 scripts/swingle ledger init --path PATH
+python3 scripts/swingle ledger append --path PATH EVENT
+python3 scripts/swingle ledger show --path PATH
+python3 scripts/swingle check [--root PATH]
 ```
 
 All structured output must be JSON. Errors go in an `errors` array and use exit 1.
@@ -889,7 +912,9 @@ All structured output must be JSON. Errors go in an `errors` array and use exit 
 }
 ```
 
-Use `load_provider_notes(root)` only to validate provider names. Do not inspect executables.
+Use `discover_provider_ids(root)` for configuration name checks. It enumerates provider directory names without parsing notes.
+
+Reserve `load_provider_notes(root)` for `python3 scripts/swingle check`. A malformed unrelated note must not block configuration commands.
 
 - [ ] **Step 10a: Update the release workflow**
 
@@ -1014,6 +1039,7 @@ def test_delegate_uses_live_cli_contract_and_ledger():
     text = DELEGATE.read_text()
     for required in (
         "executable", "--help", "live", "contract", "ledger",
+        "python3 <root>/scripts/swingle", "Tier policy", "outcome",
         "disable", "providers_by_lane", "default_provider",
         "explicit user model", ".swingle/delegate/ledger.md", "--path",
         "DONE_WITH_CONCERNS", "NEEDS_CONTEXT", "BLOCKED",
@@ -1026,11 +1052,12 @@ def test_delegate_uses_live_cli_contract_and_ledger():
 def test_setup_manages_only_swingle_owned_state():
     text = SETUP.read_text()
     for required in (
-        "swingle config", "swingle ledger", "executable presence",
-        "Explicit migration", "SWINGLE_MODELS", "user model directory",
+        "scripts/swingle config", "scripts/swingle ledger", "executable presence",
+        "does not inspect provider auth", "Explicit migration",
+        "SWINGLE_MODELS", "user model directory",
     ):
         assert required in text
-    for retired in RETIRED + ("auth", "readiness", "provider version"):
+    for retired in RETIRED + ("provider version",):
         assert retired not in text
 
 
@@ -1080,28 +1107,43 @@ Use these sections and no others:
 The LLM is the controller. The provider CLI is the authority for its current operation.
 Use this skill for one self-contained job or one homogeneous batch.
 Use `swingle-sdd` for a dependency-aware implementation plan.
+Resolve `<root>` as the grandparent of this `SKILL.md`. It contains `scripts/`, `contracts/`, and `providers/`.
+Run every Swingle-owned command as `python3 <root>/scripts/swingle`.
 
 ## Procedure
 
 1. Select the reader, implementer, task-reviewer, or design-reviewer contract and lane.
-2. Use the caller ledger path. Otherwise use `<project>/.swingle/delegate/ledger.md`.
-3. Read policy with `swingle config show --project <working-directory>`.
-4. Reject a provider listed in `disable`, including an explicit provider.
-5. Select an explicit provider before `providers_by_lane` and `default_provider`.
-6. If no provider resolves, ask the user. Do not silently choose one.
-7. If the selected executable is missing, surface it. Do not silently substitute another provider.
-8. Pass an explicit user model directly to the provider CLI.
-9. Otherwise apply a preference only when the live CLI exposes it. Use the CLI default when none match.
-10. Initialize the selected ledger and record allocation with `swingle ledger append --path`.
-11. If current command syntax is not established, inspect top-level and subcommand `--help`.
-12. Give the provider the contract, task, working directory, inputs, and report mode.
-13. Run the provider with the tools available in the current harness.
-14. Record provider, model or provider-default, session when available, attempt, and status in the same ledger.
-15. Validate the requested result before reporting completion.
+2. Select an explicit tier or derive one from the Tier policy.
+3. Use the caller ledger path. Otherwise use `<project>/.swingle/delegate/ledger.md`.
+4. Read policy with `python3 <root>/scripts/swingle config show --project <working-directory>`.
+5. If configuration has errors, stop policy routing and surface them for repair.
+6. If configuration has warnings only, continue with its normalized configuration.
+7. Reject a provider listed in `disable`, including an explicit provider.
+8. Select an explicit provider before `providers_by_lane` and `default_provider`.
+9. If no provider resolves, ask the user. Do not silently choose one.
+10. If the selected executable is missing, surface it. Do not silently substitute another provider.
+11. Pass an explicit user model directly to the provider CLI.
+12. Otherwise use the selected tier's preference when the live CLI exposes it. Use the CLI default when none match.
+13. Initialize the ledger with `python3 <root>/scripts/swingle ledger init --path <ledger-path>`.
+14. Record allocation with `python3 <root>/scripts/swingle ledger append --path <ledger-path> <event>`.
+15. If current command syntax is not established, inspect top-level and subcommand `--help`.
+16. Give the provider the contract, task, working directory, inputs, and report mode.
+17. Run the provider with the tools available in the current harness.
+18. Record provider, model or provider-default, session when available, and each attempt in the same ledger.
+19. Validate the requested result before reporting completion.
+20. Append `complete: status=<status> outcome=<outcome>` to the same ledger.
+
+## Tier policy
+
+An explicit user tier has precedence.
+Use `cheapest` for transcription, mechanical implementation, and focused codebase location.
+Use `standard` for adaptation implementation, external synthesis, and task review.
+Use `most-capable` for large or long-context implementation, design review, and final review.
+The tier selects one advisory preference list. It never excludes a live model.
 
 ## Failure recovery
 
-Match the observed failure against the provider gotcha table.
+Read only `<root>/providers/<selected-provider>/pack.md` after an observed failure.
 Apply a matching recovery, then record the failed attempt.
 If no row matches, inspect current help before retrying.
 Ask the user only when the provider CLI cannot resolve the blocker.
@@ -1125,15 +1167,17 @@ Use these sections:
 
 This skill manages Swingle configuration, preferences, and ledgers.
 It does not inspect provider auth, versions, readiness, permissions, or controller installation.
+Resolve `<root>` as the grandparent of this `SKILL.md`.
+Run every Swingle-owned command as `python3 <root>/scripts/swingle`.
 
 ## Procedure
 
-1. Run `swingle config show` for the current project.
-2. If no configuration exists, offer `swingle config init` at the user or project layer.
-3. Apply requested preference changes with `swingle config set`.
+1. Run `python3 <root>/scripts/swingle config show` for the current project.
+2. If no configuration exists, offer `python3 <root>/scripts/swingle config init` at the user or project layer.
+3. Apply requested preference changes with `python3 <root>/scripts/swingle config set`.
 4. Show warnings from malformed optional preferences.
 5. If requested, report executable presence for known providers with the harness command lookup.
-6. Initialize or inspect a ledger with `swingle ledger`.
+6. Initialize or inspect a ledger with `python3 <root>/scripts/swingle ledger`.
 
 A configuration failure never establishes that an external provider is unavailable.
 
@@ -1144,7 +1188,7 @@ Inspect the old override walk in precedence order: `$SWINGLE_MODELS`, project `.
 Retain `disable`, `default_provider`, and compatible lane routing.
 Convert clear winning `verified` or `experimental` rows into ordered model preferences by provider and tier.
 Show cross-layer or lane conflicts as ambiguous rows before a write.
-Apply approved values with `swingle config set`.
+Apply approved values with `python3 <root>/scripts/swingle config set`.
 Remove each old key, directory, or environment reference only after explicit approval.
 ```
 
@@ -1296,7 +1340,7 @@ Document only:
 - optional `default_provider`
 - `providers_by_lane`
 - advisory `model_preferences`
-- `swingle config init|show|validate|set`
+- `python3 scripts/swingle config init|show|validate|set`
 - warning and fallback behavior.
 
 Use the schema from the design spec verbatim.
@@ -1491,10 +1535,10 @@ After the run, validate:
 
 - [ ] **Step 5: Run one synthetic help-first recovery smoke**
 
-Run an invalid Codex subcommand that does not call a model:
+Run a parser-rejected Codex option that does not call a model:
 
 ```bash
-codex swingle-invalid-subcommand
+codex --swingle-invalid-option < /dev/null
 ```
 
 Expected: nonzero exit and current CLI error text.
@@ -1539,7 +1583,7 @@ The review must check the LLM-controller boundary, removal completeness, configu
 - [ ] **Step 9: Resolve review findings**
 
 Fix every Critical or Important finding.
-Run the complete test suite, `swingle check`, and both smoke paths again.
+Run the complete test suite, `python3 scripts/swingle check`, and both smoke paths again.
 
 If review required changes:
 

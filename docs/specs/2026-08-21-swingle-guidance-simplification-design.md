@@ -151,14 +151,16 @@ Python code can manage only universal Swingle state and deterministic Swingle st
 
 Python code must not run or inspect provider or controller binaries.
 
+`<root>` is the directory that contains `skills/`, `contracts/`, `providers/`, and `scripts/`.
+
 The target command surface is:
 
 ```text
-swingle config init|show|validate|set
-swingle ledger init --path <path>
-swingle ledger append --path <path> <event fields>
-swingle ledger show --path <path>
-swingle check
+python3 <root>/scripts/swingle config init|show|validate|set
+python3 <root>/scripts/swingle ledger init --path <path>
+python3 <root>/scripts/swingle ledger append --path <path> <event fields>
+python3 <root>/scripts/swingle ledger show --path <path>
+python3 <root>/scripts/swingle check
 ```
 
 `swingle check` is authoring and CI tooling. Delegation must not run it as a preflight.
@@ -175,23 +177,26 @@ It accepts one self-contained job or one homogeneous batch.
 
 It performs this flow:
 
-1. Select the applicable role contract and ledger path.
-2. Read the Swingle configuration.
-3. Reject a provider that user policy lists in `disable`.
-4. Use an explicit provider before lane and default preferences.
-5. Use `providers_by_lane`, then `default_provider`, when no provider is explicit.
-6. Surface a missing preferred executable. Do not silently substitute another provider.
-7. Pass an explicit user model directly to the provider CLI.
-8. Otherwise apply live advisory model preferences or use the CLI default.
-9. Initialize the selected ledger and record the allocation.
-10. Check that the selected executable exists.
-11. Inspect current help when command syntax is not established in the session.
-12. Inspect current help after any rejected or unknown invocation.
-13. Run the provider with the current harness tools.
-14. Record provider, model, session, attempts, status, and outcome.
-15. Validate the requested result before reporting completion.
+1. Resolve `<root>` from the loaded skill path.
+2. Select the applicable role contract, tier, and ledger path.
+3. Read the Swingle configuration through the vendored script.
+4. Stop policy routing when configuration has errors.
+5. Continue with normalized configuration when it has warnings only.
+6. Reject a provider that user policy lists in `disable`.
+7. Use an explicit provider before lane and default preferences.
+8. Use `providers_by_lane`, then `default_provider`, when no provider is explicit.
+9. Surface a missing preferred executable. Do not silently substitute another provider.
+10. Pass an explicit user model directly to the provider CLI.
+11. Otherwise apply the selected tier's live model preferences or use the CLI default.
+12. Initialize the selected ledger and record the allocation.
+13. Check that the selected executable exists.
+14. Inspect current help when command syntax is not established in the session.
+15. Inspect current help after any rejected or unknown invocation.
+16. Run the provider with the current harness tools.
+17. Record provider, model, session, attempts, status, outcome, and evidence.
+18. Validate the requested result before reporting completion.
 
-A missing executable is the only provider preflight blocker.
+A missing executable is the only provider preflight blocker. A malformed Swingle policy blocks routing, not provider availability.
 
 The skill does not perform these actions:
 
@@ -356,6 +361,22 @@ If no preference matches, the LLM uses the CLI default.
 An explicit user model bypasses Swingle preferences. The provider CLI accepts or rejects that model.
 
 Swingle must not reject the model from cached data.
+
+### Tier policy
+
+An explicit user tier has precedence.
+
+Use `cheapest` for transcription, mechanical implementation, and focused codebase location.
+
+Use `standard` for adaptation implementation, external synthesis, and task review.
+
+Use `most-capable` for large or long-context implementation, design review, and final review.
+
+The tier selects one advisory preference list. It never excludes a live model.
+
+Configuration commands derive known provider IDs from provider directory names.
+
+They do not parse provider notes. Only `swingle check` parses every note.
 
 ### Removed configuration
 

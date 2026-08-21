@@ -526,7 +526,7 @@ Do not change social-provider behavior in this plan.
 Run:
 
 ```bash
-gh project item-list 9 --owner hiivmind --format json --jq '.items[] | select(.status == "Awaiting verifier") | {id: .id, number: .content.number, title: .content.title}'
+gh project item-list 9 --owner hiivmind --limit 1000 --format json --jq '.items[] | select(.status == "Awaiting verifier") | {id: .id, number: .content.number, title: .content.title}'
 ```
 
 The audit on 2026-08-21 returned no items.
@@ -689,20 +689,22 @@ This is an operator cutover step. Do not run it from the unmerged implementation
 
 After the pull request is merged:
 
-1. Pause the issue-triage and issue-investigate schedules.
-2. Confirm that no run still uses the old templates.
-3. Refresh the deployed routines from merged `main`.
-4. Confirm that the new investigate lane consumes `Triaged` provider reports.
-5. List queued items with:
+1. Pause the issue-triage, issue-investigate, and issue-fix schedules.
+2. Confirm that none of those lanes has an in-flight run.
+3. Refresh all three deployed routines from merged `main`.
+4. Run each changed issue lane once under operator supervision.
+5. Confirm that each run writes its new result contract and uses only the new templates.
+6. Confirm that the new investigate lane consumes `Triaged` provider reports.
+7. List and migrate queued items with:
 
 ```bash
-gh project item-list 9 --owner hiivmind --format json --jq '.items[] | select(.status == "Awaiting verifier") | .id' |
+gh project item-list 9 --owner hiivmind --limit 1000 --format json --jq '.items[] | select(.status == "Awaiting verifier") | .id' |
 while IFS= read -r item_id; do
   gh project item-edit --id "$item_id" --project-id PVT_kwDODUFJxM4Be9CA --field-id PVTSSF_lADODUFJxM4Be9CAzhZTfP4 --single-select-option-id 36c233f3
 done
 ```
 
-6. Run issue triage once and confirm that no item returns to the retired status.
-7. Resume the affected schedules.
+8. Run issue triage once and confirm that no item returns to the retired status.
+9. Resume each affected schedule only after its supervised run is green.
 
 If the queue is empty, record a no-op migration.

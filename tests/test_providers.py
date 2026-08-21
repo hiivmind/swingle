@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from swingle.check import check_repository
 from swingle.providers import load_provider_note
 
@@ -27,6 +29,19 @@ CLI: `alpha`
     assert note.cli == "alpha"
     assert note.gotchas[0].signature == "exits 0 with no file"
 
+
+def test_note_rejects_prose_between_cli_and_table(tmp_path):
+    path = write_note(tmp_path, """# Alpha gotchas
+
+CLI: `alpha`
+This prose is outside the provider note preamble.
+
+| Failure signature | Impact | Recovery | Evidence |
+| --- | --- | --- | --- |
+""")
+
+    with pytest.raises(ValueError):
+        load_provider_note(path)
 
 def test_empty_gotcha_table_is_valid(tmp_path):
     write_note(tmp_path, """# Alpha gotchas

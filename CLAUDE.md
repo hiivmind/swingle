@@ -37,13 +37,15 @@ Use the Python CLI for universal Swingle state and deterministic structure:
 
 ```bash
 python3 scripts/swingle config init --user
-python3 scripts/swingle config show
+python3 scripts/swingle config show --project .
 python3 scripts/swingle config validate <path/to/config.json>
 python3 scripts/swingle config set --path <path/to/config.json> <key> <json-value>
 python3 scripts/swingle ledger init --path <path/to/ledger.md>
 python3 scripts/swingle ledger show --path <path/to/ledger.md>
 python3 scripts/swingle check --root .
 ```
+
+The `--project .` flag makes the project-layer (`.swingle.json`) file visible.
 
 Configuration uses one JSON file selected with whole-file precedence. Model preferences
 are advisory ordered hints. An absent or stale preference must never make a live provider

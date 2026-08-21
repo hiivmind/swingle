@@ -82,10 +82,12 @@ history for removed notes and registries; runtime Swingle does not read them.
 Run the `swingle-setup` skill, then run:
 
 ```bash
-python3 scripts/swingle config show
+python3 scripts/swingle config show --project .
 python3 scripts/swingle config validate <path/to/config.json>
 python3 scripts/swingle check --root .
 ```
+
+The `--project .` flag makes the project-layer (`.swingle.json`) file visible.
 
 Then review one real delegation. The live provider CLI is the authority for its current
 models and behavior. Record only evidence-backed recovery gotchas in the provider note; do

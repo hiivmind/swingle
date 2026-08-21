@@ -36,6 +36,8 @@ The configuration file follows whole-file precedence. Use the commands below to 
 validate the active file:
 
 ```bash
-python3 scripts/swingle config show
+python3 scripts/swingle config show --project .
 python3 scripts/swingle config validate <path/to/config.json>
 ```
+
+The `--project .` flag makes the project-layer (`.swingle.json`) file visible.

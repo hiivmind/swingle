@@ -34,26 +34,33 @@ def load_provider_note(path: Path) -> ProviderNote:
     lines = path.read_text(encoding="utf-8").splitlines()
     if not lines or not TITLE_RE.fullmatch(lines[0]):
         raise ValueError(f"{path}: first line must be '# <Provider> gotchas'")
-    cli_lines = [CLI_RE.fullmatch(line) for line in lines]
-    cli_values = [match.group(1) for match in cli_lines if match]
-    if len(cli_values) != 1:
-        raise ValueError(f"{path}: expected one CLI identity")
-    if cli_values[0] != path.parent.name:
-        raise ValueError(f"{path}: CLI identity must match provider directory")
-    if lines.count(TABLE_HEADER) != 1:
+    if len(lines) < 6:
+        raise ValueError(f"{path}: incomplete gotcha-note preamble")
+    if lines[1] != "":
+        raise ValueError(f"{path}: expected one blank line after title")
+    cli_match = CLI_RE.fullmatch(lines[2])
+    if cli_match is None:
+        raise ValueError(f"{path}: expected one CLI identity after title")
+    if lines[3] != "":
+        raise ValueError(f"{path}: expected one blank line after CLI identity")
+    if lines[4] != TABLE_HEADER:
         raise ValueError(f"{path}: expected the gotcha-table columns")
-    header = lines.index(TABLE_HEADER)
-    if header + 1 >= len(lines) or lines[header + 1] != TABLE_RULE:
+    if lines[5] != TABLE_RULE:
         raise ValueError(f"{path}: invalid gotcha-table separator")
+    cli = cli_match.group(1)
+    if cli != path.parent.name:
+        raise ValueError(f"{path}: CLI identity must match provider directory")
     gotchas = []
-    for number, line in enumerate(lines[header + 2:], header + 3):
+    for number, line in enumerate(lines[6:], 7):
         if not line.strip():
             continue
+        if line in (TABLE_HEADER, TABLE_RULE):
+            raise ValueError(f"{path}:{number}: unexpected gotcha-table preamble line")
         cells = _table_cells(line)
         if len(cells) != 4 or any(not cell for cell in cells):
             raise ValueError(f"{path}:{number}: invalid gotcha row")
         gotchas.append(Gotcha(*cells))
-    return ProviderNote(path.parent.name, cli_values[0], tuple(gotchas))
+    return ProviderNote(path.parent.name, cli, tuple(gotchas))
 
 
 def load_provider_notes(root: Path) -> dict[str, ProviderNote]:

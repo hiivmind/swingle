@@ -31,13 +31,27 @@ Run every Swingle-owned command as `python3 <root>/scripts/swingle`.
 11. Pass an explicit user model directly to the provider CLI.
 12. Otherwise use the selected tier's preference when the live CLI exposes it. Use the CLI default when none match.
 13. Initialize the ledger with `python3 <root>/scripts/swingle ledger init --path <ledger-path>`.
-14. Record allocation with `python3 <root>/scripts/swingle ledger append --path <ledger-path> <event>`.
+14. Record the allocation with the exact event shape in the Ledger events section below.
 15. If current command syntax is not established, inspect top-level and subcommand `--help`.
 16. Give the provider the contract, task, working directory, inputs, and report mode.
 17. Run the provider with the tools available in the current harness.
 18. Record provider, model or provider-default, session when available, and each attempt in the same ledger.
 19. Validate the requested result before reporting completion.
-20. Append `complete: status=<status> outcome=<outcome>` to the same ledger.
+20. Append the exact `NNN complete: status=<status> outcome=<outcome>` event to the same ledger.
+
+## Ledger events
+
+Record each applicable delegation step in the shared ledger with one of these exact
+one-line event shapes:
+
+```text
+NNN allocated: role=<role> task=<summary> contract=<path>
+NNN dispatched: provider=<id> model=<id|provider-default> attempt=<n>
+NNN session: attempt=<n> <session-id>
+NNN attempt-failed: attempt=<n> signature=<summary> recovery=<summary>
+NNN resumed: session=<id> reason=<reason>
+NNN complete: status=<status> outcome=<outcome>
+```
 
 ## Tier policy
 

@@ -72,12 +72,14 @@ The Python CLI manages configuration, ledgers, and deterministic authoring check
 
 ```bash
 python3 scripts/swingle config init --user
-python3 scripts/swingle config show
+python3 scripts/swingle config show --project .
 python3 scripts/swingle config validate <path/to/config.json>
 python3 scripts/swingle ledger init --path <path/to/ledger.md>
 python3 scripts/swingle ledger show --path <path/to/ledger.md>
 python3 scripts/swingle check --root .
 ```
+
+The `--project .` flag makes the project-layer (`.swingle.json`) file visible.
 
 Configuration uses one JSON file with whole-file precedence. `disable`, an optional
 `default_provider`, `providers_by_lane`, and advisory `model_preferences` are documented in

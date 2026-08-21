@@ -12,10 +12,12 @@ manage the file:
 
 ```bash
 python3 scripts/swingle config init --user
-python3 scripts/swingle config show
+python3 scripts/swingle config show --project .
 python3 scripts/swingle config validate <path/to/config.json>
 python3 scripts/swingle config set --path <path/to/config.json> <key> <json-value>
 ```
+
+Use `--project .` to make the project-layer (`.swingle.json`) file visible.
 
 ## Schema
 

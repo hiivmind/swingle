@@ -17,7 +17,7 @@ Run every Swingle-owned command as `python3 <root>/scripts/swingle`.
 
 ## Procedure
 
-1. Run `python3 <root>/scripts/swingle config show` for the current project.
+1. Run `python3 <root>/scripts/swingle config show --project .` for the current project.
 2. If no configuration exists, offer `python3 <root>/scripts/swingle config init` at the user or project layer.
 3. Apply requested preference changes with `python3 <root>/scripts/swingle config set`.
 4. Show warnings from malformed optional preferences.

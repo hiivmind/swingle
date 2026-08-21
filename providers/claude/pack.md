@@ -1,14 +1,8 @@
----
-schema-version: 1
-id: claude
-cli: claude
-verified-version: "2.1.220"
-version-argv: ["claude", "--version"]
-readiness-argv: ["claude", "auth", "status"]
-resume-argv: ["claude", "-p", "--resume", "{session_id}"]
-fork-flag: "--fork-session"
-session-source: conversation-id
-stall-signal: log-age
-report-transport: report-file
-sandbox: none
----
+# Claude gotchas
+
+CLI: `claude`
+
+| Failure signature | Impact | Recovery | Evidence |
+| --- | --- | --- | --- |
+| headless write exits successfully but leaves no change after an unanswered permission request | intended write is missing despite exit 0 | enable a non-interactive permission mode before retrying | providers/claude/log/2026-07.md |
+| A never-closing non-TTY stdin pipe makes `claude -p` hang until killed | headless subprocess never completes | close stdin with `/dev/null` before launch | issue #73; providers/claude/log/2026-07.md |

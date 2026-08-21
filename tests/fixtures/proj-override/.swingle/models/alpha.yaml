@@ -1,8 +1,0 @@
-schema: 1
-provider: alpha
-models:
-  - tier: standard
-    lane: review
-    priority: 1
-    model: project-review-model
-    status: experimental

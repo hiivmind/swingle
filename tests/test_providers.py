@@ -1,9 +1,7 @@
 from pathlib import Path
 
-import pytest
-
 from swingle.check import check_repository
-from swingle.providers import load_provider_note
+from swingle.providers import check_provider_note
 
 
 def write_note(root: Path, body: str) -> Path:
@@ -13,7 +11,7 @@ def write_note(root: Path, body: str) -> Path:
     return path
 
 
-def test_parse_provider_note(tmp_path):
+def test_valid_note_has_no_findings(tmp_path):
     path = write_note(tmp_path, """# Alpha gotchas
 
 CLI: `alpha`
@@ -23,11 +21,7 @@ CLI: `alpha`
 | exits 0 with no file | requested write is missing | inspect current permission help and retry | issue #1 |
 """)
 
-    note = load_provider_note(path)
-
-    assert note.provider_id == "alpha"
-    assert note.cli == "alpha"
-    assert note.gotchas[0].signature == "exits 0 with no file"
+    assert check_provider_note(path) == []
 
 
 def test_note_rejects_prose_between_cli_and_table(tmp_path):
@@ -40,8 +34,13 @@ This prose is outside the provider note preamble.
 | --- | --- | --- | --- |
 """)
 
-    with pytest.raises(ValueError):
-        load_provider_note(path)
+    assert any(
+        "blank line after CLI identity" in finding
+        for finding in check_provider_note(path)
+    )
+
+
+
 
 def test_empty_gotcha_table_is_valid(tmp_path):
     write_note(tmp_path, """# Alpha gotchas

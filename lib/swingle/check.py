@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 import re
 
-from .providers import PROVIDER_ID_RE, load_provider_note
+from .providers import PROVIDER_ID_RE, check_provider_note
 
 LINK_RE = re.compile(r"\]\(([^)]+)\)")
 CONTRACT_PATH_RE = re.compile(r"(?:<root>/)?contracts/([A-Za-z0-9_.-]+\.md)")
@@ -95,21 +95,7 @@ def check_repository(root: Path) -> list[str]:
             if not note_path.is_file():
                 findings.append(f"{note_path}: missing provider note")
                 continue
-            try:
-                note = load_provider_note(note_path)
-            except (OSError, UnicodeError, ValueError) as error:
-                findings.append(str(error))
-                continue
-            heading_text = note_path.read_text(encoding="utf-8").splitlines()[0][2:-7]
-            heading_id = re.sub(r"[^a-z0-9]+", "-", heading_text.lower()).strip("-")
-            if heading_id != provider.name:
-                findings.append(
-                    f"{note_path}: provider heading does not match directory {provider.name}"
-                )
-            if note.cli != provider.name:
-                findings.append(
-                    f"{note_path}: CLI identity does not match directory {provider.name}"
-                )
+            findings.extend(check_provider_note(note_path))
 
     _check_links(root, findings)
     return findings

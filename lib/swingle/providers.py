@@ -1,27 +1,13 @@
-from dataclasses import dataclass
+from __future__ import annotations
+
 from pathlib import Path
 import re
 
-TITLE_RE = re.compile(r"^# .+ gotchas$")
+TITLE_RE = re.compile(r"^# (.+) gotchas$")
 PROVIDER_ID_RE = re.compile(r"^[a-z0-9-]+$")
 CLI_RE = re.compile(r"^CLI: `([a-z0-9-]+)`$")
 TABLE_HEADER = "| Failure signature | Impact | Recovery | Evidence |"
 TABLE_RULE = "| --- | --- | --- | --- |"
-
-
-@dataclass(frozen=True)
-class Gotcha:
-    signature: str
-    impact: str
-    recovery: str
-    evidence: str
-
-
-@dataclass(frozen=True)
-class ProviderNote:
-    provider_id: str
-    cli: str
-    gotchas: tuple[Gotcha, ...]
 
 
 def _table_cells(line: str) -> tuple[str, ...]:
@@ -30,44 +16,67 @@ def _table_cells(line: str) -> tuple[str, ...]:
     return tuple(cell.strip() for cell in line[1:-1].split("|"))
 
 
-def load_provider_note(path: Path) -> ProviderNote:
-    lines = path.read_text(encoding="utf-8").splitlines()
-    if not lines or not TITLE_RE.fullmatch(lines[0]):
-        raise ValueError(f"{path}: first line must be '# <Provider> gotchas'")
+def check_provider_note(path: Path) -> list[str]:
+    """Validate one provider gotcha-note's structure; return findings (empty = valid).
+
+    Authoring/CI integrity only. The LLM reads the note as Markdown on the
+    healthy delegation path; nothing here parses a value back out for it.
+    """
+    provider_id = path.parent.name
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except (OSError, UnicodeError) as error:
+        return [f"{path}: unreadable provider note ({error})"]
+
+    if not lines:
+        return [f"{path}: empty provider note"]
+
+    findings: list[str] = []
+
+    def bad(message: str) -> None:
+        findings.append(f"{path}: {message}")
+
+    title = TITLE_RE.fullmatch(lines[0])
+    if title is None:
+        bad("first line must be '# <Provider> gotchas'")
+    else:
+        heading_id = re.sub(r"[^a-z0-9]+", "-", title.group(1).lower()).strip("-")
+        if heading_id != provider_id:
+            bad(f"provider heading does not match directory {provider_id}")
+
     if len(lines) < 6:
-        raise ValueError(f"{path}: incomplete gotcha-note preamble")
+        bad("incomplete gotcha-note preamble")
+        return findings
+
     if lines[1] != "":
-        raise ValueError(f"{path}: expected one blank line after title")
+        bad("expected one blank line after title")
     cli_match = CLI_RE.fullmatch(lines[2])
     if cli_match is None:
-        raise ValueError(f"{path}: expected one CLI identity after title")
+        bad("expected one CLI identity after title")
+    elif cli_match.group(1) != provider_id:
+        bad("CLI identity must match provider directory")
     if lines[3] != "":
-        raise ValueError(f"{path}: expected one blank line after CLI identity")
+        bad("expected one blank line after CLI identity")
     if lines[4] != TABLE_HEADER:
-        raise ValueError(f"{path}: expected the gotcha-table columns")
+        bad("expected the gotcha-table columns")
     if lines[5] != TABLE_RULE:
-        raise ValueError(f"{path}: invalid gotcha-table separator")
-    cli = cli_match.group(1)
-    if cli != path.parent.name:
-        raise ValueError(f"{path}: CLI identity must match provider directory")
-    gotchas = []
+        bad("invalid gotcha-table separator")
+
     for number, line in enumerate(lines[6:], 7):
         if not line.strip():
             continue
         if line in (TABLE_HEADER, TABLE_RULE):
-            raise ValueError(f"{path}:{number}: unexpected gotcha-table preamble line")
-        cells = _table_cells(line)
+            bad(f"{number}: unexpected gotcha-table preamble line")
+            continue
+        try:
+            cells = _table_cells(line)
+        except ValueError:
+            bad(f"{number}: invalid gotcha row")
+            continue
         if len(cells) != 4 or any(not cell for cell in cells):
-            raise ValueError(f"{path}:{number}: invalid gotcha row")
-        gotchas.append(Gotcha(*cells))
-    return ProviderNote(path.parent.name, cli, tuple(gotchas))
+            bad(f"{number}: invalid gotcha row")
 
-
-def load_provider_notes(root: Path) -> dict[str, ProviderNote]:
-    return {
-        path.parent.name: load_provider_note(path)
-        for path in sorted((root / "providers").glob("*/pack.md"))
-    }
+    return findings
 
 
 def discover_provider_ids(root: Path) -> set[str]:

@@ -175,16 +175,21 @@ It accepts one self-contained job or one homogeneous batch.
 
 It performs this flow:
 
-1. Select the applicable role contract.
-2. Resolve optional Swingle preferences.
-3. Initialize the ledger and record the allocation.
-4. Check that the requested executable exists.
-5. Inspect current help when command syntax is not established in the session.
-6. Inspect current help after any rejected or unknown invocation.
-7. Select a model from the live CLI surface or use the CLI default.
-8. Run the provider with the current harness tools.
-9. Record provider, model, session, attempts, status, and outcome.
-10. Validate the requested result before reporting completion.
+1. Select the applicable role contract and ledger path.
+2. Read the Swingle configuration.
+3. Reject a provider that user policy lists in `disable`.
+4. Use an explicit provider before lane and default preferences.
+5. Use `providers_by_lane`, then `default_provider`, when no provider is explicit.
+6. Surface a missing preferred executable. Do not silently substitute another provider.
+7. Pass an explicit user model directly to the provider CLI.
+8. Otherwise apply live advisory model preferences or use the CLI default.
+9. Initialize the selected ledger and record the allocation.
+10. Check that the selected executable exists.
+11. Inspect current help when command syntax is not established in the session.
+12. Inspect current help after any rejected or unknown invocation.
+13. Run the provider with the current harness tools.
+14. Record provider, model, session, attempts, status, and outcome.
+15. Validate the requested result before reporting completion.
 
 A missing executable is the only provider preflight blocker.
 
@@ -287,6 +292,12 @@ Keep a human-readable Markdown ledger.
 
 The Python CLI performs atomic appends. It never rewrites prior events.
 
+Direct delegation uses `<project>/.swingle/delegate/ledger.md` unless the caller passes another path.
+
+The SDD wrapper passes its run-ledger path into every `swingle-delegate` call.
+
+All events for one run use the same ledger path.
+
 Use one event vocabulary for direct delegation and SDD:
 
 ```text
@@ -380,6 +391,8 @@ A gotcha must pass all inclusion rules:
 2. The behavior occurred in real operation.
 3. The note changes recovery after the LLM observes the signature.
 
+Every gotcha row requires evidence. An empty Evidence cell is invalid.
+
 Do not include these items:
 
 - successful probe results
@@ -428,6 +441,10 @@ Reduce `core/playbook.md`, `core/roles.md`, and `core/safety-doctrine.md` to gen
 Fold a file into a skill when the file has no independent reader.
 
 Replace `scripts/validate-packs` and `scripts/swingle-models` with the unified `swingle` command.
+
+Replace the release workflow call to `scripts/validate-packs` with `scripts/swingle check`.
+
+Replace the verification-finding issue form with an observable provider-behavior and guidance-gap form.
 
 Reduce `lib/swingle/` to configuration, ledger, and authoring checks.
 
@@ -517,6 +534,8 @@ Keep these automation-owned rules:
 - operator-only `Ready to fix` and merge gates
 - the shared lock for social lanes that write one repository.
 
+Rewrite `swingle-automation/CLAUDE.md` so that it lists only active lanes and current checks.
+
 ### Change operations
 
 The remaining issue cycle is:
@@ -531,7 +550,7 @@ No schedule reacts to provider releases or model releases.
 
 ### Migrate board and result data
 
-Move existing `Awaiting verifier` items to `Triaged` one time.
+After the new automation merge is deployed, pause affected schedules and move existing `Awaiting verifier` items to `Triaged`.
 
 Remove `drift-verify` and `runtime-probe` from the current result schema.
 
@@ -541,7 +560,7 @@ Keep old result files as historical artifacts. New automation does not consume t
 
 ## Future-change doctrine
 
-Add this doctrine to the repository contributor instructions in `CLAUDE.md`:
+Replace conflicting certification sections in `CLAUDE.md`, then add this doctrine:
 
 1. The LLM is the controller.
 2. The live provider CLI is the authority for provider operation.
@@ -566,9 +585,10 @@ When the user runs `swingle-setup`, it can migrate the current Swingle configura
 
 1. Retain `disable`, `default_provider`, and compatible lane routing.
 2. Remove `require-verified-version` and `superpowers`.
-3. Convert clear model overrides into advisory `model_preferences`.
-4. Show ambiguous rows for user selection.
-5. Remove obsolete model directories only after explicit approval.
+3. Inspect old model overrides in `$SWINGLE_MODELS`, the project layer, and the user layer.
+4. Convert clear winning rows into advisory `model_preferences`.
+5. Show cross-layer and lane conflicts for user selection.
+6. Remove each obsolete directory or environment reference only after explicit approval.
 
 The setup skill does not search for old controller installation layouts.
 

@@ -53,6 +53,7 @@ This plan consumes these completed Swingle surfaces:
 - Remove: `probe-runtime/`
 - Modify: `CONVENTIONS.md`
 - Modify: `OPERATIONS.md`
+- Modify: `CLAUDE.md`
 
 **Interfaces:**
 - Consumes: approved design removal list.
@@ -94,6 +95,46 @@ Remove these complete concepts:
 - supervised provider-round records.
 
 Do not leave historical summaries of these concepts in the living document. Git retains history.
+
+- [ ] **Step 3a: Rewrite automation repository instructions**
+
+Replace `CLAUDE.md` with active repository guidance:
+
+```markdown
+# swingle-automation
+
+Private automation skills for `hiivmind/swingle`. Each deployed task directory is symlinked into the scheduler.
+
+## Active lanes
+
+- `TEMPLATE-issue-triage.md` classifies and prioritizes issues.
+- `TEMPLATE-issue-investigate.md` gathers evidence for `Triaged` issues.
+- `TEMPLATE-issue-fix.md` acts only after the operator sets `Ready to fix`.
+- `TEMPLATE-social-listening.md` supplies the shared social process.
+- Social stubs supply source constants and write only to their documented register.
+- Thin skill stubs supply constants and read one shared template.
+
+## Repository rules
+
+- Keep process logic in shared templates. Keep environment facts in thin stubs.
+- Keep this repository prose-only. Swingle-owned Python belongs in `hiivmind/swingle`.
+- Use current `swingle-delegate` guidance. Do not restate provider commands or runtime facts.
+- Confirm the branch seed before branch creation.
+- Make changes on a branch and open a pull request to `main`.
+- Read `CONVENTIONS.md` and the selected shared template before a lane change.
+- Do not edit or remove unrelated untracked files.
+- Do not add provider upgrades, version checks, readiness probes, model catalogs, or verification sweeps.
+- Run a changed template once under operator supervision before its schedule resumes.
+- Record supervised evidence in the pull request and result file, not an append-only doctrine log.
+
+## Deployment
+
+- Deploy each task directory by symlink. Do not copy it into the scheduler.
+- Store worktrees, locks, results, and the GitHub token under `~/.swingle-automation/`.
+- The social-listening lane writes to `hiivmind/swingle-central`. Issue lanes write through GitHub.
+```
+
+Remove references to drift templates, provider stubs, runtime probes, direct-main changes, and provider supervised-run records.
 
 - [ ] **Step 4: Replace the result schema**
 
@@ -193,7 +234,7 @@ Expected: exit 0 with no output.
 - [ ] **Step 9: Commit lane removal**
 
 ```bash
-git add CONVENTIONS.md OPERATIONS.md TEMPLATE-drift-verify.md drift-verify-agy drift-verify-claude drift-verify-codex drift-verify-grok drift-verify-opencode drift-verify-pi probe-runtime
+git add CLAUDE.md CONVENTIONS.md OPERATIONS.md TEMPLATE-drift-verify.md drift-verify-agy drift-verify-claude drift-verify-codex drift-verify-grok drift-verify-opencode drift-verify-pi probe-runtime
 git commit -m "refactor(automation): remove provider certification lanes"
 ```
 
@@ -480,7 +521,7 @@ Make sure that each shared template and convention reference resolves.
 
 Do not change social-provider behavior in this plan.
 
-- [ ] **Step 3: Check the current `Awaiting verifier` queue**
+- [ ] **Step 3: Record the pre-cutover board snapshot**
 
 Run:
 
@@ -490,18 +531,8 @@ gh project item-list 9 --owner hiivmind --format json --jq '.items[] | select(.s
 
 The audit on 2026-08-21 returned no items.
 
-If the command still returns no items, record a no-op migration in the pull request.
-
-If items now exist, set each item to `Triaged` with:
-
-```bash
-gh project item-list 9 --owner hiivmind --format json --jq '.items[] | select(.status == "Awaiting verifier") | .id' |
-while IFS= read -r item_id; do
-  gh project item-edit --id "$item_id" --project-id PVT_kwDODUFJxM4Be9CA --field-id PVTSSF_lADODUFJxM4Be9CAzhZTfP4 --single-select-option-id 36c233f3
-done
-```
-
-Do not change other project fields.
+Record the output in the pull request as the pre-cutover snapshot.
+Do not change project items before the new automation pull request is merged and deployed.
 
 - [ ] **Step 4: Search all tracked automation text for retired concepts**
 
@@ -639,7 +670,7 @@ Write `/tmp/swingle-automation-pr-body.md` with:
 - the automation implementation-plan path
 - the Swingle pull request dependency
 - removed lanes and result kinds
-- the current board migration result
+- the pre-cutover board snapshot and post-merge migration runbook
 - both synthetic workflow traces
 - the final retired-concept search result
 - post-implementation review result
@@ -651,3 +682,27 @@ Run:
 git push -u origin HEAD
 gh pr create --base main --head "$(git branch --show-current)" --title "refactor: remove provider certification automation" --body-file /tmp/swingle-automation-pr-body.md
 ```
+
+- [ ] **Step 8: Run the board migration after deployment**
+
+This is an operator cutover step. Do not run it from the unmerged implementation branch.
+
+After the pull request is merged:
+
+1. Pause the issue-triage and issue-investigate schedules.
+2. Confirm that no run still uses the old templates.
+3. Refresh the deployed routines from merged `main`.
+4. Confirm that the new investigate lane consumes `Triaged` provider reports.
+5. List queued items with:
+
+```bash
+gh project item-list 9 --owner hiivmind --format json --jq '.items[] | select(.status == "Awaiting verifier") | .id' |
+while IFS= read -r item_id; do
+  gh project item-edit --id "$item_id" --project-id PVT_kwDODUFJxM4Be9CA --field-id PVTSSF_lADODUFJxM4Be9CAzhZTfP4 --single-select-option-id 36c233f3
+done
+```
+
+6. Run issue triage once and confirm that no item returns to the retired status.
+7. Resume the affected schedules.
+
+If the queue is empty, record a no-op migration.

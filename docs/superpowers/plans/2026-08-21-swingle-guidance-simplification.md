@@ -519,6 +519,21 @@ CLI: `alpha`
     assert any("gotcha-table columns" in finding for finding in findings)
 
 
+def test_note_rejects_missing_evidence(tmp_path):
+    write_note(tmp_path, """# Alpha gotchas
+
+CLI: `alpha`
+
+| Failure signature | Impact | Recovery | Evidence |
+| --- | --- | --- | --- |
+| silent success | requested file is missing | inspect current help and retry | |
+""")
+
+    findings = check_repository(tmp_path)
+
+    assert any("invalid gotcha row" in finding for finding in findings)
+
+
 def test_provider_directory_rejects_certification_assets(tmp_path):
     write_note(tmp_path, """# Alpha gotchas
 
@@ -600,7 +615,7 @@ def load_provider_note(path: Path) -> ProviderNote:
         if not line.strip():
             continue
         cells = _table_cells(line)
-        if len(cells) != 4 or any(not cell for cell in cells[:3]):
+        if len(cells) != 4 or any(not cell for cell in cells):
             raise ValueError(f"{path}:{number}: invalid gotcha row")
         gotchas.append(Gotcha(*cells))
     return ProviderNote(path.parent.name, cli_values[0], tuple(gotchas))
@@ -613,7 +628,7 @@ def load_provider_notes(root: Path) -> dict[str, ProviderNote]:
     }
 ```
 
-The parser requires four cells. Signature, impact, and recovery are required. Evidence can be empty.
+The parser requires four non-empty cells. Evidence is mandatory for every gotcha.
 
 - [ ] **Step 4: Implement repository checks**
 
@@ -637,12 +652,14 @@ Use one `pack.md` per provider. Keep only these evidence-backed rows:
 | Provider | Retained failure signatures |
 | --- | --- |
 | `codex` | open stdin waits for end-of-input and prevents completion |
-| `claude` | headless write exits successfully but leaves no change after an unanswered permission request. Nested Claude inherits parent-only environment and refuses the intended write |
+| `claude` | headless write exits successfully but leaves no change after an unanswered permission request. Nested Claude inherits parent-only environment and refuses the intended write. A never-closing non-TTY stdin pipe makes `claude -p` hang until killed |
 | `agy` | signed-out or permission-denied headless run exits successfully with no work. Artifact diversion causes a missing workspace report. Buffered output gives no progress signal |
 | `grok` | single-object JSON output buffers until exit and can appear stalled |
 | `opencode` | open stdin hangs. Intermittent background startup produces no output until killed and retried |
 | `pi` | open stdin can end in `RangeError: Invalid string length` |
 | `omp` | no current row passes the inclusion test. Keep an empty table |
+
+For the Claude pipe-stdin row, close stdin with `/dev/null`. Cite issue #73 and `providers/claude/log/2026-07.md`.
 
 For each row:
 
@@ -703,6 +720,7 @@ Continue without a commit. The provider format and old runtime must change in on
 - Replace: `lib/swingle/cli.py`
 - Create: `scripts/swingle`
 - Create: `tests/test_cli.py`
+- Modify: `.github/workflows/release.yml`
 - Remove: `lib/swingle/environment.py`
 - Remove: `lib/swingle/models.py`
 - Remove: `lib/swingle/packs.py`
@@ -719,7 +737,7 @@ Continue without a commit. The provider format and old runtime must change in on
 
 **Interfaces:**
 - Consumes: Tasks 1 and 2 plus the provider notes in this task.
-- Produces: `main(argv=None) -> int` and `scripts/swingle`.
+- Produces: `main(argv: list[str] | None = None, *, default_root: Path | None = None) -> int` and `scripts/swingle`.
 
 - [ ] **Step 8: Write CLI contract tests**
 
@@ -798,9 +816,22 @@ def test_python_cli_never_runs_provider_binaries(tmp_path):
         path.chmod(0o755)
     env = dict(os.environ, PATH=f"{bin_dir}:{os.environ['PATH']}")
 
+    config_path = tmp_path / "boundary-config.json"
+    ledger_path = tmp_path / "boundary-ledger.md"
     commands = (
-        ("config", "show", "--root", str(ROOT)),
-        ("ledger", "init", "--path", str(tmp_path / "ledger.md")),
+        ("config", "init", "--path", str(config_path)),
+        ("config", "show", "--config", str(config_path), "--root", str(ROOT)),
+        ("config", "validate", str(config_path), "--root", str(ROOT)),
+        (
+            "config", "set", "--path", str(config_path),
+            "default_provider", '"codex"', "--root", str(ROOT),
+        ),
+        ("ledger", "init", "--path", str(ledger_path)),
+        (
+            "ledger", "append", "--path", str(ledger_path),
+            "001 complete: status=DONE outcome=ok",
+        ),
+        ("ledger", "show", "--path", str(ledger_path)),
         ("check", "--root", str(ROOT)),
     )
     for command in commands:
@@ -822,6 +853,16 @@ Expected: failures because `scripts/swingle` does not exist.
 - [ ] **Step 10: Replace the CLI entry point**
 
 Implement `lib/swingle/cli.py` with one `argparse` tree:
+
+Define the entry point with this exact signature:
+
+```python
+def main(
+    argv: list[str] | None = None,
+    *,
+    default_root: Path | None = None,
+) -> int:
+```
 
 ```text
 swingle config init (--user | --project PATH | --path PATH) [--force]
@@ -849,6 +890,18 @@ All structured output must be JSON. Errors go in an `errors` array and use exit 
 ```
 
 Use `load_provider_notes(root)` only to validate provider names. Do not inspect executables.
+
+- [ ] **Step 10a: Update the release workflow**
+
+Replace the release-head command in `.github/workflows/release.yml`:
+
+```yaml
+- name: Check Swingle at the release head
+  if: steps.tag.outputs.exists == 'false'
+  run: python3 scripts/swingle check --root .
+```
+
+Remove every release-workflow reference to `scripts/validate-packs`.
 
 - [ ] **Step 11: Add the command shim**
 
@@ -908,7 +961,7 @@ Expected: JSON with an empty `errors` array and exit 0.
 - [ ] **Step 15: Commit the runtime clean cut**
 
 ```bash
-git add lib scripts tests providers
+git add lib scripts tests providers .github/workflows/release.yml
 git commit -m "refactor(runtime): replace provider certification with guidance"
 ```
 
@@ -961,6 +1014,8 @@ def test_delegate_uses_live_cli_contract_and_ledger():
     text = DELEGATE.read_text()
     for required in (
         "executable", "--help", "live", "contract", "ledger",
+        "disable", "providers_by_lane", "default_provider",
+        "explicit user model", ".swingle/delegate/ledger.md", "--path",
         "DONE_WITH_CONCERNS", "NEEDS_CONTEXT", "BLOCKED",
     ):
         assert required in text
@@ -972,7 +1027,7 @@ def test_setup_manages_only_swingle_owned_state():
     text = SETUP.read_text()
     for required in (
         "swingle config", "swingle ledger", "executable presence",
-        "Explicit migration",
+        "Explicit migration", "SWINGLE_MODELS", "user model directory",
     ):
         assert required in text
     for retired in RETIRED + ("auth", "readiness", "provider version"):
@@ -984,6 +1039,7 @@ def test_sdd_is_only_a_delegate_wrapper():
     assert "subagent-driven-development" in text
     assert "swingle-delegate" in text
     assert "sole authority" in text
+    assert "SDD run-ledger path" in text
     for retired in RETIRED + ("Step 0", "self-reaping", "models.yaml"):
         assert retired not in text
 
@@ -1027,16 +1083,21 @@ Use `swingle-sdd` for a dependency-aware implementation plan.
 
 ## Procedure
 
-1. Select the reader, implementer, task-reviewer, or design-reviewer contract.
-2. Read advisory preferences with `swingle config show`.
-3. Record allocation with `swingle ledger append`.
-4. Check that the requested executable exists. Stop only when it is absent.
-5. If current command syntax is not established, inspect top-level and subcommand `--help`.
-6. Apply a model preference only when the live CLI exposes it. Otherwise use the CLI default.
-7. Give the provider the contract, task, working directory, inputs, and report mode.
-8. Run the provider with the tools available in the current harness.
-9. Record provider, model or provider-default, session when available, attempt, and status.
-10. Validate the requested result before reporting completion.
+1. Select the reader, implementer, task-reviewer, or design-reviewer contract and lane.
+2. Use the caller ledger path. Otherwise use `<project>/.swingle/delegate/ledger.md`.
+3. Read policy with `swingle config show --project <working-directory>`.
+4. Reject a provider listed in `disable`, including an explicit provider.
+5. Select an explicit provider before `providers_by_lane` and `default_provider`.
+6. If no provider resolves, ask the user. Do not silently choose one.
+7. If the selected executable is missing, surface it. Do not silently substitute another provider.
+8. Pass an explicit user model directly to the provider CLI.
+9. Otherwise apply a preference only when the live CLI exposes it. Use the CLI default when none match.
+10. Initialize the selected ledger and record allocation with `swingle ledger append --path`.
+11. If current command syntax is not established, inspect top-level and subcommand `--help`.
+12. Give the provider the contract, task, working directory, inputs, and report mode.
+13. Run the provider with the tools available in the current harness.
+14. Record provider, model or provider-default, session when available, attempt, and status in the same ledger.
+15. Validate the requested result before reporting completion.
 
 ## Failure recovery
 
@@ -1079,12 +1140,12 @@ A configuration failure never establishes that an external provider is unavailab
 ## Explicit migration
 
 Run migration only when the user asks for it.
-Read the selected old configuration and old `.swingle/models/` files.
+Inspect the old override walk in precedence order: `$SWINGLE_MODELS`, project `.swingle/models/`, then the user model directory.
 Retain `disable`, `default_provider`, and compatible lane routing.
-Convert each old `verified` or `experimental` row into an ordered model preference by provider and tier.
-Show the proposed JSON and any ambiguous rows before a write.
+Convert clear winning `verified` or `experimental` rows into ordered model preferences by provider and tier.
+Show cross-layer or lane conflicts as ambiguous rows before a write.
 Apply approved values with `swingle config set`.
-Remove old keys or model files only after explicit approval.
+Remove each old key, directory, or environment reference only after explicit approval.
 ```
 
 Keep explicit consent before configuration writes. Remove automatic controller and installation migration searches.
@@ -1098,9 +1159,9 @@ Use this complete workflow body:
 
 Run the installed `subagent-driven-development` workflow. That workflow is the sole authority for planning, task order, reviews, fixes, and completion.
 
-At each external dispatch point, use `swingle-delegate`. Pass the current task brief, role, working directory, inputs, and required report path or captured-response requirement.
+At each external dispatch point, use `swingle-delegate`. Pass the current task brief, role, working directory, inputs, report requirement, and exact SDD run-ledger path.
 
-Append provider, model or provider-default, session when available, attempt, status, and outcome to the SDD run ledger.
+The delegate initializes and appends provider, model or provider-default, session when available, attempt, status, and outcome to that exact path.
 
 Do not add a second setup, worktree, review, liveness, model, or provider-validation process.
 ```
@@ -1189,15 +1250,18 @@ Omit an absent path from `git add`. Do not add `.swingle/delegate/`.
 - Remove: `docs/credentials.md`
 - Remove: old `docs/migration-*.md` files
 - Remove: `codex/INSTALL.md`
+- Move: `.github/ISSUE_TEMPLATE/verification-finding.md` to `.github/ISSUE_TEMPLATE/provider-behavior.md`
 - Update: plugin metadata descriptions when they mention certification
 
 **Interfaces:**
 - Consumes: completed CLI and skill surfaces.
 - Produces: user and contributor documentation for the new ownership boundary.
 
-- [ ] **Step 1: Add the ownership doctrine to `CLAUDE.md`**
+- [ ] **Step 1: Replace obsolete contributor doctrine**
 
-Add this binding section:
+Replace the existing certification, validation-gate, Step-0, provider-layout, static-model, append-only-log, and `swingle-verify` sections in `CLAUDE.md`.
+
+Then add this binding section:
 
 ```markdown
 ## Swingle Ownership Doctrine
@@ -1213,6 +1277,14 @@ Add this binding section:
 - Automation responds to observed product failures. It never certifies providers on a schedule.
 - If CLI behavior is unclear, inspect current help before you add guidance.
 ```
+
+Use the repository Grep tool on `CLAUDE.md` with:
+
+```regex
+validate-packs|codex-smoke|Step 0|Step-0|verified-version|models\.yaml|verification-log|swingle-verify|versions/
+```
+
+Expected: no active instruction uses a removed command or concept.
 
 - [ ] **Step 2: Rewrite configuration documentation**
 
@@ -1264,27 +1336,65 @@ Keep concise plugin installation commands. Remove controller cache paths, capabi
 
 Safety documentation must cover task trust, prompt injection, write review, and result validation. Remove sandbox and provider capability claims.
 
-- [ ] **Step 6: Write the major-version migration guide**
+- [ ] **Step 6: Replace the verification issue form**
+
+Move `.github/ISSUE_TEMPLATE/verification-finding.md` to `.github/ISSUE_TEMPLATE/provider-behavior.md`.
+
+Use this form:
+
+```markdown
+---
+name: Provider behavior or guidance gap
+about: Report silent or misleading provider CLI behavior that current help does not explain
+title: "[provider] <observable failure>"
+labels: ""
+---
+
+## Observable behavior
+
+- Provider executable:
+- Operating system:
+- Current help inspected:
+- Failure signature:
+
+## Impact
+
+State the missing or unreliable delegated result.
+
+## Recovery attempted
+
+State the action and observed result.
+
+## Evidence
+
+Add redacted output or a reproducible observation.
+```
+
+Remove version-bump, model-release, quarterly, probe-matrix, and pack-assertion fields.
+Update every README link to use the new form.
+
+- [ ] **Step 7: Write the major-version migration guide**
 
 `docs/migration-4.0.0.md` must contain:
 
 - removed skills and commands
 - removed configuration keys and paths
-- configuration conversion rules
+- conversion of `$SWINGLE_MODELS`, project overrides, and user overrides
+- cross-layer conflict handling
 - provider model preferences are advisory
-- old model directories require explicit removal
+- each old directory or environment reference requires explicit removal
 - no compatibility reader exists
 - `swingle-setup` is the supported migration aid.
 
 Remove earlier migration documents. Git retains them.
 
-- [ ] **Step 7: Remove controller-specific install document**
+- [ ] **Step 8: Remove controller-specific install document**
 
 Remove `codex/INSTALL.md` and the empty `codex/` directory.
 
 Keep required plugin manifests under `.claude-plugin/`, `.codex-plugin/`, and `.agents/plugins/`.
 
-- [ ] **Step 8: Run documentation checks**
+- [ ] **Step 9: Run documentation checks**
 
 Run:
 
@@ -1302,10 +1412,10 @@ git diff --check
 
 Expected: exit 0 with no output.
 
-- [ ] **Step 9: Commit documentation and doctrine**
+- [ ] **Step 10: Commit documentation and doctrine**
 
 ```bash
-git add CLAUDE.md README.md docs codex .claude-plugin .codex-plugin .agents/plugins
+git add CLAUDE.md README.md docs codex .claude-plugin .codex-plugin .agents/plugins .github/ISSUE_TEMPLATE
 git commit -m "docs: establish guidance-first Swingle doctrine"
 ```
 

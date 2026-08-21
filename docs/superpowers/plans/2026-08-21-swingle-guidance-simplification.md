@@ -1039,7 +1039,8 @@ def test_delegate_uses_live_cli_contract_and_ledger():
     text = DELEGATE.read_text()
     for required in (
         "executable", "--help", "live", "contract", "ledger",
-        "python3 <root>/scripts/swingle", "Tier policy", "outcome",
+        "python3 <root>/scripts/swingle", "Path(<this SKILL.md>).parents[2]",
+        "Tier policy", "outcome",
         "disable", "providers_by_lane", "default_provider",
         "explicit user model", ".swingle/delegate/ledger.md", "--path",
         "DONE_WITH_CONCERNS", "NEEDS_CONTEXT", "BLOCKED",
@@ -1053,8 +1054,8 @@ def test_setup_manages_only_swingle_owned_state():
     text = SETUP.read_text()
     for required in (
         "scripts/swingle config", "scripts/swingle ledger", "executable presence",
-        "does not inspect provider auth", "Explicit migration",
-        "SWINGLE_MODELS", "user model directory",
+        "Path(<this SKILL.md>).parents[2]", "does not inspect provider auth",
+        "Explicit migration", "SWINGLE_MODELS", "user model directory",
     ):
         assert required in text
     for retired in RETIRED + ("provider version",):
@@ -1107,7 +1108,7 @@ Use these sections and no others:
 The LLM is the controller. The provider CLI is the authority for its current operation.
 Use this skill for one self-contained job or one homogeneous batch.
 Use `swingle-sdd` for a dependency-aware implementation plan.
-Resolve `<root>` as the grandparent of this `SKILL.md`. It contains `scripts/`, `contracts/`, and `providers/`.
+Resolve `<root>` as `Path(<this SKILL.md>).parents[2]`. It must contain `skills/`, `scripts/`, `contracts/`, and `providers/`.
 Run every Swingle-owned command as `python3 <root>/scripts/swingle`.
 
 ## Procedure
@@ -1167,7 +1168,7 @@ Use these sections:
 
 This skill manages Swingle configuration, preferences, and ledgers.
 It does not inspect provider auth, versions, readiness, permissions, or controller installation.
-Resolve `<root>` as the grandparent of this `SKILL.md`.
+Resolve `<root>` as `Path(<this SKILL.md>).parents[2]`. It must contain `skills/`, `scripts/`, `contracts/`, and `providers/`.
 Run every Swingle-owned command as `python3 <root>/scripts/swingle`.
 
 ## Procedure

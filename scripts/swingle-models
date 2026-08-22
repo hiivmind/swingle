@@ -1,6 +1,0 @@
-#!/usr/bin/env python3
-import sys, pathlib
-root = pathlib.Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(root / "lib"))
-from swingle.models import main
-sys.exit(main(default_root=root))

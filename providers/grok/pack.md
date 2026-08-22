@@ -1,15 +1,7 @@
----
-schema-version: 1
-id: grok
-cli: grok
-verified-version: "0.2.117"
-version-argv: ["grok", "--version"]
-resume-argv: ["grok", "--resume", "{session_id}"]
-fork-flag: "--fork-session"
-session-source: exec-output
-session-list-argv: ["grok", "sessions", "list"]
-stall-signal: log-age
-report-transport: report-file
-sandbox: enforced
-readiness-argv: ["grok", "models"]
----
+# Grok gotchas
+
+CLI: `grok`
+
+| Failure signature | Impact | Recovery | Evidence |
+| --- | --- | --- | --- |
+| single-object JSON output buffers until exit and can appear stalled | log-age monitoring reports a false stall | switch the invocation to the live CLI's streaming-JSON format (for example, `--output-format streaming-json`, which streams line by line and carries the session id on the end event) so progress signals resume; only then treat unremitting no-output as a real stall | providers/grok/log/2026-07.md |

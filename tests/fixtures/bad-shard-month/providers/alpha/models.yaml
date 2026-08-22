@@ -1,9 +1,0 @@
-schema: 1
-provider: alpha
-models:
-  - tier: cheapest
-    lane: any
-    priority: 1
-    model: cheap-any-model
-    status: verified
-

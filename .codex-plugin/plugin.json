@@ -1,7 +1,7 @@
 {
   "name": "swingle",
-  "version": "3.6.1",
-  "description": "Share the load: dispatch implementation and review work across coding-agent CLIs as providers (codex/opencode/agy/grok/pi/claude/omp), locally, through validated packs — no proxy, no key custody.",
+  "version": "4.0.0",
+  "description": "Share the load: dispatch implementation and review work across coding-agent CLIs as providers (codex/opencode/agy/grok/pi/claude/omp), locally, through provider gotcha notes, contracts, and an auditable ledger — no proxy, no key custody.",
   "author": {
     "name": "Nathaniel Ramm"
   },
@@ -19,8 +19,8 @@
   "skills": "./skills/",
   "interface": {
     "displayName": "Swingle",
-    "shortDescription": "Dispatch work across coding-agent CLIs through validated packs, locally",
-    "longDescription": "Swingle is a local controller-to-provider dispatcher: it executes implementation plans and one-off jobs through external-CLI subagents (codex, opencode, agy, grok, pi, claude, omp) with manifest-driven routing, model tiering, liveness protocol, controller hard gates, and an append-only verification knowledge base. It spawns processes locally against credentials you already hold — no proxy, no key custody.",
+    "shortDescription": "Dispatch work across coding-agent CLIs through provider gotcha notes, locally",
+    "longDescription": "Swingle is a local LLM-controlled dispatcher: it executes implementation plans and one-off jobs through external-CLI subagents (codex, opencode, agy, grok, pi, claude, omp) using advisory model preferences, provider gotcha notes, reusable contracts, and an auditable ledger. It spawns processes locally against credentials you already hold — no proxy, no key custody.",
     "developerName": "Nathaniel Ramm",
     "category": "Developer Tools",
     "capabilities": [

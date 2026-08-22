@@ -1,1 +1,0 @@
-Reviewer MUST flag (≥Important): non-file/unreadable paths (directory, permission-denied) reach read_text() and raise a traceback instead of the spec'd stderr error + exit 2 (path.exists() is an insufficient guard).

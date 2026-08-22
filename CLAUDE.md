@@ -34,7 +34,7 @@ for governance: statuses, category precedence, how to add new principles.
 | Document | Scope | Status | Summary |
 |----------|-------|--------|---------|
 | preference-never-availability.md | core | ENFORCED | Preferences steer selection but never define availability |
-| provider-notes-gotchas-only.md | core | ENFORCED | Provider notes hold only real, non-obvious failure→recovery rows |
+| provider-notes-structured-guidance.md | core | ADOPTED | Provider notes hold reactive gotchas and proactive dispatch guidance, both evidence-backed |
 | help-first-recovery.md | core | ADOPTED | Inspect current help before documenting or recovering from provider behavior |
 
 ### c. Automation

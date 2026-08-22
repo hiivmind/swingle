@@ -61,13 +61,12 @@ def _config_init(args: argparse.Namespace) -> int:
         return _error(error)
 
 
-def _config_show(args: argparse.Namespace, default_root: Path) -> int:
+def _config_show(args: argparse.Namespace) -> int:
     try:
-        root = Path(args.root).expanduser() if args.root else default_root
         config_path = Path(args.config).expanduser() if args.config else None
         project_path = Path(args.project).expanduser() if args.project else None
         layer, path = resolve_config_path(config_path, project_path)
-        result = load_config(path, _provider_ids(root))
+        result = load_config(path)
         payload = {
             "layer": layer,
             "path": _absolute(path),
@@ -153,7 +152,6 @@ def _parser() -> argparse.ArgumentParser:
     config_show = config_commands.add_parser("show")
     config_show.add_argument("--config")
     config_show.add_argument("--project")
-    config_show.add_argument("--root")
 
     config_validate = config_commands.add_parser("validate")
     config_validate.add_argument("path")
@@ -198,7 +196,7 @@ def main(
         if args.config_command == "init":
             return _config_init(args)
         if args.config_command == "show":
-            return _config_show(args, root)
+            return _config_show(args)
         if args.config_command == "validate":
             return _config_validate(args, root)
         return _config_set(args, root)

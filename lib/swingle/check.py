@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 import re
 
-from .providers import PROVIDER_ID_RE, check_provider_note
+from .providers import PROVIDER_ID_RE
 
 LINK_RE = re.compile(r"\]\(([^)]+)\)")
 CONTRACT_PATH_RE = re.compile(r"(?:<root>/)?contracts/([A-Za-z0-9_.-]+\.md)")
@@ -94,8 +94,6 @@ def check_repository(root: Path) -> list[str]:
             note_path = provider / "pack.md"
             if not note_path.is_file():
                 findings.append(f"{note_path}: missing provider note")
-                continue
-            findings.extend(check_provider_note(note_path))
 
     _check_links(root, findings)
     return findings

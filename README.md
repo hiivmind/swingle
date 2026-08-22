@@ -23,7 +23,7 @@ Installing Swingle into Claude Code or Codex gives you:
 
 - opencode's free-tier models from a Claude/Codex controller, so you keep the harness you
   prefer with the cost profile you choose.
-- Custom endpoints through `litellm` or `ollama` backends, reachable because Swingle
+- Custom endpoints through `litellm` or `ollama` backends, reachable because the LLM
   drives the CLI that already talks to them, with no new gateway to operate.
 - Any provider CLI already on your machine (`codex`, `claude`, `opencode`, `grok`, `pi`,
   `agy`, `omp`) as a delegation target, chosen per job by the LLM.

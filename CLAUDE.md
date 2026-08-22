@@ -4,9 +4,50 @@ Swingle is a skills plugin for delegating work through coding-agent provider CLI
 LLM controls each dispatch; Python provides shared configuration, ledger, and authoring
 structure. Keep the Claude Code, Codex, and plain skills distribution surfaces aligned.
 
+## Design Principles (MANDATORY)
+
+**You MUST read the relevant principle document before** adding or removing a provider
+surface, changing configuration/ledger behavior, modifying the ownership boundary
+(what Python manages vs what the LLM owns), or changing how automation responds to
+an issue.
+
+This is not advisory. Do not rely on summaries, memory, or assumptions — read the actual
+principle document.
+
+**Principles location:**
+`/Users/nathanielramm/git/hiivmind/swingle-central/01.principles/swingle/`
+
+See
+[PRINCIPLES.md](../swingle-central/01.principles/swingle/PRINCIPLES.md)
+for governance: statuses, category precedence, how to add new principles.
+
+### a. Ownership
+
+| Document | Scope | Status | Summary |
+|----------|-------|--------|---------|
+| llm-as-controller.md | core | ENFORCED | The LLM owns every dispatch; Swingle provides guidance, not a runtime |
+| live-cli-as-authority.md | core | ENFORCED | The installed CLI is the authority for its own operation, never cached facts |
+| python-boundary.md | core | ENFORCED | Python manages only universal state and structure; never runs provider/controller binaries |
+
+### b. Guidance
+
+| Document | Scope | Status | Summary |
+|----------|-------|--------|---------|
+| preference-never-availability.md | core | ENFORCED | Preferences steer selection but never define availability |
+| provider-notes-gotchas-only.md | core | ENFORCED | Provider notes hold only real, non-obvious failure→recovery rows |
+| help-first-recovery.md | core | ADOPTED | Inspect current help before documenting or recovering from provider behavior |
+
+### c. Automation
+
+| Document | Scope | Status | Summary |
+|----------|-------|--------|---------|
+| contracts-and-ledger-retained.md | core | ENFORCED | Contracts and the ledger remain; they improve quality and auditability |
+| automation-observes-failures.md | core | ENFORCED | Automation responds to observed failures, never certifies on a schedule |
+
 ## Swingle Ownership Doctrine
 
 - The LLM is the controller.
+
 - The live provider CLI is the authority for provider operation.
 - Never gate a provider with cached versions, models, auth results, readiness results, or controller facts.
 - Python code can manage only universal Swingle state and deterministic Swingle structure.

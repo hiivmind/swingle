@@ -4,25 +4,28 @@
 
 # Swingle
 
-Swingle is a skills plugin that brings the model freedom of open harnesses to the
-mainstream controllers, Claude Code and Codex in particular, by delegating work to
-provider CLIs that are already installed and authenticated on your machine.
+Swingle is a skills plugin that gives any driving harness direct, in-session delegation
+to whichever provider CLI is already installed and authenticated on your machine. The
+controlling LLM delegates one job at a time, mid-session, to a CLI it picks itself: this
+is not a switch of model providers for the current session, and not an automatically
+routed subagent.
 
 ## Why Swingle
 
-Claude Code and Codex natively expose only their own provider's models. If you want to
-run a job on another provider's model, or bring your own endpoint, their answer is
-"that model isn't available here."
+Most harnesses expose only their own provider's models to the controlling LLM. Claude
+Code and Codex are common examples: run a job on another provider's model, or bring your
+own endpoint, and their answer is "that model isn't available here."
 
 Open harnesses already solved this: opencode and Oh My Pi ship with many models and
-native dispatch to any provider or endpoint. Swingle backports that capability to the
-harnesses that lack it. It does not proxy traffic or host a model endpoint; it tells
-your Claude or Codex controller how to drive the CLIs that already reach those models.
+native dispatch to any provider or endpoint. Swingle backports that capability to any
+harness that lacks it by telling the controlling harness how to drive the CLIs that
+already reach those models.
 
-Installing Swingle into Claude Code or Codex gives you:
+Installing Swingle gives you:
 
-- opencode's free-tier models from a Claude/Codex controller, so you keep the harness you
-  prefer with the cost profile you choose.
+- opencode's broad model range from any driving harness: GLM, DeepSeek, Qwen, and others,
+  including free-tier options, so you keep the harness you prefer with the cost profile
+  you choose.
 - Any provider you configure inside opencode or Oh My Pi: their many built-in providers
   directly, more providers through a `litellm` gateway (for example
   [runinfra.ai](https://runinfra.ai)), or locally deployed models through `ollama`. You set
@@ -87,8 +90,8 @@ Three skills ship:
 | `swingle-sdd` | The small wrapper that executes a written SDD plan through delegation. |
 
 The LLM controls the current CLI and decides how to brief and evaluate a delegation. The
-reusable role [contracts](contracts/) remain part of the dispatch interface. The delegation
-ledger remains in `.swingle/delegate/` so each run has an auditable record.
+reusable role [contracts](contracts/) are part of the dispatch interface. The delegation
+ledger lives in `.swingle/delegate/` so each run has an auditable record.
 
 ## Configuration and state
 
@@ -114,9 +117,8 @@ Configuration uses one JSON file with whole-file precedence. `disable`, an optio
 ## Provider notes
 
 Provider `pack.md` files contain gotchas only: real, non-obvious behavior that changes
-recovery after the LLM observes a failure signature. They are living notes with evidence,
-not command tutorials, inventories, model catalogs, or certification records. See
-[docs/pack-authoring.md](docs/pack-authoring.md).
+recovery after the LLM observes a failure signature. They are living notes with evidence.
+See [docs/pack-authoring.md](docs/pack-authoring.md).
 
 ## Safety and trust
 

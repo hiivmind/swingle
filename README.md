@@ -23,8 +23,10 @@ Installing Swingle into Claude Code or Codex gives you:
 
 - opencode's free-tier models from a Claude/Codex controller, so you keep the harness you
   prefer with the cost profile you choose.
-- Custom endpoints through `litellm` or `ollama` backends: install and configure the
-  harness that already talks to them, then the LLM selects those models by name during
+- Any provider you configure inside opencode or Oh My Pi: their many built-in providers
+  directly, more providers through a `litellm` gateway (for example
+  [runinfra.ai](https://runinfra.ai)), or locally deployed models through `ollama`. You set
+  these up in the harness itself; Swingle just lets the LLM select them by name during
   dispatch.
 - Any provider CLI already on your machine (`codex`, `claude`, `opencode`, `grok`, `pi`,
   `agy`, `omp`) as a delegation target, chosen per job by the LLM.

@@ -1,7 +1,7 @@
 {
   "name": "swingle",
   "version": "4.0.1",
-  "description": "Brings the model freedom of open harnesses to any driving harness, Claude Code and Codex among them: delegate a job to any provider CLI already installed on your machine (codex, claude, opencode, grok, pi, agy, omp), with advisory model preferences, provider notes, contracts, and an auditable ledger. No proxy, no key custody.",
+  "description": "Brings the model freedom of open harnesses to any driving harness, Claude Code and Codex among them: delegate a job to any provider CLI already installed on your machine (codex, claude, opencode, grok, pi, agy, omp), with advisory model preferences, provider notes, contracts, and an auditable ledger.",
   "author": {
     "name": "Nathaniel Ramm"
   },
@@ -20,7 +20,7 @@
   "interface": {
     "displayName": "Swingle",
     "shortDescription": "Bring open-harness model freedom to any driving harness",
-    "longDescription": "Most harness controllers, Claude Code and Codex among them, expose only their own provider's models. Swingle backports the model freedom that open harnesses like opencode already have: it drives whichever provider CLI is already installed and authenticated on your machine (codex, claude, opencode, grok, pi, agy, omp), using advisory model preferences, provider notes, reusable contracts, and an auditable ledger. Everything runs locally against credentials you already hold, with no proxy and no key custody.",
+    "longDescription": "Most harness controllers, Claude Code and Codex among them, expose only their own provider's models. Swingle backports the model freedom that open harnesses like opencode already have: it drives whichever provider CLI is already installed and authenticated on your machine (codex, claude, opencode, grok, pi, agy, omp), using advisory model preferences, provider notes, reusable contracts, and an auditable ledger.",
     "developerName": "Nathaniel Ramm",
     "category": "Developer Tools",
     "capabilities": [

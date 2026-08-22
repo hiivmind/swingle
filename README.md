@@ -115,9 +115,10 @@ Configuration uses one JSON file with whole-file precedence. `disable`, an optio
 
 ## Provider notes
 
-Provider `pack.md` files contain gotchas only: real, non-obvious behavior that changes
-recovery after the LLM observes a failure signature. They are living notes with evidence.
-See [docs/pack-authoring.md](docs/pack-authoring.md).
+Provider `pack.md` files hold two evidence-backed categories: gotchas (a real failure and
+its recovery) and dispatch guidance (a verified, non-obvious operating fact that changes a
+dispatch, without any failure having occurred). They are living notes, not tutorials or
+catalogs. See [docs/pack-authoring.md](docs/pack-authoring.md).
 
 ## Safety and trust
 

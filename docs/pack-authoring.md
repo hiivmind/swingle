@@ -3,8 +3,29 @@
 Each provider directory contains one living `pack.md` note identifying the provider CLI
 and recording real, non-obvious operating guidance. Nothing parses this file back out at
 dispatch time; the LLM reads it as Markdown, so its internal shape is not machine-enforced
-(`swingle check` only confirms the file exists and that the provider directory holds
-nothing else). Discipline here is authoring judgment, not a validator.
+(`tests/test_repo_integrity.py` only confirms the file exists and that the provider
+directory holds nothing else). Discipline here is authoring judgment, not a validator.
+
+## Adding a new provider
+
+The directory name under `providers/` *is* the provider's identity everywhere in Swingle:
+the ID used in `disable`, `default_provider`, `providers_by_lane`, and
+`model_preferences`, and the literal executable name the LLM looks up on `PATH` at
+dispatch time. Choose it to match the CLI's real command name exactly (lowercase,
+`[a-z0-9-]+`), since that's what makes the provider resolvable at all.
+
+Registration is exactly this: create `providers/<id>/` and one `pack.md` inside it. There
+is no separate registry, index, or list to update; `discover_provider_ids` reads the
+directory listing fresh every time, and delegation resolves the same way. A minimal file:
+
+```markdown
+# <Provider> notes
+
+CLI: `<id>`
+```
+
+Either category's table (see below) can start empty and grow as real gotchas or dispatch
+guidance are observed.
 
 A note holds two kinds of row, and only these two:
 
@@ -44,12 +65,12 @@ inspect the current provider help before adding a row.
 
 ## Keep notes narrow
 
-`pack.md` contains no command tutorial, version, model, success matrix, changelog digest, or
-positive inventory. Do not include successful probe results, model catalogs, effort values,
-permission summaries, sandbox inventories, output-format inventories, changelog summaries,
-current version claims, or cross-provider comparison tables. A dispatch-guidance row states
-one decision and its rationale; it does not become a second home for content the gotcha
-rules already excluded.
+This applies to both tables equally: `pack.md` contains no command tutorial, version,
+model, success matrix, changelog digest, or positive inventory. Do not include successful
+probe results, model catalogs, effort values, permission summaries, sandbox inventories,
+output-format inventories, changelog summaries, current version claims, or cross-provider
+comparison tables. A dispatch-guidance row states one decision and its rationale; it does
+not become a second home for content this section already excludes.
 
 Git supplies history. Provider notes are living documents: update or remove a row when it is
 no longer true. Swingle does not ship append-only provider verification history.

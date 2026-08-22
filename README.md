@@ -4,35 +4,35 @@
 
 # Swingle
 
-Swingle is a **SKILLS plugin** that brings the model freedom of open harnesses to the
-mainstream controllers — **Claude Code and Codex** in particular — by delegating work to
+Swingle is a skills plugin that brings the model freedom of open harnesses to the
+mainstream controllers, Claude Code and Codex in particular, by delegating work to
 provider CLIs that are already installed and authenticated on your machine.
 
 ## Why Swingle
 
-Claude Code and Codex natively expose **only their own provider's models**. If you want
-to run a job on another provider's model — or bring your own endpoint — their answer is
+Claude Code and Codex natively expose only their own provider's models. If you want to
+run a job on another provider's model, or bring your own endpoint, their answer is
 "that model isn't available here."
 
-Open harnesses already solved this: opencode and Oh My Pi ship with many models and native
-dispatch to **any** provider or endpoint. Swingle backports that capability to the
-harnesses that lack it. It does not proxy traffic or host a model endpoint; it tells your
-Claude or Codex controller *how to drive* the CLIs that already reach those models.
+Open harnesses already solved this: opencode and Oh My Pi ship with many models and
+native dispatch to any provider or endpoint. Swingle backports that capability to the
+harnesses that lack it. It does not proxy traffic or host a model endpoint; it tells
+your Claude or Codex controller how to drive the CLIs that already reach those models.
 
 Installing Swingle into Claude Code or Codex gives you:
 
-- **opencode's free-tier models** from a Claude/Codex controller — the harness you prefer
-  with the cost profile you choose.
-- **Custom endpoints** through `litellm` or `ollama` backends, reachable because Swingle
-  drives the CLI that already talks to them — no new gateway to operate.
-- **Any provider CLI already on your machine** (`codex`, `claude`, `opencode`, `grok`,
-  `pi`, `agy`, `omp`) as a delegation target, chosen per job by the LLM.
+- opencode's free-tier models from a Claude/Codex controller, so you keep the harness you
+  prefer with the cost profile you choose.
+- Custom endpoints through `litellm` or `ollama` backends, reachable because Swingle
+  drives the CLI that already talks to them, with no new gateway to operate.
+- Any provider CLI already on your machine (`codex`, `claude`, `opencode`, `grok`, `pi`,
+  `agy`, `omp`) as a delegation target, chosen per job by the LLM.
 
-The delegation interface is the [Swingle contracts](contracts/) plus an auditable ledger —
-not a wire protocol. There is no model catalog, no provider certification, and no fleet to
-maintain. **The live provider CLI is the authority** for what models it can run right now;
-Swingle writes the brief, chooses the provider and advisory model preference, runs the CLI,
-and evaluates the result.
+The delegation interface is the [Swingle contracts](contracts/) plus an auditable ledger,
+not a wire protocol. There is no model catalog, no provider certification, and no fleet
+to maintain. The live provider CLI is the authority for what models it can run right
+now; Swingle writes the brief, chooses the provider and advisory model preference, runs
+the CLI, and evaluates the result.
 
 ## Install
 

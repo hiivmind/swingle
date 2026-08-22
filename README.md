@@ -29,7 +29,7 @@ Installing Swingle into Claude Code or Codex gives you:
   `agy`, `omp`) as a delegation target, chosen per job by the LLM.
 
 The delegation interface is the [Swingle contracts](contracts/) plus an auditable ledger.
-The live provider CLI is the authority for what models it can run right now; Swingle
+The live provider CLI is the authority for what models it can run right now; the LLM
 writes the brief, chooses the provider and advisory model preference, runs the CLI, and
 evaluates the result.
 

@@ -3,19 +3,19 @@
 A contract is the operating brief handed to a delegated provider CLI for one role: what it
 may do, how it reports, and when it must stop and ask instead of guessing. The LLM reads it
 as Markdown at dispatch time; nothing parses its internal shape back out, so authoring
-discipline, not a validator, keeps a new contract aligned with the other three
+discipline, not a validator, keeps a new contract aligned with its siblings
 (`tests/test_skills.py::test_contracts_are_transport_neutral` only confirms no provider or
 transport language leaked in, and `tests/test_repo_integrity.py` only confirms
 cross-references resolve).
 
-## The role hierarchy
+## The role set
 
-Contracts sit under a fixed two-lane structure (see [references/concepts.md](../references/concepts.md)):
-`implement` and `review` are the only lanes, and there is no third. Each lane currently
-holds exactly two roles, `reader`/`implementer` under `implement` and
-`task-reviewer`/`design-reviewer` under `review`, one contract file per role. A new
-contract is a new role slotted under one of the two existing lanes; the lane axis itself
-does not grow.
+Contracts implement the roles of the classification matrix (see
+[references/concepts.md](../references/concepts.md)): `reader`, `implementer`,
+`task-reviewer`, `design-reviewer`, `independent-review`, and `fact-checker`, one
+contract file per role, plus the catch-all role `general-task` for work that resists
+classification or arrives composite and entangled. The matrix's axes do not grow casually:
+a new contract is a new role in the matrix.
 
 The governing principle (`contracts-and-ledger-retained`, one of the two load-bearing
 controls Swingle kept from the certification era) requires a new contract to justify
@@ -30,11 +30,14 @@ Every contract follows the same skeleton:
 # <Role> Operating Contract
 
 You are <the task shape this role answers>. Your dispatch message names <what the
-dispatch supplies, such as a brief file, prior interfaces, or the selected report mode>.
-This contract is how you operate.
+dispatch supplies, such as a brief file, prior interfaces, or the selected report mode>,
+and the current working directory you operate from. This contract is how you operate.
 
 ## <Ground rules / Your job>
 
+- **Working directory.** Operate only inside the directory your dispatch names; every
+  dispatch names it explicitly. This element is mandatory — no contract may proceed on an
+  inherited or assumed working directory.
 - What this role may and may not do.
 - Escalate rather than guess: stop and ask (status `NEEDS_CONTEXT`) when the task, a named
   source, or a requirement is unclear.
@@ -63,9 +66,10 @@ appear.
 Registration touches three places, all by hand. There is no directory-listing discovery
 for contracts the way `providers/` has for provider packs:
 
-1. Write `contracts/<role>-contract.md` following the shape above.
-2. Add the new role as a leaf under its lane in `references/concepts.md`'s hierarchy and
-   accompanying prose.
+1. Write `contracts/<role>-contract.md` following the shape above, including the
+   mandatory working-directory element.
+2. Add the new role to `references/concepts.md`'s matrix (its cell) and the refinement
+   rules if the cell holds more than one candidate.
 3. Add the new contract as a selectable option in `skills/delegate/SKILL.md` step 1, the
    only place a contract is actually chosen.
 

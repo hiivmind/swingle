@@ -90,8 +90,8 @@ The `--project .` flag makes the project-layer (`.swingle.json`) file visible.
 
 Configuration uses one JSON file selected with whole-file precedence. Model preferences
 are advisory ordered hints. An absent or stale preference must never make a live provider
-or model unavailable. See [docs/config.md](docs/config.md) and
-[docs/model-tiering.md](docs/model-tiering.md).
+or model unavailable. See [references/config.md](references/config.md) and
+[references/model-tiering.md](references/model-tiering.md).
 
 ## Provider notes
 

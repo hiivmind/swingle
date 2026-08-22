@@ -28,11 +28,10 @@ Installing Swingle into Claude Code or Codex gives you:
 - Any provider CLI already on your machine (`codex`, `claude`, `opencode`, `grok`, `pi`,
   `agy`, `omp`) as a delegation target, chosen per job by the LLM.
 
-The delegation interface is the [Swingle contracts](contracts/) plus an auditable ledger,
-not a wire protocol. There is no model catalog, no provider certification, and no fleet
-to maintain. The live provider CLI is the authority for what models it can run right
-now; Swingle writes the brief, chooses the provider and advisory model preference, runs
-the CLI, and evaluates the result.
+The delegation interface is the [Swingle contracts](contracts/) plus an auditable ledger.
+The live provider CLI is the authority for what models it can run right now; Swingle
+writes the brief, chooses the provider and advisory model preference, runs the CLI, and
+evaluates the result.
 
 ## Install
 

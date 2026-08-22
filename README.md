@@ -135,6 +135,7 @@ Include redacted evidence and the recovery you attempted.
 
 ## Documentation
 
+- [Operating surface concepts](references/concepts.md)
 - [Configuration](references/config.md)
 - [Model preference guidance](references/model-tiering.md)
 - [Provider note authoring](docs/pack-authoring.md)

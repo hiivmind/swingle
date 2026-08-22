@@ -31,10 +31,6 @@ jobs:
             echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Check Swingle at the release head
-        if: steps.tag.outputs.exists == 'false'
-        run: python3 scripts/swingle check --root .
-
       - name: Tag and create GitHub release
         if: steps.tag.outputs.exists == 'false'
         env:

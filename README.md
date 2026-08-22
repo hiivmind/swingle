@@ -32,7 +32,8 @@ Installing Swingle gives you:
   these up in the harness itself; Swingle just lets the LLM select them by name during
   dispatch.
 - Any provider CLI already on your machine (`codex`, `claude`, `opencode`, `grok`, `pi`,
-  `agy`, `omp`) as a delegation target, chosen per job by the LLM.
+  `agy`, `omp`, `cursor-agent`, `devin`, `copilot`) as a delegation target, chosen per job
+  by the LLM.
 
 The delegation interface is the [Swingle contracts](contracts/) plus an auditable ledger.
 The live provider CLI is the authority for what models it can run right now; the LLM
@@ -95,7 +96,7 @@ ledger lives in `.swingle/delegate/` so each run has an auditable record.
 
 ## Configuration and state
 
-The Python CLI manages configuration, ledgers, and deterministic authoring checks:
+The Python CLI manages configuration and ledgers:
 
 ```bash
 python3 scripts/swingle config init --user
@@ -103,7 +104,6 @@ python3 scripts/swingle config show --project .
 python3 scripts/swingle config validate <path/to/config.json>
 python3 scripts/swingle ledger init --path <path/to/ledger.md>
 python3 scripts/swingle ledger show --path <path/to/ledger.md>
-python3 scripts/swingle check --root .
 ```
 
 The `--project .` flag makes the project-layer (`.swingle.json`) file visible.
@@ -116,9 +116,10 @@ Configuration uses one JSON file with whole-file precedence. `disable`, an optio
 
 ## Provider notes
 
-Provider `pack.md` files contain gotchas only: real, non-obvious behavior that changes
-recovery after the LLM observes a failure signature. They are living notes with evidence.
-See [docs/pack-authoring.md](docs/pack-authoring.md).
+Provider `pack.md` files hold two evidence-backed categories: gotchas (a real failure and
+its recovery) and dispatch guidance (a verified, non-obvious operating fact that changes a
+dispatch, without any failure having occurred). They are living notes, not tutorials or
+catalogs. See [docs/pack-authoring.md](docs/pack-authoring.md).
 
 ## Safety and trust
 
@@ -135,6 +136,7 @@ Include redacted evidence and the recovery you attempted.
 
 ## Documentation
 
+- [Operating surface concepts](references/concepts.md)
 - [Configuration](references/config.md)
 - [Model preference guidance](references/model-tiering.md)
 - [Provider note authoring](docs/pack-authoring.md)

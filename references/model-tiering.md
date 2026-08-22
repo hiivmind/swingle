@@ -52,3 +52,13 @@ python3 scripts/swingle config set --path <path/to/config.json> model_preference
 Inspect the provider's current `--help` (or its model-listing subcommand, if it has one)
 before choosing `<model-name>` — the same live-CLI grounding `swingle-delegate` applies
 before a dispatch. Never carry a model name forward from an older config or from memory.
+
+A tier resolves to one model, but the model and its effort (reasoning depth, thinking
+level) are a single joined choice at dispatch time, not two independent settings.
+`model_preferences` stores only the model name; effort is never written to config. How a
+provider CLI accepts model and effort together varies by provider and by CLI version: some
+expose a separate effort flag alongside the model flag, some accept effort folded into the
+model identifier itself, some route it through a generic config-override mechanism, and
+some may expose no CLI-level effort control at all. Inspect the target provider's current
+`--help` before combining them; never assume one provider's pattern applies to another. See
+[concepts.md](concepts.md).

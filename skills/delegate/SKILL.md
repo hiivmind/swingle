@@ -15,10 +15,14 @@ Use this skill for one self-contained job or one homogeneous batch.
 Use `swingle-sdd` for a dependency-aware implementation plan.
 Resolve `<root>` as `Path(<this SKILL.md>).parents[2]`. It must contain `skills/`, `scripts/`, `contracts/`, and `providers/`.
 Run every Swingle-owned command as `python3 <root>/scripts/swingle`.
+See [references/concepts.md](../../references/concepts.md) for how lane, role, provider,
+tier, model, and effort relate.
 
 ## Procedure
 
-1. Select the reader, implementer, task-reviewer, or design-reviewer contract and lane.
+1. Select the reader or implementer contract (lane `implement`), or the task-reviewer or
+   design-reviewer contract (lane `review`). Lane is derived from this choice, not picked
+   separately.
 2. Select an explicit tier or derive one from the Tier policy.
 3. Use the caller ledger path. Otherwise use `<project>/.swingle/delegate/ledger.md`.
 4. Read policy with `python3 <root>/scripts/swingle config show --project <working-directory>`.

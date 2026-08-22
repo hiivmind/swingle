@@ -43,11 +43,15 @@ The target schema is:
   honors this policy.
 - **`default_provider`** — an optional provider ID used when no provider is explicit and
   no lane preference applies.
-- **`providers_by_lane`** — an optional mapping from `implement` or `review` to a
-  preferred provider ID.
+- **`providers_by_lane`** — an optional mapping from `implement` or `review`, the only two
+  lanes, to a preferred provider ID. Lane is derived from which contract a delegation uses
+  (reader/implementer -> `implement`, task-reviewer/design-reviewer -> `review`), not a
+  free-form label. See [concepts.md](concepts.md).
 - **`model_preferences`** — optional ordered model names for each provider and advisory
   tier (`cheapest`, `standard`, or `most-capable`). Preferences steer selection; they do
-  not define availability.
+  not define availability. A preference names a model only; effort (reasoning depth,
+  thinking level) is never a config field, since how a provider CLI accepts it varies and
+  is resolved live at dispatch time. See [concepts.md](concepts.md).
 
 Provider IDs come from the provider directories. Model names are not checked against a
 cached catalog. The live provider CLI supplies model reality.
@@ -64,9 +68,14 @@ from memory or an older config — see [model preference guidance](model-tiering
 
 ## Warnings and fallback
 
-Malformed JSON, a non-object root, invalid types, unknown provider IDs in routing keys, or
-a disabled routing target are configuration errors. `config validate` reports the errors,
-and dispatch must stop until the file is corrected.
+Malformed JSON, a non-object root, invalid types, or a disabled routing target are
+configuration errors regardless of which command reads the file. `config validate` and
+`config set` additionally check that a provider ID named in `disable`, `default_provider`,
+`providers_by_lane`, or `model_preferences` exists under `providers/`, catching a typo at
+config-authoring time. `config show`, the read `swingle-delegate` uses on every dispatch,
+skips that live directory check: the provider set is dev-time-static, and a bad reference
+that slipped past authoring still surfaces the normal way, as a missing executable at
+dispatch, rather than being re-litigated on every read.
 
 Unknown keys and malformed optional `model_preferences` produce warnings. Swingle ignores
 the affected preference and continues; an installed provider remains available. If a

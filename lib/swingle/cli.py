@@ -6,7 +6,6 @@ import os
 from pathlib import Path
 from typing import Any
 
-from .check import check_repository
 from .config import (
     init_config,
     load_config,
@@ -178,8 +177,6 @@ def _parser() -> argparse.ArgumentParser:
     ledger_show = ledger_commands.add_parser("show")
     ledger_show.add_argument("--path", required=True)
 
-    check = commands.add_parser("check")
-    check.add_argument("--root")
     return parser
 
 def main(
@@ -200,12 +197,8 @@ def main(
         if args.config_command == "validate":
             return _config_validate(args, root)
         return _config_set(args, root)
-    if args.command == "ledger":
-        if args.ledger_command == "init":
-            return _ledger_init(args)
-        if args.ledger_command == "append":
-            return _ledger_append(args)
-        return _ledger_show(args)
-    check_root = Path(args.root).expanduser().resolve() if args.root else root
-    errors = check_repository(check_root)
-    return _emit({"errors": errors}, 1 if errors else 0)
+    if args.ledger_command == "init":
+        return _ledger_init(args)
+    if args.ledger_command == "append":
+        return _ledger_append(args)
+    return _ledger_show(args)

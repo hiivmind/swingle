@@ -65,11 +65,6 @@ def test_ledger_cli_round_trip(tmp_path):
     ]
 
 
-def test_check_runs_repository_owned_checks(tmp_path):
-    result = run_cli("check", "--root", str(ROOT))
-    assert result.returncode == 0, result.stdout + result.stderr
-
-
 def test_python_cli_never_runs_provider_binaries(tmp_path):
     marker = tmp_path / "provider-ran"
     bin_dir = tmp_path / "bin"
@@ -96,7 +91,6 @@ def test_python_cli_never_runs_provider_binaries(tmp_path):
             "001 complete: status=DONE outcome=ok",
         ),
         ("ledger", "show", "--path", str(ledger_path)),
-        ("check", "--root", str(ROOT)),
     )
     for command in commands:
         result = run_cli(*command, env=env)

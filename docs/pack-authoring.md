@@ -56,13 +56,13 @@ no longer true. Swingle does not ship append-only provider verification history.
 
 ## Check a change
 
-After editing a note, run the repository authoring check:
+After editing a note, run the test suite:
 
 ```bash
-python3 scripts/swingle check --root .
+python3 -m pytest -q
 ```
 
-The check confirms the provider directory contains only `pack.md` (no stray assets) and
-that links, anchors, and contract references across the repo's owned Markdown resolve. It
-does not certify provider behavior, validate the note's internal table structure, or
-replace a live CLI observation.
+`tests/test_repo_integrity.py` confirms the provider directory contains only `pack.md` (no
+stray assets) and that links, anchors, and contract references across the repo's owned
+Markdown resolve. It does not certify provider behavior, validate the note's internal table
+structure, or replace a live CLI observation.

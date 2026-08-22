@@ -84,7 +84,6 @@ Run the `swingle-setup` skill, then run:
 ```bash
 python3 scripts/swingle config show --project .
 python3 scripts/swingle config validate <path/to/config.json>
-python3 scripts/swingle check --root .
 ```
 
 The `--project .` flag makes the project-layer (`.swingle.json`) file visible.

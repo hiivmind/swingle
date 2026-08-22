@@ -95,7 +95,7 @@ ledger lives in `.swingle/delegate/` so each run has an auditable record.
 
 ## Configuration and state
 
-The Python CLI manages configuration, ledgers, and deterministic authoring checks:
+The Python CLI manages configuration and ledgers:
 
 ```bash
 python3 scripts/swingle config init --user
@@ -103,7 +103,6 @@ python3 scripts/swingle config show --project .
 python3 scripts/swingle config validate <path/to/config.json>
 python3 scripts/swingle ledger init --path <path/to/ledger.md>
 python3 scripts/swingle ledger show --path <path/to/ledger.md>
-python3 scripts/swingle check --root .
 ```
 
 The `--project .` flag makes the project-layer (`.swingle.json`) file visible.

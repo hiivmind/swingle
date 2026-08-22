@@ -3,8 +3,8 @@
 Each provider directory contains one living `pack.md` note identifying the provider CLI
 and recording real, non-obvious operating guidance. Nothing parses this file back out at
 dispatch time; the LLM reads it as Markdown, so its internal shape is not machine-enforced
-(`swingle check` only confirms the file exists and that the provider directory holds
-nothing else). Discipline here is authoring judgment, not a validator.
+(`tests/test_repo_integrity.py` only confirms the file exists and that the provider
+directory holds nothing else). Discipline here is authoring judgment, not a validator.
 
 A note holds two kinds of row, and only these two:
 

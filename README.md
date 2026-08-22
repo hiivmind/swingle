@@ -140,6 +140,7 @@ Include redacted evidence and the recovery you attempted.
 - [Configuration](references/config.md)
 - [Model preference guidance](references/model-tiering.md)
 - [Provider note authoring](docs/pack-authoring.md)
+- [Contract authoring](docs/contract-authoring.md)
 - [Safety and trust](references/safety.md)
 - [Migration to 4.0.0](docs/migration-4.0.0.md)
 

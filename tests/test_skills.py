@@ -55,6 +55,13 @@ def test_sdd_is_only_a_delegate_wrapper():
         assert retired not in text
 
 
+def test_delegate_names_every_contract():
+    text = DELEGATE.read_text()
+    for contract in sorted((ROOT / "contracts").glob("*-contract.md")):
+        role = contract.stem.removesuffix("-contract")
+        assert role in text, f"{contract.name} not named in delegate SKILL.md step 1"
+
+
 def test_contracts_are_transport_neutral():
     for path in sorted((ROOT / "contracts").glob("*.md")):
         text = path.read_text()

@@ -15,21 +15,23 @@ Use this skill for one self-contained job or one homogeneous batch.
 Use `swingle-sdd` for a dependency-aware implementation plan.
 Resolve `<root>` as `Path(<this SKILL.md>).parents[2]`. It must contain `skills/`, `scripts/`, `contracts/`, and `providers/`.
 Run every Swingle-owned command as `python3 <root>/scripts/swingle`.
-See [references/concepts.md](../../references/concepts.md) for how lane, role, provider,
-tier, model, and effort relate.
+See [references/concepts.md](../../references/concepts.md) for how the classification
+matrix, contract, tier, provider, model, and effort relate.
 
 ## Procedure
 
-1. Select the reader or implementer contract (lane `implement`), or the task-reviewer or
-   design-reviewer contract (lane `review`). Lane is derived from this choice, not picked
-   separately.
+1. Select the contract: `reader`, `implementer`, `task-reviewer`, `design-reviewer`,
+   `independent-review`, or `fact-checker` — classify through the matrix in
+   [references/concepts.md](../../references/concepts.md). Use `general-task` only when
+   the request resists classification or arrives composite and entangled.
 2. Select an explicit tier or derive one from the Tier policy.
 3. Use the caller ledger path. Otherwise use `<project>/.swingle/delegate/ledger.md`.
 4. Read policy with `python3 <root>/scripts/swingle config show --project <working-directory>`.
 5. If configuration has errors, stop policy routing and surface them for repair.
 6. If configuration has warnings only, continue with its normalized configuration.
 7. Reject a provider listed in `disable`, including an explicit provider.
-8. Select an explicit provider before `providers_by_lane` and `default_provider`.
+8. Select an explicit provider before `providers_by_contract` (role-level or
+   tier-keyed) and `default_provider`.
 9. If no provider resolves, ask the user. Do not silently choose one.
 10. If the selected executable is missing, surface it. Do not silently substitute another provider.
 11. Pass an explicit user model directly to the provider CLI.
@@ -49,13 +51,17 @@ Record each applicable delegation step in the shared ledger with one of these ex
 one-line event shapes:
 
 ```text
-NNN allocated: role=<role> task=<summary> contract=<path>
+NNN allocated: role=<role> task=<summary> contract=<path> tier=<cheapest|standard|most-capable>
 NNN dispatched: provider=<id> model=<id|provider-default> attempt=<n>
 NNN session: attempt=<n> <session-id>
 NNN attempt-failed: attempt=<n> signature=<summary> recovery=<summary>
 NNN resumed: session=<id> reason=<reason>
 NNN complete: status=<status> outcome=<outcome>
 ```
+
+`tier=` is part of the current allocated-event shape; include it on every allocation.
+Ledgers written before this field existed keep their historical lines as records of the
+old format — do not rewrite or delete them.
 
 ## Tier policy
 

@@ -24,7 +24,7 @@ def test_delegate_uses_live_cli_contract_and_ledger():
         "executable", "--help", "live", "contract", "ledger",
         "python3 <root>/scripts/swingle", "Path(<this SKILL.md>).parents[2]",
         "Tier policy", "outcome",
-        "disable", "providers_by_lane", "default_provider",
+        "disable", "providers_by_contract", "default_provider",
         "explicit user model", ".swingle/delegate/ledger.md", "--path",
         "DONE_WITH_CONCERNS", "NEEDS_CONTEXT", "BLOCKED",
     ):

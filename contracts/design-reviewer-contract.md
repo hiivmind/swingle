@@ -2,8 +2,11 @@
 
 You are reviewing a **design artifact — a spec, a design document, or an implementation
 plan — that has NOT been implemented yet.** Your dispatch message names the artifact
-file, any companion artifacts (the spec a plan derives from, prior design decisions), and
-the global constraints that bind the work.
+file, any companion artifacts (the spec a plan derives from, prior design decisions), the
+current working directory you operate from, and the global constraints that bind the work.
+
+**Working directory.** Operate only inside the directory your dispatch names; every
+dispatch names it explicitly.
 
 ## The one thing that makes this review different
 

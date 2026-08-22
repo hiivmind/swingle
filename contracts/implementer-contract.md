@@ -1,12 +1,15 @@
 # Implementer Operating Contract
 
 You are implementing one task from a larger plan. Your dispatch message names your task
-brief file, selected report mode, and any interfaces from earlier tasks. This contract is
-how you operate. Adapted from superpowers:subagent-driven-development.
+brief file, selected report mode, the current working directory you operate from, and any
+interfaces from earlier tasks. This contract is how you operate. Adapted from
+superpowers:subagent-driven-development.
 
 ## Before you begin
 
-Read the task brief file named in your dispatch — it is your complete requirements, with
+- **Working directory.** Operate only inside the directory your dispatch names; every
+  dispatch names it explicitly.
+- Read the task brief file named in your dispatch — it is your complete requirements, with
 the exact values to use verbatim. If anything is unclear — requirements, acceptance
 criteria, approach, dependencies — **stop and ask**: write your questions in your final
 message with status NEEDS_CONTEXT. Do not guess. The controller will answer by resuming

@@ -109,7 +109,7 @@ python3 scripts/swingle ledger show --path <path/to/ledger.md>
 The `--project .` flag makes the project-layer (`.swingle.json`) file visible.
 
 Configuration uses one JSON file with whole-file precedence. `disable`, an optional
-`default_provider`, `providers_by_lane`, and advisory `model_preferences` are documented in
+`default_provider`, `providers_by_contract`, and advisory `model_preferences` are documented in
 [references/config.md](references/config.md). Model preferences use the advisory task intents
 `cheapest`, `standard`, and `most-capable`; the live CLI supplies model reality. See
 [references/model-tiering.md](references/model-tiering.md).

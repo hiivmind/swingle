@@ -6,15 +6,22 @@ import os
 from pathlib import Path
 from typing import Any
 
-LANES = ("implement", "review")
+CONTRACTS = (
+    "reader", "implementer", "task-reviewer", "design-reviewer",
+    "independent-review", "fact-checker", "general-task",
+)
+LANE_CONTRACT_ALIASES = {
+    "implement": ("reader", "implementer"),
+    "review": ("task-reviewer", "design-reviewer"),
+}
 TIERS = ("cheapest", "standard", "most-capable")
 DEFAULT_CONFIG = {
     "disable": [],
-    "providers_by_lane": {},
+    "providers_by_contract": {},
     "model_preferences": {},
 }
 KNOWN_KEYS = {
-    "disable", "default_provider", "providers_by_lane", "model_preferences"
+    "disable", "default_provider", "providers_by_contract", "model_preferences"
 }
 REMOVED_KEYS = {"require-verified-version", "superpowers", "note"}
 
@@ -30,7 +37,7 @@ def _defaults() -> dict[str, Any]:
     """Return a fresh configuration tree."""
     return {
         "disable": [],
-        "providers_by_lane": {},
+        "providers_by_contract": {},
         "model_preferences": {},
     }
 
@@ -77,6 +84,8 @@ def _normalise_config(
     for key in raw:
         if key in REMOVED_KEYS:
             warnings.append(f"{key}: removed configuration key")
+        elif key == "providers_by_lane":
+            pass  # handled by the legacy-lane expansion below
         elif key not in KNOWN_KEYS:
             warnings.append(f"{key}: unknown configuration key")
 
@@ -97,26 +106,86 @@ def _normalise_config(
         else:
             config["default_provider"] = default_provider
 
-    providers_by_lane = raw.get("providers_by_lane", {})
-    if not isinstance(providers_by_lane, dict):
-        errors.append("providers_by_lane: must be an object")
-    else:
-        valid_lanes = True
-        normalized_lanes: dict[str, str] = {}
-        for lane, provider in providers_by_lane.items():
-            if lane not in LANES:
-                errors.append(f"providers_by_lane.{lane}: unknown lane")
-                valid_lanes = False
-            elif not isinstance(provider, str):
-                errors.append(f"providers_by_lane.{lane}: must be a provider name")
-                valid_lanes = False
-            elif not _provider_is_known(provider, provider_ids):
-                errors.append(f"providers_by_lane.{lane}: unknown provider")
-                valid_lanes = False
+    providers_by_contract = raw.get("providers_by_contract", {})
+    if not isinstance(providers_by_contract, dict):
+        errors.append("providers_by_contract: must be an object")
+        providers_by_contract = {}
+    normalized_contracts: dict[str, Any] = {}
+    for contract, preference in providers_by_contract.items():
+        if contract not in CONTRACTS:
+            errors.append(f"providers_by_contract.{contract}: unknown contract")
+        elif isinstance(preference, str):
+            if not _provider_is_known(preference, provider_ids):
+                errors.append(f"providers_by_contract.{contract}: unknown provider")
             else:
-                normalized_lanes[lane] = provider
-        if valid_lanes:
-            config["providers_by_lane"] = normalized_lanes
+                normalized_contracts[contract] = preference
+        elif isinstance(preference, dict):
+            if not preference:
+                errors.append(
+                    f"providers_by_contract.{contract}: tier map must name at least one tier"
+                )
+                continue
+            valid = True
+            tier_map: dict[str, str] = {}
+            for tier, provider in preference.items():
+                if tier not in TIERS:
+                    errors.append(f"providers_by_contract.{contract}.{tier}: unknown tier")
+                    valid = False
+                elif not isinstance(provider, str) or not _provider_is_known(provider, provider_ids):
+                    errors.append(f"providers_by_contract.{contract}.{tier}: unknown provider")
+                    valid = False
+                else:
+                    tier_map[tier] = provider
+            if valid:
+                normalized_contracts[contract] = tier_map
+        else:
+            errors.append(
+                f"providers_by_contract.{contract}: "
+                "must be a provider name or a map from tier to provider"
+            )
+
+    legacy_lanes = raw.get("providers_by_lane")
+    expanded_roles: list[str] = []
+    legacy_lane_errors = False
+    if legacy_lanes is not None:
+        if not isinstance(legacy_lanes, dict):
+            errors.append("providers_by_lane: must be an object")
+            legacy_lane_errors = True
+        else:
+            for lane, provider in legacy_lanes.items():
+                roles = LANE_CONTRACT_ALIASES.get(lane)
+                if roles is None:
+                    errors.append(f"providers_by_lane.{lane}: unknown lane")
+                    legacy_lane_errors = True
+                    continue
+                if not isinstance(provider, str):
+                    errors.append(f"providers_by_lane.{lane}: must be a provider name")
+                    legacy_lane_errors = True
+                elif not _provider_is_known(provider, provider_ids):
+                    errors.append(f"providers_by_lane.{lane}: unknown provider")
+                    legacy_lane_errors = True
+                else:
+                    for role in roles:
+                        if role not in normalized_contracts and role not in expanded_roles:
+                            normalized_contracts[role] = provider
+                            expanded_roles.append(role)
+        if expanded_roles:
+            warnings.append(
+                "providers_by_lane: removed configuration key; expanded to "
+                f"providers_by_contract for {', '.join(expanded_roles)} — rewrite these "
+                "preferences under providers_by_contract"
+            )
+        elif isinstance(legacy_lanes, dict) and not legacy_lane_errors:
+            warnings.append(
+                "providers_by_lane: removed configuration key; every role it would "
+                "expand already has a providers_by_contract entry — ignored, remove the key"
+            )
+        else:
+            warnings.append(
+                "providers_by_lane: removed configuration key; rewrite any preferences "
+                "under providers_by_contract"
+            )
+    config["providers_by_contract"] = normalized_contracts
 
     model_preferences = raw.get("model_preferences", {})
     if not isinstance(model_preferences, dict):
@@ -145,9 +214,18 @@ def _normalise_config(
     default_provider = config.get("default_provider")
     if default_provider in disabled:
         errors.append("default_provider: provider is disabled")
-    for lane, provider in config["providers_by_lane"].items():
-        if provider in disabled:
-            errors.append(f"providers_by_lane.{lane}: provider is disabled")
+    for contract, preference in config["providers_by_contract"].items():
+        providers = (
+            preference.values() if isinstance(preference, dict) else [preference]
+        )
+        if any(provider in disabled for provider in providers):
+            origin = (
+                " (entry expanded from providers_by_lane)"
+                if contract in expanded_roles else ""
+            )
+            errors.append(
+                f"providers_by_contract.{contract}: provider is disabled{origin}"
+            )
 
     return config, warnings, errors
 
@@ -200,9 +278,23 @@ def set_config_value(
         raise ValueError(f"unknown configuration key: {parts[0]}")
     if parts[0] in {"disable", "default_provider"} and len(parts) != 1:
         raise ValueError(f"{parts[0]} does not support nested values")
-    if parts[0] == "providers_by_lane":
-        if len(parts) != 2 or parts[1] not in LANES:
-            raise ValueError("providers_by_lane key must name a known lane")
+    if parts[0] == "providers_by_contract":
+        if len(parts) == 2:
+            if parts[1] not in CONTRACTS:
+                raise ValueError(
+                    "providers_by_contract key must name a known contract"
+                )
+        elif len(parts) == 3:
+            if parts[1] not in CONTRACTS:
+                raise ValueError(
+                    "providers_by_contract key must name a known contract"
+                )
+            if parts[2] not in TIERS:
+                raise ValueError(f"unknown tier: {parts[2]}")
+        else:
+            raise ValueError(
+                "providers_by_contract key must be contract or contract.tier"
+            )
     if parts[0] == "model_preferences":
         if len(parts) != 3:
             raise ValueError("model_preferences key must be provider.tier")

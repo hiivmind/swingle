@@ -19,11 +19,11 @@ def test_init_is_idempotent(tmp_path):
 
 def test_append_preserves_order_and_prior_content(tmp_path):
     path = tmp_path / "ledger.md"
-    append_event(path, "001 allocated: role=reader task=a contract=reader")
+    append_event(path, "001 allocated: role=reader task=a contract=reader tier=standard")
     append_event(path, "001 complete: status=DONE outcome=answer-returned")
 
     assert read_ledger(path) == [
-        "001 allocated: role=reader task=a contract=reader",
+        "001 allocated: role=reader task=a contract=reader tier=standard",
         "001 complete: status=DONE outcome=answer-returned",
     ]
 

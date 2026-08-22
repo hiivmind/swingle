@@ -40,7 +40,9 @@ Remove these keys and paths from your configuration and automation:
 The supported file is one JSON configuration file selected with whole-file precedence:
 `$SWINGLE_CONFIG`, then `<project>/.swingle.json`, then
 `${XDG_CONFIG_HOME:-~/.config}/swingle/config.json`. The supported keys are `disable`,
-optional `default_provider`, `providers_by_lane`, and advisory `model_preferences`.
+optional `default_provider`, `providers_by_contract`, and advisory `model_preferences`.
+(`providers_by_lane` still loads: each entry expands to the contracts its lane held, with
+a warning — rewrite it under `providers_by_contract`.)
 
 ## Convert old model overrides
 
@@ -55,8 +57,9 @@ Convert a clear winning row for each provider and task-intent tier to the ordere
 `standard`, and `most-capable`. Do not copy static availability or verification status into
 the new file.
 
-Provider and lane choices can conflict across old layers. Review each conflict and choose
-the intended `disable`, `default_provider`, `providers_by_lane`, and model preference values.
+Provider and contract-routing choices can conflict across old layers. Review each conflict
+and choose the intended `disable`, `default_provider`, `providers_by_contract`, and model
+preference values.
 A preference is advisory: a stale model falls through to the next live preference or the
 provider CLI default, and no preference can exclude a live model.
 

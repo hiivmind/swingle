@@ -26,16 +26,17 @@ Two questions classify any delegation. Classify the **output** first, then the
 |---|---|---|
 | **Repo** | `implementer` (mutating change); `reader` (report checked into the repo) | `task-reviewer` (completed change); `design-reviewer` (proposed change) |
 | **External** | `reader` (research report for the repo) | `reader` (synthesis consumed now); `fact-checker` when a verdict is requested |
-| **Inline** | `reader` (write-up destined for the repo) | `independent-review` (judge a stated position) |
+| **Inline** | `reader` (write-up destined for the repo) | `reader` (synthesis consumed now); `independent-review` (judge a stated position) |
 
 Where a cell holds more than one candidate, one finer property picks among them:
 
 - Repo × Project-bound: mutation (`implementer`) vs report-only (`reader`).
 - Repo × Ephemeral: lifecycle stage — completed change (`task-reviewer`) vs merely
   proposed (`design-reviewer`).
-- External × Ephemeral: verdict requested vs synthesis requested. A verdict means
-  compare, rank, or decide between alternatives with a confidence-qualified call →
-  `fact-checker`. Plain synthesis stays `reader`.
+- External × Ephemeral and Inline × Ephemeral: verdict requested vs synthesis requested.
+  A verdict means compare, rank, or decide between alternatives with a confidence-qualified
+  call → `fact-checker` for external claims, `independent-review` for a stated position.
+  Plain synthesis stays `reader`.
 
 Classification is invariant to report mode ("tell me" vs "write it up" changes the brief,
 not the cell) but sensitive to stated intent ("this goes into docs/" moves the task

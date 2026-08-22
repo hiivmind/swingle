@@ -146,27 +146,44 @@ def _normalise_config(
 
     legacy_lanes = raw.get("providers_by_lane")
     expanded_roles: list[str] = []
+    legacy_lane_errors = False
     if legacy_lanes is not None:
         if not isinstance(legacy_lanes, dict):
             errors.append("providers_by_lane: must be an object")
+            legacy_lane_errors = True
         else:
             for lane, provider in legacy_lanes.items():
                 roles = LANE_CONTRACT_ALIASES.get(lane)
                 if roles is None:
                     errors.append(f"providers_by_lane.{lane}: unknown lane")
+                    legacy_lane_errors = True
                     continue
-                if not isinstance(provider, str) or not _provider_is_known(provider, provider_ids):
+                if not isinstance(provider, str):
+                    errors.append(f"providers_by_lane.{lane}: must be a provider name")
+                    legacy_lane_errors = True
+                elif not _provider_is_known(provider, provider_ids):
                     errors.append(f"providers_by_lane.{lane}: unknown provider")
-                    continue
-                for role in roles:
-                    if role not in normalized_contracts and role not in expanded_roles:
-                        normalized_contracts[role] = provider
-                        expanded_roles.append(role)
+                    legacy_lane_errors = True
+                else:
+                    for role in roles:
+                        if role not in normalized_contracts and role not in expanded_roles:
+                            normalized_contracts[role] = provider
+                            expanded_roles.append(role)
         if expanded_roles:
             warnings.append(
                 "providers_by_lane: removed configuration key; expanded to "
                 f"providers_by_contract for {', '.join(expanded_roles)} — rewrite these "
                 "preferences under providers_by_contract"
+            )
+        elif isinstance(legacy_lanes, dict) and not legacy_lane_errors:
+            warnings.append(
+                "providers_by_lane: removed configuration key; every role it would "
+                "expand already has a providers_by_contract entry — ignored, remove the key"
+            )
+        else:
+            warnings.append(
+                "providers_by_lane: removed configuration key; rewrite any preferences "
+                "under providers_by_contract"
             )
     config["providers_by_contract"] = normalized_contracts
 
@@ -202,7 +219,13 @@ def _normalise_config(
             preference.values() if isinstance(preference, dict) else [preference]
         )
         if any(provider in disabled for provider in providers):
-            errors.append(f"providers_by_contract.{contract}: provider is disabled")
+            origin = (
+                " (entry expanded from providers_by_lane)"
+                if contract in expanded_roles else ""
+            )
+            errors.append(
+                f"providers_by_contract.{contract}: provider is disabled{origin}"
+            )
 
     return config, warnings, errors
 

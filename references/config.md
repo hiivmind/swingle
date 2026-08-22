@@ -57,15 +57,21 @@ The target schema is:
 Provider IDs come from the provider directories. Model names are not checked against a
 cached catalog. The live provider CLI supplies model reality.
 
-`config set` takes a dotted key, so a `model_preferences` write always names one
-provider and tier, with a JSON list as the value, and a `providers_by_contract` write
-names one contract, optionally one tier:
+`config set` takes a dotted key. A `model_preferences` write always names one provider
+and tier, with a JSON list as the value. A `providers_by_contract` write names one
+contract with either a JSON provider-ID string or a full JSON object keyed by tier, or
+names one contract and tier with a provider-ID string:
 
 ```bash
 python3 scripts/swingle config set --path <path/to/config.json> model_preferences.codex.cheapest '["<model-name>"]'
 python3 scripts/swingle config set --path <path/to/config.json> providers_by_contract.implementer '"<provider-id>"'
+python3 scripts/swingle config set --path <path/to/config.json> providers_by_contract.fact-checker '{"cheapest":"<provider-id>","most-capable":"<provider-id>"}'
 python3 scripts/swingle config set --path <path/to/config.json> providers_by_contract.fact-checker.most-capable '"<provider-id>"'
 ```
+
+Setting a single tier on a contract whose current value is a plain string converts that
+entry to a tier map containing the named tier; other tiers then fall back to
+`default_provider`.
 
 Get `<model-name>` from the provider's own current `--help` or model-listing output, not
 from memory or an older config — see [model preference guidance](model-tiering.md).

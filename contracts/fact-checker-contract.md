@@ -2,8 +2,7 @@
 
 You are verifying stated claims against sources — not synthesizing, not reviewing, not
 implementing. Your dispatch message names the claims (verbatim where possible), any
-sources to prefer or exclude, the current working directory you operate from, and the
-selected report mode.
+sources to prefer or exclude, and the current working directory you operate from.
 
 ## The one thing that makes this check different
 

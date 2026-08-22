@@ -59,8 +59,9 @@ NNN resumed: session=<id> reason=<reason>
 NNN complete: status=<status> outcome=<outcome>
 ```
 
-`tier=` is required on every allocated event. Ledgers written before this field existed
-are historical records of the old format; new ledgers start fresh.
+`tier=` is part of the current allocated-event shape; include it on every allocation.
+Ledgers written before this field existed keep their historical lines as records of the
+old format — do not rewrite or delete them.
 
 ## Tier policy
 

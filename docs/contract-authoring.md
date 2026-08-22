@@ -1,4 +1,4 @@
-# Authoring contracts
+# fAuthoring contracts
 
 A contract is the operating brief handed to a delegated provider CLI for one role: what it
 may do, how it reports, and when it must stop and ask instead of guessing. The LLM reads it
@@ -63,18 +63,22 @@ appear.
 
 ## Adding a new contract
 
-Registration touches three places, all by hand. There is no directory-listing discovery
+Registration touches four places, all by hand. There is no directory-listing discovery
 for contracts the way `providers/` has for provider packs:
 
 1. Write `contracts/<role>-contract.md` following the shape above, including the
    mandatory working-directory element.
-2. Add the new role to `references/concepts.md`'s matrix (its cell) and the refinement
+2. Add the role to `CONTRACTS` in `lib/swingle/config.py` — `config set` and `config
+   validate` reject keys naming roles missing from that tuple.
+3. Add the new role to `references/concepts.md`'s matrix (its cell) and the refinement
    rules if the cell holds more than one candidate.
-3. Add the new contract as a selectable option in `skills/delegate/SKILL.md` step 1, the
+4. Add the new contract as a selectable option in `skills/delegate/SKILL.md` step 1, the
    only place a contract is actually chosen.
 
-`tests/test_skills.py` asserts every `contracts/*.md` role name is named in that step, so a
-contract added to the directory but never wired into step 1 fails CI.
+`tests/test_config.py::test_contracts_tuple_matches_contracts_directory` asserts
+`CONTRACTS` matches the `contracts/` listing, and `tests/test_skills.py` asserts every
+role name is named in SKILL.md step 1, so a contract added to one surface but not the
+others fails CI.
 `tests/test_repo_integrity.py` independently confirms any reference to a contract path or
 name across `skills/`, `contracts/`, and `providers/` markdown resolves to a real file.
 

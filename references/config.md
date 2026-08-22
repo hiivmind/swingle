@@ -43,11 +43,15 @@ The target schema is:
   honors this policy.
 - **`default_provider`** — an optional provider ID used when no provider is explicit and
   no lane preference applies.
-- **`providers_by_lane`** — an optional mapping from `implement` or `review` to a
-  preferred provider ID.
+- **`providers_by_lane`** — an optional mapping from `implement` or `review`, the only two
+  lanes, to a preferred provider ID. Lane is derived from which contract a delegation uses
+  (reader/implementer -> `implement`, task-reviewer/design-reviewer -> `review`), not a
+  free-form label. See [concepts.md](concepts.md).
 - **`model_preferences`** — optional ordered model names for each provider and advisory
   tier (`cheapest`, `standard`, or `most-capable`). Preferences steer selection; they do
-  not define availability.
+  not define availability. A preference names a model only; effort (reasoning depth,
+  thinking level) is never a config field, since how a provider CLI accepts it varies and
+  is resolved live at dispatch time. See [concepts.md](concepts.md).
 
 Provider IDs come from the provider directories. Model names are not checked against a
 cached catalog. The live provider CLI supplies model reality.

@@ -18,13 +18,15 @@ The known-provider set is the live directory listing of `<root>/providers/`, one
 subdirectory. List it fresh each run; never recall or assume the set from memory, an
 earlier session, or a prior config file. Adding or removing a provider pack directory
 changes this set.
+See [references/concepts.md](../../references/concepts.md) for how lane, role, provider,
+tier, model, and effort relate.
 
 ## Procedure
 
 1. Run `python3 <root>/scripts/swingle config show --project .` for the current project.
 2. If no configuration exists, offer `python3 <root>/scripts/swingle config init` at the user or project layer.
-3. Before writing `default_provider` or `providers_by_lane`, report executable presence for the named provider(s) with the harness command lookup, so the routing choice points at something actually installed.
-4. Before writing a `model_preferences` entry, inspect the target provider's current `--help` (or its model-listing subcommand, if it has one) so the preferred model name comes from what the live CLI names now, never a guess. This is the same help-first grounding `swingle-delegate` applies before a dispatch.
+3. Before writing `default_provider` or `providers_by_lane`, report executable presence for the named provider(s) with the harness command lookup, so the routing choice points at something actually installed. `providers_by_lane` accepts exactly two keys, `implement` and `review`; it has no other lane, and never invent one to fit a task description the user gives.
+4. Before writing a `model_preferences` entry, inspect the target provider's current `--help` (or its model-listing subcommand, if it has one) so the preferred model name comes from what the live CLI names now, never a guess. This is the same help-first grounding `swingle-delegate` applies before a dispatch. `model_preferences` stores a model name only; effort is never a config field, and a request that names an effort level or reasoning depth belongs to the dispatch itself, not to this write.
 5. Apply requested preference changes with `python3 <root>/scripts/swingle config set`.
 6. Show warnings from malformed optional preferences.
 7. If requested outside a preference write, report executable presence for known providers with the harness command lookup.

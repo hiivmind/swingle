@@ -1,7 +1,7 @@
 {
   "name": "swingle",
-  "version": "4.0.1",
-  "description": "Share the load: dispatch implementation and review work across coding-agent CLIs as providers (codex/opencode/agy/grok/pi/claude/omp), locally, through provider gotcha notes, contracts, and an auditable ledger — no proxy, no key custody.",
+  "version": "4.0.2",
+  "description": "Brings the model freedom of open harnesses to any driving harness, Claude Code and Codex among them: delegate a job to any provider CLI already installed on your machine (codex, claude, opencode, grok, pi, agy, omp), with advisory model preferences, provider notes, contracts, and an auditable ledger.",
   "author": {
     "name": "Nathaniel Ramm"
   },
@@ -19,8 +19,8 @@
   "skills": "./skills/",
   "interface": {
     "displayName": "Swingle",
-    "shortDescription": "Dispatch work across coding-agent CLIs through provider gotcha notes, locally",
-    "longDescription": "Swingle is a local LLM-controlled dispatcher: it executes implementation plans and one-off jobs through external-CLI subagents (codex, opencode, agy, grok, pi, claude, omp) using advisory model preferences, provider gotcha notes, reusable contracts, and an auditable ledger. It spawns processes locally against credentials you already hold — no proxy, no key custody.",
+    "shortDescription": "Bring open-harness model freedom to any driving harness",
+    "longDescription": "Most harness controllers, Claude Code and Codex among them, expose only their own provider's models. Swingle backports the model freedom that open harnesses like opencode already have: it drives whichever provider CLI is already installed and authenticated on your machine (codex, claude, opencode, grok, pi, agy, omp), using advisory model preferences, provider notes, reusable contracts, and an auditable ledger.",
     "developerName": "Nathaniel Ramm",
     "category": "Developer Tools",
     "capabilities": [

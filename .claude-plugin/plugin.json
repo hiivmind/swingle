@@ -1,7 +1,7 @@
 {
   "name": "swingle",
-  "version": "4.0.1",
-  "description": "Share the load: dispatch implementation and review work across coding-agent CLIs as providers (codex/opencode/agy/grok/pi/claude/omp), locally — advisory model preferences, provider gotcha notes, contracts, and an auditable ledger",
+  "version": "4.0.2",
+  "description": "Brings the model freedom of open harnesses to any driving harness, Claude Code and Codex among them: delegate a job to any provider CLI already installed on your machine (codex, claude, opencode, grok, pi, agy, omp), with advisory model preferences, provider notes, contracts, and an auditable ledger.",
   "author": {
     "name": "Nathaniel Ramm",
     "email": "nathaniel.ramm@discretedatascience.com"

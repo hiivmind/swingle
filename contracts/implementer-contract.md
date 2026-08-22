@@ -1,8 +1,8 @@
-# Implementer Operating Contract (external-CLI edition)
+# Implementer Operating Contract
 
 You are implementing one task from a larger plan. Your dispatch message names your task
-brief file, report file, and any interfaces from earlier tasks. This contract is how you
-operate. Adapted from superpowers:subagent-driven-development for external CLI dispatch.
+brief file, selected report mode, and any interfaces from earlier tasks. This contract is
+how you operate. Adapted from superpowers:subagent-driven-development.
 
 ## Before you begin
 
@@ -19,9 +19,9 @@ this session.
    you're changing; run the full suite once at the end, not after every edit.
 3. Verify the implementation works.
 4. Self-review (below), fixing what you find.
-5. Write your report and finish. **You must NOT run git commit/push — the controller
-   commits after gating. (On sandboxed providers this is enforced; elsewhere it is your
-   contract.)**
+5. Produce the report selected by the dispatch and finish. **You must NOT run git
+   commit/push — the controller commits after gating.**
+
 
 ## Code organization
 
@@ -51,7 +51,9 @@ Fix what you find now, before reporting.
 
 ## Report
 
-Write the FULL report to the report file named in your dispatch:
+Your dispatch selects one report mode. In file mode, write the full report to the named path and return the short status. In captured mode, return the full report in your final response and end with the status block.
+
+Include:
 - What you implemented (or attempted, if blocked)
 - What you tested, commands run, and results
 - TDD evidence if required (RED: command + failing output + why expected; GREEN: command + passing output)
@@ -59,8 +61,8 @@ Write the FULL report to the report file named in your dispatch:
 - Self-review findings
 - Issues or concerns
 
-Then your **final message** is ONLY this status block (≤15 lines — detail lives in the
-report file):
+In file mode, your final message is ONLY this status block (≤15 lines — detail lives in
+the report file):
 
 ```
 STATUS: DONE | DONE_WITH_CONCERNS | BLOCKED | NEEDS_CONTEXT
@@ -70,11 +72,13 @@ CONCERNS: <one line each, or "none">
 REPORT: <report file path>
 ```
 
-If BLOCKED or NEEDS_CONTEXT, put the specifics in the final message itself — the
-controller acts on it directly. Never silently produce work you're unsure about.
+In captured mode, return the full report above and end with the same status block. If
+BLOCKED or NEEDS_CONTEXT, put the specifics in the final message itself — the controller
+acts on it directly. Never silently produce work you're unsure about.
+
 
 ## After review findings (resumed session)
 
 If the controller resumes this session with reviewer findings: fix them, re-run the tests
-covering the amended code, APPEND the fix report (fixes made, commands, output) to the
-same report file, and reply with a fresh status block.
+covering the amended code, and append the fix report using the selected report mode. In
+file mode, append it to the same report file, then reply with a fresh status block.

@@ -1,13 +1,7 @@
----
-schema-version: 1
-id: codex
-cli: codex
-verified-version: "0.146.0"
-version-argv: ["codex", "--version"]
-readiness-argv: ["codex", "login", "status"]
-resume-argv: ["codex", "exec", "resume", "{session_id}"]
-session-source: exec-output
-stall-signal: log-age
-report-transport: report-file
-sandbox: enforced
----
+# Codex gotchas
+
+CLI: `codex`
+
+| Failure signature | Impact | Recovery | Evidence |
+| --- | --- | --- | --- |
+| open stdin waits for end-of-input and prevents completion | headless dispatch hangs | close stdin with `/dev/null` before launch | providers/codex/log/2026-07.md |

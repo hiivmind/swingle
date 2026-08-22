@@ -31,9 +31,9 @@ jobs:
             echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Validate packs at the release head
+      - name: Check Swingle at the release head
         if: steps.tag.outputs.exists == 'false'
-        run: python3 scripts/validate-packs --root .
+        run: python3 scripts/swingle check --root .
 
       - name: Tag and create GitHub release
         if: steps.tag.outputs.exists == 'false'

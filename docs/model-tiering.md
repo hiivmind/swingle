@@ -1,47 +1,43 @@
-# Model tiering & overrides
+# Model preference guidance
 
-Tier the model to each task: a cheap model for a review or a trivial edit, the strongest for
-a hard implementation — instead of paying premium rates on everything. That is the economic
-idea, and it is why **`floor it`** (cheapest model clearing each bar) is the default. The
-README carries the principle; the resolution mechanics live here.
+Swingle uses three advisory task-intent labels:
 
-The role → (tier, lane) mapping is owned by `core/roles.md`; the resolution algorithm the
-skills run is in `skills/sdd/SKILL.md` (Step 0). This page is the user-facing view of how the
-table is chosen and overridden.
+- **`cheapest`** — transcription, mechanical implementation, and focused codebase location.
+- **`standard`** — adaptation implementation, external synthesis, and task review.
+- **`most-capable`** — large or long-context implementation, design review, and final review.
 
-## Model tables
+These labels are preferences, not gates. Swingle ships no model catalog. The live provider
+CLI supplies model reality and remains the authority for whether a model can run.
 
-Each pack ships its model priority table in `providers/<id>/models.yaml` — restricted YAML: a
-flat header plus `tier/lane/priority/model/status[/pricing/rationale]` rows. `models.yaml` is
-the table of record; `models.md` is the narrative. Statuses `verified` / `experimental` are
-eligible; a `verified` stamp comes from live dispatch evidence only.
+## Preference order
 
-## Override precedence
+Configuration can list preferred models for each provider and tier:
 
-At dispatch time the table is resolved per provider — **first file found wins whole-file** (no
-merging):
+```json
+{
+  "model_preferences": {
+    "<provider>": {
+      "cheapest": ["<preferred-model>"],
+      "standard": ["<preferred-model>"],
+      "most-capable": ["<preferred-model>"]
+    }
+  }
+}
+```
 
-1. `$SWINGLE_MODELS/<id>.yaml` — env override (a directory)
-2. `<project>/.swingle/models/<id>.yaml` — committable, team-shared
-3. `${XDG_CONFIG_HOME:-~/.config}/swingle/models/<id>.yaml` — this machine
-4. the pack default
+Each list is ordered. The LLM tries the first preference that the current provider CLI
+exposes, then the next live preference. If none is available, it uses the provider CLI's
+default. A stale preference therefore falls through rather than rejecting the provider.
 
-Seed an override with `scripts/swingle-models init <id> --project <repo>|--user`; inspect the
-resolved layer and walk with `scripts/swingle-models which` (or
-`scripts/validate-packs --resolve "<role>" <id> --project <repo>`).
+An explicit user model goes directly to the provider CLI. The CLI accepts or rejects it;
+Swingle does not pre-check it against cached data. No preference can exclude a live model.
 
-## Override discipline
+The configuration file follows whole-file precedence. Use the commands below to inspect or
+validate the active file:
 
-Override statuses are **your own assertion** — the `verified` stamps in pack defaults come
-from live dispatch evidence, yours do not inherit that weight. A malformed override is a hard
-error, never a silent fall-through. An override that omits a (tier, lane) slot resolves that
-slot to "no eligible model — ask", which is the supported way to keep a provider from
-auto-routing in one project.
+```bash
+python3 scripts/swingle config show --project .
+python3 scripts/swingle config validate <path/to/config.json>
+```
 
-## Economics, honestly
-
-Tiering is a sound design principle; a **measured** token/cost delta on a real plan has not
-been published yet. That number can't be asserted — it has to be measured — and it's tracked
-in [#17](https://github.com/hiivmind/swingle/issues/17). What stands today is the handoff
-itself (briefing, tiering, contract, evidence gate), which you get whether or not the savings
-number is ever measured; the *savings* are the part awaiting a number.
+The `--project .` flag makes the project-layer (`.swingle.json`) file visible.

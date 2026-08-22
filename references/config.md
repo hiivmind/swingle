@@ -26,7 +26,7 @@ The target schema is:
 ```json
 {
   "disable": [],
-  "providers_by_lane": {},
+  "providers_by_contract": {},
   "model_preferences": {
     "<provider>": {
       "cheapest": ["<preferred-model>"],
@@ -42,11 +42,12 @@ The target schema is:
 - **`disable`** — an array of provider IDs that the user explicitly disables. Swingle
   honors this policy.
 - **`default_provider`** — an optional provider ID used when no provider is explicit and
-  no lane preference applies.
-- **`providers_by_lane`** — an optional mapping from `implement` or `review`, the only two
-  lanes, to a preferred provider ID. Lane is derived from which contract a delegation uses
-  (reader/implementer -> `implement`, task-reviewer/design-reviewer -> `review`), not a
-  free-form label. See [concepts.md](concepts.md).
+  no contract preference applies.
+- **`providers_by_contract`** — an optional mapping from a role (the contract name under
+  `contracts/`) to a preferred provider. The value is either a single provider ID
+  (preferred for every tier) or a map from tier (`cheapest`, `standard`, `most-capable`)
+  to a provider ID, so a role can steer differently at different tiers; tiers not named in
+  the map fall back to `default_provider`. See [concepts.md](concepts.md).
 - **`model_preferences`** — optional ordered model names for each provider and advisory
   tier (`cheapest`, `standard`, or `most-capable`). Preferences steer selection; they do
   not define availability. A preference names a model only; effort (reasoning depth,
@@ -57,10 +58,13 @@ Provider IDs come from the provider directories. Model names are not checked aga
 cached catalog. The live provider CLI supplies model reality.
 
 `config set` takes a dotted key, so a `model_preferences` write always names one
-provider and tier, with a JSON list as the value:
+provider and tier, with a JSON list as the value, and a `providers_by_contract` write
+names one contract, optionally one tier:
 
 ```bash
 python3 scripts/swingle config set --path <path/to/config.json> model_preferences.codex.cheapest '["<model-name>"]'
+python3 scripts/swingle config set --path <path/to/config.json> providers_by_contract.implementer '"<provider-id>"'
+python3 scripts/swingle config set --path <path/to/config.json> providers_by_contract.fact-checker.most-capable '"<provider-id>"'
 ```
 
 Get `<model-name>` from the provider's own current `--help` or model-listing output, not
@@ -71,8 +75,8 @@ from memory or an older config — see [model preference guidance](model-tiering
 Malformed JSON, a non-object root, invalid types, or a disabled routing target are
 configuration errors regardless of which command reads the file. `config validate` and
 `config set` additionally check that a provider ID named in `disable`, `default_provider`,
-`providers_by_lane`, or `model_preferences` exists under `providers/`, catching a typo at
-config-authoring time. `config show`, the read `swingle-delegate` uses on every dispatch,
+`providers_by_contract`, or `model_preferences` exists under `providers/`, catching a typo
+at config-authoring time. `config show`, the read `swingle-delegate` uses on every dispatch,
 skips that live directory check: the provider set is dev-time-static, and a bad reference
 that slipped past authoring still surfaces the normal way, as a missing executable at
 dispatch, rather than being re-litigated on every read.
@@ -81,6 +85,14 @@ Unknown keys and malformed optional `model_preferences` produce warnings. Swingl
 the affected preference and continues; an installed provider remains available. If a
 preferred provider executable is missing, the LLM surfaces that fact rather than silently
 substituting another provider.
+
+The retired `providers_by_lane` key still loads: each entry expands to the contracts its
+lane held (`implement` → `reader`, `implementer`; `review` → `task-reviewer`,
+`design-reviewer`) with a warning naming what was expanded, and never reaches the roles
+introduced after lanes were retired (`independent-review`, `fact-checker`,
+`general-task`). Authored `providers_by_contract` entries always win over expanded ones.
+Rewrite the preferences under `providers_by_contract`; the expansion exists so old files
+keep steering until you do.
 
 Model preferences are ordered hints. The LLM uses the first preferred model exposed by the
 current CLI. A stale preference falls through to the next live preference or the provider's

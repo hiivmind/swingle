@@ -9,7 +9,7 @@ directory holds nothing else). Discipline here is authoring judgment, not a vali
 ## Adding a new provider
 
 The directory name under `providers/` *is* the provider's identity everywhere in Swingle:
-the ID used in `disable`, `default_provider`, `providers_by_lane`, and
+the ID used in `disable`, `default_provider`, `providers_by_contract`, and
 `model_preferences`, and the literal executable name the LLM looks up on `PATH` at
 dispatch time. Choose it to match the CLI's real command name exactly (lowercase,
 `[a-z0-9-]+`), since that's what makes the provider resolvable at all.

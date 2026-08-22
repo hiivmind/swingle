@@ -1,6 +1,6 @@
 {
   "name": "swingle",
-  "version": "4.0.1",
+  "version": "4.0.2",
   "description": "Brings the model freedom of open harnesses to any driving harness, Claude Code and Codex among them: delegate a job to any provider CLI already installed on your machine (codex, claude, opencode, grok, pi, agy, omp), with advisory model preferences, provider notes, contracts, and an auditable ledger.",
   "author": {
     "name": "Nathaniel Ramm",

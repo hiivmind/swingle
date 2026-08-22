@@ -1,6 +1,6 @@
 {
   "name": "swingle",
-  "version": "3.6.1",
+  "version": "4.0.1",
   "description": "Share the load: dispatch implementation and review work across coding-agent CLIs as providers (codex/opencode/agy/grok/pi/claude/omp), locally — advisory model preferences, provider gotcha notes, contracts, and an auditable ledger",
   "author": {
     "name": "Nathaniel Ramm",

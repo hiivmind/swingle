@@ -52,6 +52,16 @@ The target schema is:
 Provider IDs come from the provider directories. Model names are not checked against a
 cached catalog. The live provider CLI supplies model reality.
 
+`config set` takes a dotted key, so a `model_preferences` write always names one
+provider and tier, with a JSON list as the value:
+
+```bash
+python3 scripts/swingle config set --path <path/to/config.json> model_preferences.codex.cheapest '["<model-name>"]'
+```
+
+Get `<model-name>` from the provider's own current `--help` or model-listing output, not
+from memory or an older config — see [model preference guidance](model-tiering.md).
+
 ## Warnings and fallback
 
 Malformed JSON, a non-object root, invalid types, unknown provider IDs in routing keys, or

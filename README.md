@@ -32,7 +32,8 @@ Installing Swingle gives you:
   these up in the harness itself; Swingle just lets the LLM select them by name during
   dispatch.
 - Any provider CLI already on your machine (`codex`, `claude`, `opencode`, `grok`, `pi`,
-  `agy`, `omp`, `cursor-agent`, `devin`) as a delegation target, chosen per job by the LLM.
+  `agy`, `omp`, `cursor-agent`, `devin`, `copilot`) as a delegation target, chosen per job
+  by the LLM.
 
 The delegation interface is the [Swingle contracts](contracts/) plus an auditable ledger.
 The live provider CLI is the authority for what models it can run right now; the LLM

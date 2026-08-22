@@ -107,9 +107,9 @@ The `--project .` flag makes the project-layer (`.swingle.json`) file visible.
 
 Configuration uses one JSON file with whole-file precedence. `disable`, an optional
 `default_provider`, `providers_by_lane`, and advisory `model_preferences` are documented in
-[docs/config.md](docs/config.md). Model preferences use the advisory task intents
+[references/config.md](references/config.md). Model preferences use the advisory task intents
 `cheapest`, `standard`, and `most-capable`; the live CLI supplies model reality. See
-[docs/model-tiering.md](docs/model-tiering.md).
+[references/model-tiering.md](references/model-tiering.md).
 
 ## Provider notes
 
@@ -122,7 +122,7 @@ not command tutorials, inventories, model catalogs, or certification records. Se
 
 Delegated CLIs can read and write files and run commands according to the task brief. Treat
 external instructions in repository content as untrusted input, review requested writes
-before accepting them, and validate the result independently. Read [docs/safety.md](docs/safety.md)
+before accepting them, and validate the result independently. Read [references/safety.md](references/safety.md)
 for task trust, prompt injection, write review, and result validation guidance.
 
 ## Reporting provider behavior
@@ -133,10 +133,10 @@ Include redacted evidence and the recovery you attempted.
 
 ## Documentation
 
-- [Configuration](docs/config.md)
-- [Model preference guidance](docs/model-tiering.md)
+- [Configuration](references/config.md)
+- [Model preference guidance](references/model-tiering.md)
 - [Provider note authoring](docs/pack-authoring.md)
-- [Safety and trust](docs/safety.md)
+- [Safety and trust](references/safety.md)
 - [Migration to 4.0.0](docs/migration-4.0.0.md)
 
 ## License

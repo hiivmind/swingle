@@ -55,12 +55,20 @@ def resolve_config_path(
     return "none", None
 
 
-def _provider_is_known(provider: str, provider_ids: set[str]) -> bool:
-    return provider in provider_ids
+def _provider_is_known(provider: str, provider_ids: set[str] | None) -> bool:
+    """True if provider_ids doesn't gate at all, or provider is in it.
+
+    provider_ids is None for a read that only needs structural validation
+    (dispatch-time config show) — the provider directory is dev-time-static
+    and never re-litigated there. It is a live set only for an explicit
+    config-authoring command (config validate, config set), where catching a
+    typo'd provider reference before it's written is worth the check.
+    """
+    return provider_ids is None or provider in provider_ids
 
 
 def _normalise_config(
-    raw: dict[str, Any], provider_ids: set[str],
+    raw: dict[str, Any], provider_ids: set[str] | None = None,
 ) -> tuple[dict[str, Any], list[str], list[str]]:
     config = _defaults()
     warnings: list[str] = []
@@ -144,7 +152,7 @@ def _normalise_config(
     return config, warnings, errors
 
 
-def load_config(path: str | Path | None, provider_ids: set[str]) -> ConfigResult:
+def load_config(path: str | Path | None, provider_ids: set[str] | None = None) -> ConfigResult:
     if path is None:
         return ConfigResult(_defaults())
     config_path = Path(path)

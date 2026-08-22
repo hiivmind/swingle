@@ -1,10 +1,14 @@
-from __future__ import annotations
+"""Repo-consistency checks: CI/authoring concerns, never invoked by a shipped skill.
 
+These validate that *this repo's own* Markdown is internally consistent (links resolve,
+provider directories are well-formed). No skill or dispatch reads this file or its logic;
+it exists only for `pytest` to catch a broken cross-reference before it ships.
+"""
 from pathlib import Path
 import re
 
-from .providers import PROVIDER_ID_RE, check_provider_note
-
+ROOT = Path(__file__).resolve().parents[1]
+PROVIDER_ID_RE = re.compile(r"^[a-z0-9-]+$")
 LINK_RE = re.compile(r"\]\(([^)]+)\)")
 CONTRACT_PATH_RE = re.compile(r"(?:<root>/)?contracts/([A-Za-z0-9_.-]+\.md)")
 CONTRACT_NAME_RE = re.compile(r"\b([a-z][A-Za-z0-9_-]*-contract\.md)\b")
@@ -29,7 +33,8 @@ def _owned_markdown(root: Path) -> list[Path]:
     return sorted(paths)
 
 
-def _check_links(root: Path, findings: list[str]) -> None:
+def _check_links(root: Path) -> list[str]:
+    findings: list[str] = []
     slug_cache: dict[Path, set[str] | None] = {}
 
     def slugs_for(path: Path) -> set[str] | None:
@@ -63,7 +68,7 @@ def _check_links(root: Path, findings: list[str]) -> None:
                     known = slugs_for(destination)
                     if known is not None and anchor not in known:
                         findings.append(
-                            f"{path}:{number}: broken anchor #{anchor} → {pathpart or path.name}"
+                            f"{path}:{number}: broken anchor #{anchor} -> {pathpart or path.name}"
                         )
 
             for match in CONTRACT_PATH_RE.finditer(line):
@@ -78,24 +83,73 @@ def _check_links(root: Path, findings: list[str]) -> None:
                     findings.append(
                         f"{path}:{number}: broken contract reference {match.group(1)}"
                     )
+    return findings
 
 
-def check_repository(root: Path) -> list[str]:
-    root = Path(root)
+def _check_provider_directories(root: Path) -> list[str]:
     findings: list[str] = []
     providers = root / "providers"
-    if providers.is_dir():
-        for provider in sorted(path for path in providers.iterdir() if path.is_dir()):
-            if not PROVIDER_ID_RE.fullmatch(provider.name):
-                findings.append(f"{provider}: invalid provider id")
-            for asset in sorted(provider.iterdir()):
-                if asset.name != "pack.md":
-                    findings.append(f"{asset}: unexpected provider asset")
-            note_path = provider / "pack.md"
-            if not note_path.is_file():
-                findings.append(f"{note_path}: missing provider note")
-                continue
-            findings.extend(check_provider_note(note_path))
-
-    _check_links(root, findings)
+    if not providers.is_dir():
+        return findings
+    for provider in sorted(path for path in providers.iterdir() if path.is_dir()):
+        if not PROVIDER_ID_RE.fullmatch(provider.name):
+            findings.append(f"{provider}: invalid provider id")
+        for asset in sorted(provider.iterdir()):
+            if asset.name != "pack.md":
+                findings.append(f"{asset}: unexpected provider asset")
+        note_path = provider / "pack.md"
+        if not note_path.is_file():
+            findings.append(f"{note_path}: missing provider note")
     return findings
+
+
+def write_note(root: Path, body: str = "# Alpha provider notes\n") -> Path:
+    path = root / "providers" / "alpha" / "pack.md"
+    path.parent.mkdir(parents=True)
+    path.write_text(body)
+    return path
+
+
+def test_free_form_note_has_no_findings(tmp_path):
+    write_note(tmp_path, """# Alpha provider notes
+
+Whatever shape the author chooses: prose, one table, several tables under
+different headings. Nothing here parses the content back out.
+""")
+
+    assert _check_provider_directories(tmp_path) == []
+
+
+def test_missing_provider_note_is_a_finding(tmp_path):
+    (tmp_path / "providers" / "alpha").mkdir(parents=True)
+
+    findings = _check_provider_directories(tmp_path)
+
+    assert any("missing provider note" in finding for finding in findings)
+
+
+def test_provider_directory_rejects_certification_assets(tmp_path):
+    write_note(tmp_path)
+    (tmp_path / "providers" / "alpha" / "models.yaml").write_text("models: []\n")
+
+    findings = _check_provider_directories(tmp_path)
+
+    assert any("unexpected provider asset" in finding for finding in findings)
+
+
+def test_broken_relative_link_is_a_finding(tmp_path):
+    skills = tmp_path / "skills"
+    skills.mkdir()
+    (skills / "one.md").write_text("[missing](nowhere.md)\n")
+
+    findings = _check_links(tmp_path)
+
+    assert any("broken link" in finding for finding in findings)
+
+
+def test_this_repos_provider_directories_are_well_formed():
+    assert _check_provider_directories(ROOT) == []
+
+
+def test_this_repos_owned_markdown_links_resolve():
+    assert _check_links(ROOT) == []

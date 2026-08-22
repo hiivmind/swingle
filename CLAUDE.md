@@ -34,7 +34,7 @@ for governance: statuses, category precedence, how to add new principles.
 | Document | Scope | Status | Summary |
 |----------|-------|--------|---------|
 | preference-never-availability.md | core | ENFORCED | Preferences steer selection but never define availability |
-| provider-notes-gotchas-only.md | core | ENFORCED | Provider notes hold only real, non-obvious failure→recovery rows |
+| provider-notes-structured-guidance.md | core | ADOPTED | Provider notes hold reactive gotchas and proactive dispatch guidance, both evidence-backed |
 | help-first-recovery.md | core | ADOPTED | Inspect current help before documenting or recovering from provider behavior |
 
 ### c. Automation
@@ -83,7 +83,6 @@ python3 scripts/swingle config validate <path/to/config.json>
 python3 scripts/swingle config set --path <path/to/config.json> <key> <json-value>
 python3 scripts/swingle ledger init --path <path/to/ledger.md>
 python3 scripts/swingle ledger show --path <path/to/ledger.md>
-python3 scripts/swingle check --root .
 ```
 
 The `--project .` flag makes the project-layer (`.swingle.json`) file visible.
@@ -95,22 +94,24 @@ or model unavailable. See [references/config.md](references/config.md) and
 
 ## Provider notes
 
-When a provider has a real, non-obvious failure that changes recovery, add one evidence-backed
-row to that provider's gotcha table. Follow [docs/pack-authoring.md](docs/pack-authoring.md).
-Inspect the provider's current help before documenting behavior that is unclear. Git supplies
-history; the note remains a living document and does not become a certification log.
+When a provider has a real, non-obvious operating fact, reactive (an observed failure and
+its recovery) or proactive (a verified dispatch-mechanics fact, without a failure), add one
+evidence-backed row to the matching table. Follow
+[docs/pack-authoring.md](docs/pack-authoring.md). Inspect the provider's current help before
+documenting behavior that is unclear. Git supplies history; the note remains a living
+document and does not become a certification log.
 
 ## Change discipline
 
-Keep contracts, the ledger format, configuration behavior, and authoring checks compatible
-with their existing callers. Do not add provider-specific policy to Python or skills when the
-LLM can use a provider note. Automation may respond to an observed failure, but it must not
+Keep contracts, the ledger format, and configuration behavior compatible with their
+existing callers. Do not add provider-specific policy to Python or skills when the LLM can
+use a provider note. Automation may respond to an observed failure, but it must not
 periodically certify a provider.
 
-Before committing documentation or code, run the focused checks for the changed contract:
+Before committing documentation or code, run the test suite and the whitespace check:
 
 ```bash
-python3 scripts/swingle check --root .
+python3 -m pytest -q
 git diff --check
 ```
 

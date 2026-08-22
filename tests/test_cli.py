@@ -21,7 +21,7 @@ def test_config_show_returns_machine_readable_effective_configuration(tmp_path):
     path = tmp_path / "config.json"
     path.write_text(json.dumps({"default_provider": "codex"}))
 
-    result = run_cli("config", "show", "--config", str(path), "--root", str(ROOT))
+    result = run_cli("config", "show", "--config", str(path))
 
     assert result.returncode == 0
     payload = json.loads(result.stdout)
@@ -29,17 +29,11 @@ def test_config_show_returns_machine_readable_effective_configuration(tmp_path):
     assert payload["config"]["default_provider"] == "codex"
 
 
-def test_config_show_does_not_parse_unrelated_provider_notes(tmp_path):
-    root = tmp_path / "root"
-    provider = root / "providers" / "codex"
-    provider.mkdir(parents=True)
-    (provider / "pack.md").write_text("malformed note")
+def test_config_show_never_touches_the_provider_directory(tmp_path):
     config = tmp_path / "config.json"
     config.write_text(json.dumps({"default_provider": "codex"}))
 
-    result = run_cli(
-        "config", "show", "--config", str(config), "--root", str(root)
-    )
+    result = run_cli("config", "show", "--config", str(config))
 
     assert result.returncode == 0
     assert json.loads(result.stdout)["config"]["default_provider"] == "codex"
@@ -71,11 +65,6 @@ def test_ledger_cli_round_trip(tmp_path):
     ]
 
 
-def test_check_runs_repository_owned_checks(tmp_path):
-    result = run_cli("check", "--root", str(ROOT))
-    assert result.returncode == 0, result.stdout + result.stderr
-
-
 def test_python_cli_never_runs_provider_binaries(tmp_path):
     marker = tmp_path / "provider-ran"
     bin_dir = tmp_path / "bin"
@@ -90,7 +79,7 @@ def test_python_cli_never_runs_provider_binaries(tmp_path):
     ledger_path = tmp_path / "boundary-ledger.md"
     commands = (
         ("config", "init", "--path", str(config_path)),
-        ("config", "show", "--config", str(config_path), "--root", str(ROOT)),
+        ("config", "show", "--config", str(config_path)),
         ("config", "validate", str(config_path), "--root", str(ROOT)),
         (
             "config", "set", "--path", str(config_path),
@@ -102,7 +91,6 @@ def test_python_cli_never_runs_provider_binaries(tmp_path):
             "001 complete: status=DONE outcome=ok",
         ),
         ("ledger", "show", "--path", str(ledger_path)),
-        ("check", "--root", str(ROOT)),
     )
     for command in commands:
         result = run_cli(*command, env=env)
@@ -126,7 +114,7 @@ def test_config_show_expands_user_path(tmp_path):
     env = dict(os.environ, HOME=str(home))
 
     result = run_cli(
-        "config", "show", "--config", "~/config.json", "--root", str(ROOT), env=env
+        "config", "show", "--config", "~/config.json", env=env
     )
 
     assert result.returncode == 0

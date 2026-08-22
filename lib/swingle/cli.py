@@ -6,7 +6,6 @@ import os
 from pathlib import Path
 from typing import Any
 
-from .check import check_repository
 from .config import (
     init_config,
     load_config,
@@ -61,13 +60,12 @@ def _config_init(args: argparse.Namespace) -> int:
         return _error(error)
 
 
-def _config_show(args: argparse.Namespace, default_root: Path) -> int:
+def _config_show(args: argparse.Namespace) -> int:
     try:
-        root = Path(args.root).expanduser() if args.root else default_root
         config_path = Path(args.config).expanduser() if args.config else None
         project_path = Path(args.project).expanduser() if args.project else None
         layer, path = resolve_config_path(config_path, project_path)
-        result = load_config(path, _provider_ids(root))
+        result = load_config(path)
         payload = {
             "layer": layer,
             "path": _absolute(path),
@@ -153,7 +151,6 @@ def _parser() -> argparse.ArgumentParser:
     config_show = config_commands.add_parser("show")
     config_show.add_argument("--config")
     config_show.add_argument("--project")
-    config_show.add_argument("--root")
 
     config_validate = config_commands.add_parser("validate")
     config_validate.add_argument("path")
@@ -180,8 +177,6 @@ def _parser() -> argparse.ArgumentParser:
     ledger_show = ledger_commands.add_parser("show")
     ledger_show.add_argument("--path", required=True)
 
-    check = commands.add_parser("check")
-    check.add_argument("--root")
     return parser
 
 def main(
@@ -198,16 +193,12 @@ def main(
         if args.config_command == "init":
             return _config_init(args)
         if args.config_command == "show":
-            return _config_show(args, root)
+            return _config_show(args)
         if args.config_command == "validate":
             return _config_validate(args, root)
         return _config_set(args, root)
-    if args.command == "ledger":
-        if args.ledger_command == "init":
-            return _ledger_init(args)
-        if args.ledger_command == "append":
-            return _ledger_append(args)
-        return _ledger_show(args)
-    check_root = Path(args.root).expanduser().resolve() if args.root else root
-    errors = check_repository(check_root)
-    return _emit({"errors": errors}, 1 if errors else 0)
+    if args.ledger_command == "init":
+        return _ledger_init(args)
+    if args.ledger_command == "append":
+        return _ledger_append(args)
+    return _ledger_show(args)

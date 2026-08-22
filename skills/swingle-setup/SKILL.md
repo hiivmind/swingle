@@ -19,10 +19,12 @@ Run every Swingle-owned command as `python3 <root>/scripts/swingle`.
 
 1. Run `python3 <root>/scripts/swingle config show --project .` for the current project.
 2. If no configuration exists, offer `python3 <root>/scripts/swingle config init` at the user or project layer.
-3. Apply requested preference changes with `python3 <root>/scripts/swingle config set`.
-4. Show warnings from malformed optional preferences.
-5. If requested, report executable presence for known providers with the harness command lookup.
-6. Initialize or inspect a ledger with `python3 <root>/scripts/swingle ledger`.
+3. Before writing `default_provider` or `providers_by_lane`, report executable presence for the named provider(s) with the harness command lookup, so the routing choice points at something actually installed.
+4. Before writing a `model_preferences` entry, inspect the target provider's current `--help` (or its model-listing subcommand, if it has one) so the preferred model name comes from what the live CLI names now, never a guess. This is the same help-first grounding `swingle-delegate` applies before a dispatch.
+5. Apply requested preference changes with `python3 <root>/scripts/swingle config set`.
+6. Show warnings from malformed optional preferences.
+7. If requested outside a preference write, report executable presence for known providers with the harness command lookup.
+8. Initialize or inspect a ledger with `python3 <root>/scripts/swingle ledger`.
 
 A configuration failure never establishes that an external provider is unavailable.
 

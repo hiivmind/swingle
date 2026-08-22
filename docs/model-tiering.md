@@ -41,3 +41,14 @@ python3 scripts/swingle config validate <path/to/config.json>
 ```
 
 The `--project .` flag makes the project-layer (`.swingle.json`) file visible.
+
+To write one preference, `config set` takes a dotted `model_preferences.<provider>.<tier>`
+key and a JSON list value:
+
+```bash
+python3 scripts/swingle config set --path <path/to/config.json> model_preferences.codex.cheapest '["<model-name>"]'
+```
+
+Inspect the provider's current `--help` (or its model-listing subcommand, if it has one)
+before choosing `<model-name>` — the same live-CLI grounding `swingle-delegate` applies
+before a dispatch. Never carry a model name forward from an older config or from memory.

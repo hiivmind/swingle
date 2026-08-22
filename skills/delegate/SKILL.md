@@ -20,9 +20,9 @@ tier, model, and effort relate.
 
 ## Procedure
 
-1. Select the reader or implementer contract (lane `implement`), or the task-reviewer or
-   design-reviewer contract (lane `review`). Lane is derived from this choice, not picked
-   separately.
+1. Select the reader or implementer contract (lane `implement`), or the task-reviewer,
+   design-reviewer, or second-opinion contract (lane `review`). Lane is derived from this
+   choice, not picked separately.
 2. Select an explicit tier or derive one from the Tier policy.
 3. Use the caller ledger path. Otherwise use `<project>/.swingle/delegate/ledger.md`.
 4. Read policy with `python3 <root>/scripts/swingle config show --project <working-directory>`.

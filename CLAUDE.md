@@ -94,8 +94,8 @@ or model unavailable. See [references/config.md](references/config.md) and
 
 ## Contracts
 
-Each role (`reader`, `implementer`, `task-reviewer`, `design-reviewer`) has one
-transport-neutral operating contract under `contracts/`, selected in
+Each role (`reader`, `implementer`, `task-reviewer`, `design-reviewer`, `second-opinion`)
+has one transport-neutral operating contract under `contracts/`, selected in
 `skills/delegate/SKILL.md` step 1. A new contract is a new role under one of the two fixed
 lanes (`implement`, `review`); it must justify itself as improving delegated quality or
 auditability and must never mention a provider, its transport, or sandboxing. Follow

@@ -11,11 +11,10 @@ cross-references resolve).
 ## The role hierarchy
 
 Contracts sit under a fixed two-lane structure (see [references/concepts.md](../references/concepts.md)):
-`implement` and `review` are the only lanes, and there is no third. Each lane currently
-holds exactly two roles, `reader`/`implementer` under `implement` and
-`task-reviewer`/`design-reviewer` under `review`, one contract file per role. A new
-contract is a new role slotted under one of the two existing lanes; the lane axis itself
-does not grow.
+`implement` and `review` are the only lanes, and there is no third. `implement` holds
+`reader`/`implementer`; `review` holds `task-reviewer`/`design-reviewer`/`second-opinion`,
+one contract file per role. A new contract is a new role slotted under one of the two
+existing lanes; the lane axis itself does not grow.
 
 The governing principle (`contracts-and-ledger-retained`, one of the two load-bearing
 controls Swingle kept from the certification era) requires a new contract to justify

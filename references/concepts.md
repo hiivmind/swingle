@@ -12,7 +12,8 @@ Lane (2 values, fixed)
 │   └── implementer contract
 └── review
     ├── task-reviewer contract
-    └── design-reviewer contract
+    ├── design-reviewer contract
+    └── second-opinion contract
 ```
 
 **Lane** is one of exactly two values: `implement` or `review`. It is the only key
@@ -21,10 +22,10 @@ name is never invented to fit a task description; a task that doesn't obviously 
 "implement" or "review" still resolves to one of the two.
 
 **Role**, expressed as a contract file under `contracts/`, is the more specific choice
-within a lane: `reader` or `implementer` under the `implement` lane, `task-reviewer` or
-`design-reviewer` under the `review` lane. The contract determines the brief the delegated
-CLI receives. Lane is derived from which contract the task calls for, not chosen
-independently of it.
+within a lane: `reader` or `implementer` under the `implement` lane, `task-reviewer`,
+`design-reviewer`, or `second-opinion` under the `review` lane. The contract determines the
+brief the delegated CLI receives. Lane is derived from which contract the task calls for,
+not chosen independently of it.
 
 ## Execution side: how the work actually runs
 

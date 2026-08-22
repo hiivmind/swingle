@@ -14,6 +14,10 @@ This skill manages Swingle configuration, preferences, and ledgers.
 It does not inspect provider auth, versions, readiness, permissions, or controller installation.
 Resolve `<root>` as `Path(<this SKILL.md>).parents[2]`. It must contain `skills/`, `scripts/`, `contracts/`, and `providers/`.
 Run every Swingle-owned command as `python3 <root>/scripts/swingle`.
+The known-provider set is the live directory listing of `<root>/providers/`, one entry per
+subdirectory. List it fresh each run; never recall or assume the set from memory, an
+earlier session, or a prior config file. Adding or removing a provider pack directory
+changes this set.
 
 ## Procedure
 

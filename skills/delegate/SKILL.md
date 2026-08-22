@@ -49,13 +49,16 @@ Record each applicable delegation step in the shared ledger with one of these ex
 one-line event shapes:
 
 ```text
-NNN allocated: role=<role> task=<summary> contract=<path>
+NNN allocated: role=<role> task=<summary> contract=<path> tier=<cheapest|standard|most-capable>
 NNN dispatched: provider=<id> model=<id|provider-default> attempt=<n>
 NNN session: attempt=<n> <session-id>
 NNN attempt-failed: attempt=<n> signature=<summary> recovery=<summary>
 NNN resumed: session=<id> reason=<reason>
 NNN complete: status=<status> outcome=<outcome>
 ```
+
+`tier=` is required on every allocated event. Ledgers written before this field existed
+are historical records of the old format; new ledgers start fresh.
 
 ## Tier policy
 

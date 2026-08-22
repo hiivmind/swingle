@@ -55,13 +55,13 @@ def test_ledger_cli_round_trip(tmp_path):
     assert run_cli("ledger", "init", "--path", str(path)).returncode == 0
     assert run_cli(
         "ledger", "append", "--path", str(path),
-        "001 allocated: role=reader task=a contract=reader",
+        "001 allocated: role=reader task=a contract=reader tier=standard",
     ).returncode == 0
     result = run_cli("ledger", "show", "--path", str(path))
 
     assert result.returncode == 0
     assert json.loads(result.stdout)["events"] == [
-        "001 allocated: role=reader task=a contract=reader"
+        "001 allocated: role=reader task=a contract=reader tier=standard"
     ]
 
 

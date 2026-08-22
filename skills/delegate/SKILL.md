@@ -15,8 +15,8 @@ Use this skill for one self-contained job or one homogeneous batch.
 Use `swingle-sdd` for a dependency-aware implementation plan.
 Resolve `<root>` as `Path(<this SKILL.md>).parents[2]`. It must contain `skills/`, `scripts/`, `contracts/`, and `providers/`.
 Run every Swingle-owned command as `python3 <root>/scripts/swingle`.
-See [references/concepts.md](../../references/concepts.md) for how lane, role, provider,
-tier, model, and effort relate.
+See [references/concepts.md](../../references/concepts.md) for how the classification
+matrix, contract, tier, provider, model, and effort relate.
 
 ## Procedure
 
@@ -30,7 +30,8 @@ tier, model, and effort relate.
 5. If configuration has errors, stop policy routing and surface them for repair.
 6. If configuration has warnings only, continue with its normalized configuration.
 7. Reject a provider listed in `disable`, including an explicit provider.
-8. Select an explicit provider before `providers_by_lane` and `default_provider`.
+8. Select an explicit provider before `providers_by_contract` (role-level or
+   tier-keyed) and `default_provider`.
 9. If no provider resolves, ask the user. Do not silently choose one.
 10. If the selected executable is missing, surface it. Do not silently substitute another provider.
 11. Pass an explicit user model directly to the provider CLI.

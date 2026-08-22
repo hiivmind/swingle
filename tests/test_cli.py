@@ -69,7 +69,7 @@ def test_python_cli_never_runs_provider_binaries(tmp_path):
     marker = tmp_path / "provider-ran"
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
-    for cli in ("agy", "claude", "codex", "cursor-agent", "grok", "omp", "opencode", "pi"):
+    for cli in ("agy", "claude", "codex", "cursor-agent", "devin", "grok", "omp", "opencode", "pi"):
         path = bin_dir / cli
         path.write_text(f"#!/bin/sh\ntouch {marker}\n")
         path.chmod(0o755)

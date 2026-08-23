@@ -37,17 +37,36 @@ a status report is not a proposal, and a proposal is not consent.
 
 ## Stage 2 — Propose (stop and wait)
 
-Present the Stage 1 findings, then offer at most one sentence per direction:
+Present the Stage 1 findings in plain language first, then offer directions as decisions
+about *work*, not about config keys. A human understands questions like these:
 
-- set `default_provider` or `providers_by_contract` routing,
-- set `model_preferences` for a provider/tier,
-- initialize or inspect a ledger,
-- run an explicit migration (see below).
+- **Who does the work when nothing specific applies?** In config this is
+  `default_provider`.
+- **Who writes code, who reviews it, who does lookups?** In config this is
+  `providers_by_contract`: `implementer` writes or changes code, `task-reviewer`
+  checks completed changes, `design-reviewer` critiques proposed ones, `reader` does
+  research and reports, `fact-checker` verifies outside claims against sources,
+  `independent-review` judges an argued position, `general-task` catches everything
+  else.
+- **Which model for which weight of work?** In config this is `model_preferences`:
+  for one provider, a preferred model per weight — quick mechanical jobs, everyday
+  work, the hardest long-context jobs.
 
-Then stop. When the user answers, bind the answer to exactly the option's text:
+For each direction you offer, build a concrete example **from the Stage 1 findings** and
+say in one line why you suggest it. Name only providers whose executables resolved;
+use only the roles listed above; never invent a role to fit something the user said.
+Example shape (values come from your inspection, not from this text):
 
-- Restate the selected direction as the exact commands you will run, name the
-  destination layer, and proceed only on that basis.
+> Nothing routes yet and both codex and claude are installed. A common start: codex
+> does the coding, claude reviews it — I'd write those two mappings plus nothing else
+> until you want more.
+
+Offer at most one sentence per direction plus its example, then stop.
+
+When the user answers, bind the answer to exactly the option's text:
+
+- Restate the selected direction in plain words and as the exact commands you will run,
+  name the destination layer, and proceed only on that basis.
 - An ambiguous or out-of-scope reply ("2" when you offered different options, "yes"
   to a status report) means re-ask, never improvise a nearby action.
 - Do not write because the user answered a menu. A menu selects a topic; only your

@@ -62,6 +62,18 @@ def resolve_config_path(
     return "none", None
 
 
+def _is_preference_entry(entry: Any) -> bool:
+    """A tier preference is a model name, or a model joined with an effort."""
+    if isinstance(entry, str):
+        return True
+    return (
+        isinstance(entry, dict)
+        and set(entry) == {"model", "effort"}
+        and isinstance(entry["model"], str)
+        and isinstance(entry["effort"], str)
+    )
+
+
 def _provider_is_known(provider: str, provider_ids: set[str] | None) -> bool:
     """True if provider_ids doesn't gate at all, or provider is in it.
 
@@ -199,12 +211,17 @@ def _normalise_config(
             if not isinstance(rows, dict):
                 warnings.append(f"model_preferences.{provider}: must be an object")
                 continue
-            normalized_rows: dict[str, list[str]] = {}
+            normalized_rows: dict[str, list[Any]] = {}
             for tier, models in rows.items():
                 if tier not in TIERS:
                     warnings.append(f"model_preferences.{provider}.{tier}: unknown tier")
-                elif not isinstance(models, list) or not all(isinstance(model, str) for model in models):
-                    warnings.append(f"model_preferences.{provider}.{tier}: must be a list of model names")
+                elif not isinstance(models, list) or not all(
+                    _is_preference_entry(model) for model in models
+                ):
+                    warnings.append(
+                        f"model_preferences.{provider}.{tier}: must be a list of model "
+                        'names or {"model", "effort"} objects'
+                    )
                 else:
                     normalized_rows[tier] = list(models)
             normalized_preferences[provider] = normalized_rows

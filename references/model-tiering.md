@@ -11,23 +11,25 @@ CLI supplies model reality and remains the authority for whether a model can run
 
 ## Preference order
 
-Configuration can list preferred models for each provider and tier:
+Configuration can list preferred models — optionally joined with a preferred effort —
+for each provider and tier:
 
 ```json
 {
   "model_preferences": {
     "<provider>": {
       "cheapest": ["<preferred-model>"],
-      "standard": ["<preferred-model>"],
+      "standard": [{"model": "<preferred-model>", "effort": "<effort>"}],
       "most-capable": ["<preferred-model>"]
     }
   }
 }
 ```
 
-Each list is ordered. The LLM tries the first preference that the current provider CLI
-exposes, then the next live preference. If none is available, it uses the provider CLI's
-default. A stale preference therefore falls through rather than rejecting the provider.
+Each list is ordered. An entry is either a bare model name or a `{"model", "effort"}`
+object. The LLM tries the first preference that the current provider CLI exposes, then
+the next live preference. If none is available, it uses the provider CLI's default.
+A stale preference therefore falls through rather than rejecting the provider.
 
 An explicit user model goes directly to the provider CLI. The CLI accepts or rejects it;
 Swingle does not pre-check it against cached data. No preference can exclude a live model.
@@ -55,10 +57,13 @@ before a dispatch. Never carry a model name forward from an older config or from
 
 A tier resolves to one model, but the model and its effort (reasoning depth, thinking
 level) are a single joined choice at dispatch time, not two independent settings.
-`model_preferences` stores only the model name; effort is never written to config. How a
-provider CLI accepts model and effort together varies by provider and by CLI version: some
-expose a separate effort flag alongside the model flag, some accept effort folded into the
-model identifier itself, some route it through a generic config-override mechanism, and
-some may expose no CLI-level effort control at all. Inspect the target provider's current
-`--help` before combining them; never assume one provider's pattern applies to another. See
-[concepts.md](concepts.md).
+`model_preferences` may carry an effort alongside the model in a `{"model", "effort"}`
+entry — advisory like every other preference. Resolution order for effort: an explicit
+user or task statement wins; otherwise a joined preference entry's effort when that
+model is selected; otherwise tier intent (roughly minimal, moderate, high); otherwise
+the provider CLI's default. How a provider CLI accepts model and effort together varies
+by provider and by CLI version: some expose a separate effort flag alongside the model
+flag, some accept effort folded into the model identifier itself, some route it through
+a generic config-override mechanism, and some may expose no CLI-level effort control at
+all. Inspect the target provider's current `--help` before combining them; never assume
+one provider's pattern applies to another. See [concepts.md](concepts.md).

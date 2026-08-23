@@ -20,6 +20,16 @@ Rules:
 - A grounding subagent returns compact findings: the exact values the decisions need,
   each with the command that produced it. It never writes configuration or ledger
   state, and never runs a provider dispatch.
+- Stay inside the assigned target list. Anything outside it is reported as a gap
+  ("not inspected: X"), never explored on initiative. Reading product source under
+  `<root>/lib` or `<root>/scripts` is out of bounds — behavior comes from live help
+  and pack notes, not implementation internals.
+- Filter output at the source (`| jq`, `| python3 -c …`) so a large catalog arrives
+  as the few fields the decision needs, never as its raw dump.
+- Grounding reports mechanics only: verified command forms, supported values,
+  placement rules. It does not choose among open policy options — which preferred
+  model, which effort — and a grounding brief must never ask it to. Those decisions
+  are made before the brief and stated in it as constraints.
 - If no subagent facility exists, run grounding inline and say so in one line.
 - Failure recovery is prime isolation territory: hand the subagent the failing
   command and its output, and let it search help, packs, and scripts. The decision

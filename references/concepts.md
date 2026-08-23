@@ -81,9 +81,10 @@ contract: **(Contract, Tier) is the joint that provider routing reads**, per
 
 **Model and effort are one joined choice, not two independent dials.** A resolved
 preference is "this model, at this effort," decided together, because a model's practical
-capability and cost depend on both at once. Swingle's `model_preferences` schema stores
-only a model name; effort is never a config field. Effort is set at dispatch time,
-directly on the provider CLI invocation.
+capability and cost depend on both at once. `model_preferences` may therefore store the
+joined pair — an entry is a model name or a `{"model", "effort"}` object — but always as
+an advisory preference: the live CLI decides what it accepts at dispatch time, and an
+explicit user or task statement outranks any stored value.
 
 **How a provider's CLI actually accepts that joined choice is provider-specific and not
 fixed across providers or CLI versions.** Some expose effort as a flag fully separate from

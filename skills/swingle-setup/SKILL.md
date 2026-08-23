@@ -24,7 +24,10 @@ See [references/concepts.md](../../references/concepts.md) for how the classific
 matrix, contract, tier, provider, model, and effort relate.
 
 Work runs in four stages: **Inspect** (read-only), **Propose** (stop and wait for a
-decision), **Write** (explicit consent), **Verify**. Never skip from Inspect to Write:
+decision), **Write** (explicit consent), **Verify**. Run the read-only inspection of
+each stage per [references/isolation.md](../../references/isolation.md) — isolated in
+a harness subagent when one exists, inline otherwise — so only findings and proposals
+reach this thread. Never skip from Inspect to Write:
 a status report is not a proposal, and a proposal is not consent.
 
 ## Stage 1 — Inspect (read-only)

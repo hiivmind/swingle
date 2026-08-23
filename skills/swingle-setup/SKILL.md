@@ -52,6 +52,23 @@ they accept:
 > `.swingle/` to `.gitignore`.
 
 Keep it to that scale — a few sentences, no schema vocabulary unless the user asks.
+
+If the user asks for guidance on what the configuration actually controls, explain how
+a request is routed — four choices, resolved in this order:
+
+> 1. **Contract** — what kind of work the job is: writing code, reviewing changes,
+>    research. The contract fixes the briefing the job receives, so every task of
+>    that kind is held to the same standard.
+> 2. **Tier** — how heavy the job is: quick mechanical work, everyday work, or the
+>    hardest long-context jobs.
+> 3. **Provider** — which installed coding agent runs the job: codex, claude, grok,
+>    and so on.
+> 4. **Model and effort** — within that agent, which model handles it and how hard it
+>    thinks, decided together because they shape cost and quality as one.
+
+Setting defaults in config pins these choices once, so every future delegation routes
+the same way without deciding case by case. Keep it to that scale too.
+
 Then present the findings and offer directions as decisions about *work*, not about
 config keys. A human understands questions like these:
 

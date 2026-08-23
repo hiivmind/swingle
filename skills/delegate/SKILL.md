@@ -15,6 +15,10 @@ Use this skill for one self-contained job or one homogeneous batch.
 Use `swingle-sdd` for a dependency-aware implementation plan.
 Resolve `<root>` as `Path(<this SKILL.md>).parents[2]`. It must contain `skills/`, `scripts/`, `contracts/`, and `providers/`.
 Run every Swingle-owned command as `python3 <root>/scripts/swingle`.
+Run mechanical grounding — help inspection, model listing, config and ledger reads,
+and failure-repair hunts — per [references/isolation.md](../../references/isolation.md):
+isolated in a harness subagent when one exists, inline otherwise. The dispatch itself
+and every ledger write stay in this thread.
 See [references/concepts.md](../../references/concepts.md) for how the classification
 matrix, contract, tier, provider, model, and effort relate.
 

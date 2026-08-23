@@ -28,7 +28,7 @@ def test_delegate_uses_live_cli_contract_and_ledger():
         "explicit user model", ".swingle/delegate/ledger.md", "--path",
         "DONE_WITH_CONCERNS", "NEEDS_CONTEXT", "BLOCKED",
         "Dispatch guidance", "Gotchas", "joined choice", "model-tiering.md",
-        "rejected invocation",
+        "rejected invocation", "references/isolation.md",
     ):
         assert required in text
     for retired in RETIRED:
@@ -41,6 +41,7 @@ def test_setup_manages_only_swingle_owned_state():
         "scripts/swingle config", "scripts/swingle ledger", "executable presence",
         "Path(<this SKILL.md>).parents[2]", "does not inspect provider auth",
         "Explicit migration", "SWINGLE_MODELS", "user model directory",
+        "references/isolation.md",
     ):
         assert required in text
     for retired in RETIRED + ("provider version",):

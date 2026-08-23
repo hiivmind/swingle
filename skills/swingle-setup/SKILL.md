@@ -17,7 +17,9 @@ Run every Swingle-owned command as `python3 <root>/scripts/swingle`.
 The known-provider set is the live directory listing of `<root>/providers/`, one entry per
 subdirectory. List it fresh each run; never recall or assume the set from memory, an
 earlier session, or a prior config file. Adding or removing a provider pack directory
-changes this set.
+changes this set. Each provider directory also holds one living `pack.md` operating note —
+read the target provider's note before grounding model names; it documents how to ask that
+CLI what models it has (and flags the providers where no listing exists).
 See [references/concepts.md](../../references/concepts.md) for how the classification
 matrix, contract, tier, provider, model, and effort relate.
 
@@ -119,12 +121,14 @@ When the user answers, bind the answer to exactly the option's text:
    (`implementer`, never `implementer-contract`); a value is a single provider ID or a
    map from tier to provider ID; never write an invented role name to fit a task
    description the user gives.
-4. Before writing a `model_preferences` entry, inspect the target provider's current
-   `--help` (or its model-listing subcommand, if it has one) so the preferred model name
-   comes from what the live CLI names now, never a guess. This is the same help-first
-   grounding `swingle-delegate` applies before a dispatch. `model_preferences` stores a
-   model name only; effort is never a config field, and a request that names an effort
-   level or reasoning depth belongs to the dispatch itself, not to this write.
+4. Before writing a `model_preferences` entry, read `<root>/providers/<provider>/pack.md`
+   and run the model-discovery command it documents (or inspect current `--help` where
+   the note records that no listing exists), so the preferred model name comes from what
+   the live CLI names now, never a guess — and never from the pack's orientation list,
+   which is a cold-start hint only, not authority. This is the same help-first grounding
+   `swingle-delegate` applies before a dispatch. `model_preferences` stores a model name
+   only; effort is never a config field, and a request that names an effort level or
+   reasoning depth belongs to the dispatch itself, not to this write.
 5. Apply the change with `python3 <root>/scripts/swingle config set`.
 6. Show warnings from malformed optional preferences.
 

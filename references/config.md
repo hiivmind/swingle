@@ -48,11 +48,13 @@ The target schema is:
   (preferred for every tier) or a map from tier (`cheapest`, `standard`, `most-capable`)
   to a provider ID, so a role can steer differently at different tiers; tiers not named in
   the map fall back to `default_provider`. See [concepts.md](concepts.md).
-- **`model_preferences`** — optional ordered model names for each provider and advisory
+- **`model_preferences`** — optional ordered preferences for each provider and advisory
   tier (`cheapest`, `standard`, or `most-capable`). Preferences steer selection; they do
-  not define availability. A preference names a model only; effort (reasoning depth,
-  thinking level) is never a config field, since how a provider CLI accepts it varies and
-  is resolved live at dispatch time. See [concepts.md](concepts.md).
+  not define availability. An entry is either a model name or a joined
+  `{"model": ..., "effort": ...}` object carrying an effort preference (reasoning depth,
+  thinking level) alongside the model. Effort stays advisory like the model name: the
+  live CLI decides what it accepts, and an explicit user or task statement outranks the
+  stored preference at dispatch time. See [concepts.md](concepts.md).
 
 Provider IDs come from the provider directories. Model names are not checked against a
 cached catalog. The live provider CLI supplies model reality.
@@ -64,6 +66,7 @@ names one contract and tier with a provider-ID string:
 
 ```bash
 python3 scripts/swingle config set --path <path/to/config.json> model_preferences.codex.cheapest '["<model-name>"]'
+python3 scripts/swingle config set --path <path/to/config.json> model_preferences.codex.most-capable '[{"model":"<model-name>","effort":"<effort>"}]'
 python3 scripts/swingle config set --path <path/to/config.json> providers_by_contract.implementer '"<provider-id>"'
 python3 scripts/swingle config set --path <path/to/config.json> providers_by_contract.fact-checker '{"cheapest":"<provider-id>","most-capable":"<provider-id>"}'
 python3 scripts/swingle config set --path <path/to/config.json> providers_by_contract.fact-checker.most-capable '"<provider-id>"'

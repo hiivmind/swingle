@@ -28,7 +28,7 @@ def test_delegate_uses_live_cli_contract_and_ledger():
         "explicit user model", ".swingle/delegate/ledger.md", "--path",
         "DONE_WITH_CONCERNS", "NEEDS_CONTEXT", "BLOCKED",
         "Dispatch guidance", "Gotchas", "joined choice", "model-tiering.md",
-        "rejected invocation", "references/isolation.md",
+        "rejected invocation", "references/isolation.md", "tier intent",
     ):
         assert required in text
     for retired in RETIRED:

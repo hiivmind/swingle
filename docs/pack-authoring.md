@@ -66,11 +66,26 @@ inspect the current provider help before adding a row.
 ## Keep notes narrow
 
 This applies to both tables equally: `pack.md` contains no command tutorial, version,
-model, success matrix, changelog digest, or positive inventory. Do not include successful
-probe results, model catalogs, effort values, permission summaries, sandbox inventories,
+success matrix, changelog digest, or positive inventory. Do not include successful
+probe results, effort values, permission summaries, sandbox inventories,
 output-format inventories, changelog summaries, current version claims, or cross-provider
 comparison tables. A dispatch-guidance row states one decision and its rationale; it does
 not become a second home for content this section already excludes.
+
+Two model-related exceptions carry strict conditions:
+
+1. **Discovery-method rows are welcome.** A guidance row teaching *how to ask this CLI*
+   what models it has (the listing subcommand or flag, and where prices appear if they
+   do) is exactly the kind of non-obvious fact the Dispatch-guidance table exists for.
+   It teaches fishing, not fish.
+2. **One orientation list is allowed.** A pack may end with a single `## Typical models`
+   section holding a short, dated list of typically available model IDs under all of
+   these conditions: a header line reading "Orientation only — not definitive, not a
+   gate", the snapshot date, the live command that supersedes it, at most ~5 entries,
+   and nothing anywhere in Swingle consults the list as eligibility (per the
+   orientation-list exception in `live-cli-as-authority`). When the live listing and the
+   list disagree, the list loses. A section that grows unbounded, loses its date, or
+   starts steering without a fresh listing must be trimmed or removed.
 
 Git supplies history. Provider notes are living documents: update or remove a row when it is
 no longer true. Swingle does not ship append-only provider verification history.

@@ -282,6 +282,42 @@ def test_model_preferences_are_ordered_hints(tmp_path):
     assert result.errors == ()
 
 
+def test_model_preferences_accept_model_effort_objects(tmp_path):
+    path = tmp_path / "config.json"
+    entries = ["current-model", {"model": "frontier-model", "effort": "high"}]
+    path.write_text(json.dumps({
+        "model_preferences": {"codex": {"most-capable": entries}}
+    }))
+
+    result = load_config(path, PROVIDERS)
+
+    assert result.config["model_preferences"]["codex"]["most-capable"] == entries
+    assert result.errors == ()
+    assert result.warnings == ()
+
+
+def test_malformed_preference_entry_warns_and_drops_row(tmp_path):
+    path = tmp_path / "config.json"
+    path.write_text(json.dumps({
+        "model_preferences": {
+            "codex": {
+                "standard": [{"model": "m1"}],
+                "cheapest": [{"model": "m2", "effort": 3}],
+                "most-capable": ["ok-model"]
+            }
+        }
+    }))
+
+    result = load_config(path, PROVIDERS)
+
+    assert result.config["model_preferences"]["codex"] == {
+        "most-capable": ["ok-model"]
+    }
+    assert any("standard" in w for w in result.warnings)
+    assert any("cheapest" in w for w in result.warnings)
+    assert result.errors == ()
+
+
 def test_bad_optional_preference_warns_and_drops_only_that_row(tmp_path):
     path = tmp_path / "config.json"
     path.write_text(json.dumps({
@@ -376,3 +412,21 @@ def test_set_config_value_accepts_valid_preference(tmp_path):
 
     result = load_config(path, PROVIDERS)
     assert result.config["model_preferences"]["codex"]["standard"] == ["preferred"]
+
+
+def test_set_config_value_accepts_model_effort_object(tmp_path):
+    path = tmp_path / "config.json"
+    init_config(path)
+
+    set_config_value(
+        path,
+        "model_preferences.codex.most-capable",
+        '[{"model": "frontier-model", "effort": "high"}]',
+        PROVIDERS,
+    )
+
+    result = load_config(path, PROVIDERS)
+    assert result.config["model_preferences"]["codex"]["most-capable"] == [
+        {"model": "frontier-model", "effort": "high"}
+    ]
+    assert result.errors == ()

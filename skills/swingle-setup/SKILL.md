@@ -137,9 +137,10 @@ When the user answers, bind the answer to exactly the option's text:
    the note records that no listing exists), so the preferred model name comes from what
    the live CLI names now, never a guess — and never from the pack's orientation list,
    which is a cold-start hint only, not authority. This is the same help-first grounding
-   `swingle-delegate` applies before a dispatch. `model_preferences` stores a model name
-   only; effort is never a config field, and a request that names an effort level or
-   reasoning depth belongs to the dispatch itself, not to this write.
+   `swingle-delegate` applies before a dispatch. An entry is a model name, or a joined
+   `{"model", "effort"}` object when the user states an effort preference for that tier;
+   verify the effort value against what the live CLI exposes before storing it. A request
+   that names no effort stores a bare model name.
 5. Apply the change with `python3 <root>/scripts/swingle config set`.
 6. Show warnings from malformed optional preferences.
 

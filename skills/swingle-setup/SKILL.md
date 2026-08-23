@@ -24,8 +24,17 @@ See [references/concepts.md](../../references/concepts.md) for how the classific
 matrix, contract, tier, provider, model, and effort relate.
 
 Work runs in four stages: **Inspect** (read-only), **Propose** (stop and wait for a
-decision), **Write** (explicit consent), **Verify**. Never skip from Inspect to Write:
+decision), **Write** (explicit consent), **Verify**. Run the read-only inspection of
+each stage per [references/isolation.md](../../references/isolation.md) — isolated in
+a harness subagent when one exists, inline otherwise — so only findings and proposals
+reach this thread. Never skip from Inspect to Write:
 a status report is not a proposal, and a proposal is not consent.
+
+Stages 2–4 form a loop, not a straight line: after each verified write, return to
+Stage 2 with the updated findings and offer the next decision. A setup session ends
+only when the user declines further changes — never after the first successful write.
+A typical first run covers several rounds (default provider → contract routing →
+model preferences → ledger) before closing.
 
 ## Stage 1 — Inspect (read-only)
 
@@ -36,6 +45,8 @@ a status report is not a proposal, and a proposal is not consent.
    asks for availability. Summarize the result (`all known providers resolve`,
    `codex is missing`) rather than listing every path.
 4. Initialize or inspect a ledger on request with `python3 <root>/scripts/swingle ledger`.
+   The ledger commands take an explicit `--path`; delegate's default is
+   `<project>/.swingle/delegate/ledger.md`.
 
 ## Stage 2 — Propose (stop and wait)
 
@@ -139,6 +150,12 @@ A configuration failure never establishes that an external provider is unavailab
 Run `config show` scoped to the written layer and report the resulting values in one
 short block. If the written file is `<project>/.swingle.json`, note that it is a repo
 file and let the user decide whether to commit it or gitignore it.
+
+Then loop: return to Stage 2 with the updated findings and offer what is still unset
+(contract routing, model preferences for the providers now in play, ledger init). When
+the user declines further changes, close with a one-line summary of every layer written
+this session plus the commit-or-gitignore note — that closing summary is the only place
+the session ends.
 
 ## Explicit migration
 

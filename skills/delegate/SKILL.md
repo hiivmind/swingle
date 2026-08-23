@@ -15,6 +15,10 @@ Use this skill for one self-contained job or one homogeneous batch.
 Use `swingle-sdd` for a dependency-aware implementation plan.
 Resolve `<root>` as `Path(<this SKILL.md>).parents[2]`. It must contain `skills/`, `scripts/`, `contracts/`, and `providers/`.
 Run every Swingle-owned command as `python3 <root>/scripts/swingle`.
+Run mechanical grounding — help inspection, model listing, config and ledger reads,
+and failure-repair hunts — per [references/isolation.md](../../references/isolation.md):
+isolated in a harness subagent when one exists, inline otherwise. The dispatch itself
+and every ledger write stay in this thread.
 See [references/concepts.md](../../references/concepts.md) for how the classification
 matrix, contract, tier, provider, model, and effort relate.
 
@@ -25,7 +29,11 @@ matrix, contract, tier, provider, model, and effort relate.
    [references/concepts.md](../../references/concepts.md). Use `general-task` only when
    the request resists classification or arrives composite and entangled.
 2. Select an explicit tier or derive one from the Tier policy.
-3. Use the caller ledger path. Otherwise use `<project>/.swingle/delegate/ledger.md`.
+3. Resolve the ledger path before any ledger command. Use a caller-supplied path when
+   given; otherwise `<project>/.swingle/delegate/ledger.md`, where `<project>` is the
+   working directory of the session that requested the delegation — resolve it once to
+   an absolute path at dispatch start. The plugin root holds no project state: never
+   read or search for ledgers, configs, or delegation artifacts under `<root>`.
 4. Read policy with `python3 <root>/scripts/swingle config show --project <working-directory>`.
 5. If configuration has errors, stop policy routing and surface them for repair.
 6. If configuration has warnings only, continue with its normalized configuration.

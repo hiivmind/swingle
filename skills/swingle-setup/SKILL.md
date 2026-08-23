@@ -37,8 +37,21 @@ a status report is not a proposal, and a proposal is not consent.
 
 ## Stage 2 — Propose (stop and wait)
 
-Present the Stage 1 findings in plain language first, then offer directions as decisions
-about *work*, not about config keys. A human understands questions like these:
+If the findings would be new to this user — empty config, first run, hesitation about a
+term — offer a quick explanation of how Swingle works, and give it in plain words when
+they accept:
+
+> Swingle steers work you delegate to provider CLIs already installed on this machine —
+> codex, claude, and so on actually do the job; Swingle only advises who gets it. Each
+> kind of work (writing code, reviewing, research) has one fixed briefing called a
+> contract, so every dispatch of that kind is held to the same standard. Your choices
+> here are advice, not locks: they say whom to try first, and anything installed stays
+> usable no matter what. Every delegation leaves one line in a ledger file, so you can
+> always see what ran, where, and how it ended.
+
+Keep it to that scale — a few sentences, no schema vocabulary unless the user asks.
+Then present the findings and offer directions as decisions about *work*, not about
+config keys. A human understands questions like these:
 
 - **Who does the work when nothing specific applies?** In config this is
   `default_provider`.

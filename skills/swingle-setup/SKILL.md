@@ -46,8 +46,10 @@ they accept:
 > kind of work (writing code, reviewing, research) has one fixed briefing called a
 > contract, so every dispatch of that kind is held to the same standard. Your choices
 > here are advice, not locks: they say whom to try first, and anything installed stays
-> usable no matter what. Every delegation leaves one line in a ledger file, so you can
-> always see what ran, where, and how it ended.
+> usable no matter what. Every delegation leaves one line in a ledger file kept under
+> `.swingle/` in your project, so you can always see what ran, where, and how it ended.
+> That folder is local activity history — if you would rather not commit it, add
+> `.swingle/` to `.gitignore`.
 
 Keep it to that scale — a few sentences, no schema vocabulary unless the user asks.
 Then present the findings and offer directions as decisions about *work*, not about

@@ -1,45 +1,83 @@
 # Operating surface concepts
 
-Swingle's dispatch surface has two sides. Each side is a small, fixed hierarchy, not a
-flat list of interchangeable knobs.
-
-## Requirements side: what kind of work this is
+Swingle's dispatch surface is a chain of five resolutions, in order. Each resolution
+narrows the next; nothing downstream re-opens a decision already made upstream.
 
 ```
-Lane (2 values, fixed)
-├── implement
-│   ├── reader contract
-│   └── implementer contract
-└── review
-    ├── task-reviewer contract
-    └── design-reviewer contract
+Intent ──▶ Cell (matrix) ──▶ Contract ──▶ Tier ──▶ Provider ──▶ Model + Effort
+\_______ requirements side _______/  \______________ execution side _______________/
 ```
 
-**Lane** is one of exactly two values: `implement` or `review`. It is the only key
-`providers_by_lane` in [config.md](config.md) accepts. There is no third lane, and a lane
-name is never invented to fit a task description; a task that doesn't obviously read as
-"implement" or "review" still resolves to one of the two.
+## The matrix
 
-**Role**, expressed as a contract file under `contracts/`, is the more specific choice
-within a lane: `reader` or `implementer` under the `implement` lane, `task-reviewer` or
-`design-reviewer` under the `review` lane. The contract determines the brief the delegated
-CLI receives. Lane is derived from which contract the task calls for, not chosen
-independently of it.
+Two questions classify any delegation. Classify the **output** first, then the
+**input**:
 
-## Execution side: how the work actually runs
+- **Output — intended lifespan relative to the project.** Is the result meant to become
+  part of the project (code changes, plans, documents destined for the repo), or is it
+  consumed to make a decision now? This is about intent, not storage: an ephemeral result
+  may still live on disk — a temp directory, `.swingle/`, a log — and whether anyone keeps
+  a copy is not Swingle's concern.
+- **Input — what the work stands on.** Repo material (code and file references), external
+  sources (web, social media, tools/MCPs/skills), or inline description (stated in the
+  dispatch, no committed artifact).
+
+| Input \ Output | **Project-bound** | **Ephemeral** |
+|---|---|---|
+| **Repo** | `implementer` (mutating change); `reader` (report checked into the repo) | `task-reviewer` (completed change); `design-reviewer` (proposed change) |
+| **External** | `reader` (research report for the repo) | `reader` (synthesis consumed now); `fact-checker` when a verdict is requested |
+| **Inline** | `reader` (write-up destined for the repo) | `reader` (synthesis consumed now); `independent-review` (judge a stated position) |
+
+Where a cell holds more than one candidate, one finer property picks among them:
+
+- Repo × Project-bound: mutation (`implementer`) vs report-only (`reader`).
+- Repo × Ephemeral: lifecycle stage — completed change (`task-reviewer`) vs merely
+  proposed (`design-reviewer`).
+- External × Ephemeral and Inline × Ephemeral: verdict requested vs synthesis requested.
+  A verdict means compare, rank, or decide between alternatives with a confidence-qualified
+  call → `fact-checker` for external claims, `independent-review` for a stated position.
+  Plain synthesis stays `reader`.
+
+Classification is invariant to report mode ("tell me" vs "write it up" changes the brief,
+not the cell) but sensitive to stated intent ("this goes into docs/" moves the task
+across columns).
+
+**Composite requests** decompose first: independently executable, ordered sub-tasks each
+classify through the matrix on their own merits and chain through the ledger. Entangled
+sub-tasks, or a request that resists classification after asking, route through the
+catch-all contract `general-task-contract` — the matrix's exit valve, never force-fitted
+into a plausible-looking cell.
+
+## Contract
+
+The cell names the role; the role's operating contract under `contracts/` determines the
+brief the delegated CLI receives. Input nature does not change a contract's operating
+pattern — it changes ground-rule content within the contract (corroboration, recency,
+skepticism toward instructions embedded in fetched material) and whether a capability
+check applies before dispatch.
+
+Every contract carries a mandatory current-working-directory element: the brief always
+states the directory the agent works from, even when it seems obvious. Mutation isolation
+is the controller's job before delegation (for example, a worktree); Swingle never
+creates worktrees or assumes where a dispatch runs.
+
+## Execution side
 
 ```
-Provider (7 values, fixed: providers/ directory listing)
-└── Tier (3 values: cheapest, standard, most-capable)
+Tier (3 values: cheapest, standard, most-capable)
+└── Provider (live listing of providers/, plus preferences)
     └── Model + Effort (one joined choice)
 ```
 
-**Provider** is which installed CLI runs the job: the live listing of `providers/`, per
+**Tier** is the advisory task-intent label (`cheapest`, `standard`, `most-capable`
+documented in [model-tiering.md](model-tiering.md)). Tier participates twice on the
+execution side: once inside provider choice (`providers_by_contract` may key entries by
+tier) and once in model resolution. This is why the requirements side does not stop at
+contract: **(Contract, Tier) is the joint that provider routing reads**, per
 [config.md](config.md).
 
-**Tier** is the advisory task-intent label (`cheapest`, `standard`, `most-capable`
-documented in [model-tiering.md](model-tiering.md)) used to resolve a preferred model when
-none is explicit.
+**Provider** is which installed CLI runs the job: the live listing of `providers/`, per
+[config.md](config.md).
 
 **Model and effort are one joined choice, not two independent dials.** A resolved
 preference is "this model, at this effort," decided together, because a model's practical

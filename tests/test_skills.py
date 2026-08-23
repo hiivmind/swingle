@@ -24,9 +24,11 @@ def test_delegate_uses_live_cli_contract_and_ledger():
         "executable", "--help", "live", "contract", "ledger",
         "python3 <root>/scripts/swingle", "Path(<this SKILL.md>).parents[2]",
         "Tier policy", "outcome",
-        "disable", "providers_by_lane", "default_provider",
+        "disable", "providers_by_contract", "default_provider",
         "explicit user model", ".swingle/delegate/ledger.md", "--path",
         "DONE_WITH_CONCERNS", "NEEDS_CONTEXT", "BLOCKED",
+        "Dispatch guidance", "Gotchas", "joined choice", "model-tiering.md",
+        "rejected invocation",
     ):
         assert required in text
     for retired in RETIRED:
@@ -53,6 +55,13 @@ def test_sdd_is_only_a_delegate_wrapper():
     assert "SDD run-ledger path" in text
     for retired in RETIRED + ("Step 0", "self-reaping", "models.yaml"):
         assert retired not in text
+
+
+def test_delegate_names_every_contract():
+    text = DELEGATE.read_text()
+    for contract in sorted((ROOT / "contracts").glob("*-contract.md")):
+        role = contract.stem.removesuffix("-contract")
+        assert role in text, f"{contract.name} not named in delegate SKILL.md step 1"
 
 
 def test_contracts_are_transport_neutral():

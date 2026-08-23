@@ -92,6 +92,17 @@ are advisory ordered hints. An absent or stale preference must never make a live
 or model unavailable. See [references/config.md](references/config.md) and
 [references/model-tiering.md](references/model-tiering.md).
 
+## Contracts
+
+Each role (`reader`, `implementer`, `task-reviewer`, `design-reviewer`,
+`independent-review`, `fact-checker`, `general-task`) has one transport-neutral operating
+contract under `contracts/`, selected in `skills/delegate/SKILL.md` step 1 through the
+classification matrix in [references/concepts.md](references/concepts.md). A new contract
+is a new role in the matrix; it must justify itself as improving delegated quality or
+auditability, must never mention a provider, its transport, or sandboxing, and must carry
+the mandatory current-working-directory element. Follow
+[docs/contract-authoring.md](docs/contract-authoring.md).
+
 ## Provider notes
 
 When a provider has a real, non-obvious operating fact, reactive (an observed failure and

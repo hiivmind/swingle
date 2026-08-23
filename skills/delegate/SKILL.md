@@ -36,14 +36,15 @@ matrix, contract, tier, provider, model, and effort relate.
 10. If the selected executable is missing, surface it. Do not silently substitute another provider.
 11. Pass an explicit user model directly to the provider CLI.
 12. Otherwise use the selected tier's preference when the live CLI exposes it. Use the CLI default when none match.
-13. Initialize the ledger with `python3 <root>/scripts/swingle ledger init --path <ledger-path>`.
-14. Record the allocation with the exact event shape in the Ledger events section below.
-15. If current command syntax is not established, inspect top-level and subcommand `--help`.
-16. Give the provider the contract, task, working directory, inputs, and report mode.
-17. Run the provider with the tools available in the current harness.
-18. Record provider, model or provider-default, session when available, and each attempt in the same ledger.
-19. Validate the requested result before reporting completion.
-20. Append the exact `NNN complete: status=<status> outcome=<outcome>` event to the same ledger.
+13. Resolve effort together with the model as one joined choice at dispatch time: inspect current `--help` for how this CLI accepts effort alongside the model — a separate flag, folded into the model identifier, a config-override mechanism, or none — set what it exposes, and never carry one provider's pattern to another.
+14. Initialize the ledger with `python3 <root>/scripts/swingle ledger init --path <ledger-path>`.
+15. Record the allocation with the exact event shape in the Ledger events section below.
+16. If current command syntax is not established, inspect top-level and subcommand `--help`, and consult the selected provider's dispatch-guidance note rows for mechanics the help under-specifies, verifying each against the help just inspected. Inspect the help again before retrying any rejected invocation.
+17. Give the provider the contract, task, working directory, inputs, and report mode.
+18. Run the provider with the tools available in the current harness.
+19. Record provider, model or provider-default, session when available, and each attempt in the same ledger.
+20. Validate the requested result before reporting completion.
+21. Append the exact `NNN complete: status=<status> outcome=<outcome>` event to the same ledger.
 
 ## Ledger events
 
@@ -63,19 +64,24 @@ NNN complete: status=<status> outcome=<outcome>
 Ledgers written before this field existed keep their historical lines as records of the
 old format — do not rewrite or delete them.
 
+## Provider notes
+
+`<root>/providers/<selected-provider>/pack.md` holds two evidence-backed tables with
+different read timing. **Dispatch guidance** is proactive: consult it while building an
+unfamiliar dispatch, and verify each row against the help inspected this run. **Gotchas**
+are reactive: open them only after an observed failure.
+
 ## Tier policy
 
-An explicit user tier has precedence.
-Use `cheapest` for transcription, mechanical implementation, and focused codebase location.
-Use `standard` for adaptation implementation, external synthesis, and task review.
-Use `most-capable` for large or long-context implementation, design review, and final review.
-The tier selects one advisory preference list. It never excludes a live model.
+An explicit user tier has precedence. Otherwise derive the tier by intent per
+[references/model-tiering.md](../../references/model-tiering.md). The tier selects one
+advisory preference list. It never excludes a live model.
 
 ## Failure recovery
 
-Read only `<root>/providers/<selected-provider>/pack.md` after an observed failure.
-Apply a matching recovery, then record the failed attempt.
-If no row matches, inspect current help before retrying.
+After an observed failure, apply a matching row from the Gotchas table of
+`<root>/providers/<selected-provider>/pack.md`, then record the failed attempt.
+If no row matches, inspect current help again before retrying.
 Ask the user only when the provider CLI cannot resolve the blocker.
 
 ## Audit statuses

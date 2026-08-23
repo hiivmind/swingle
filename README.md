@@ -74,7 +74,23 @@ pi install https://github.com/hiivmind/swingle
 agy plugin install http://github.com/hiivmind/swingle
 ```
 
-### opencode, Grok, and Oh My Pi
+### Oh My Pi (omp)
+
+Install:
+
+```bash
+omp plugin marketplace add hiivmind/swingle
+omp plugin install swingle@swingle-marketplace
+```
+
+Upgrade:
+
+```bash
+omp plugin marketplace update swingle-marketplace
+omp plugin upgrade swingle@swingle-marketplace
+```
+
+### opencode and Grok
 
 Install the plugin through the host's Claude-compatible or local plugin mechanism, then
 point it at this checkout when the host requires a path. Each host discovers the `skills/`

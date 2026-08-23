@@ -25,7 +25,11 @@ matrix, contract, tier, provider, model, and effort relate.
    [references/concepts.md](../../references/concepts.md). Use `general-task` only when
    the request resists classification or arrives composite and entangled.
 2. Select an explicit tier or derive one from the Tier policy.
-3. Use the caller ledger path. Otherwise use `<project>/.swingle/delegate/ledger.md`.
+3. Resolve the ledger path before any ledger command. Use a caller-supplied path when
+   given; otherwise `<project>/.swingle/delegate/ledger.md`, where `<project>` is the
+   working directory of the session that requested the delegation — resolve it once to
+   an absolute path at dispatch start. The plugin root holds no project state: never
+   read or search for ledgers, configs, or delegation artifacts under `<root>`.
 4. Read policy with `python3 <root>/scripts/swingle config show --project <working-directory>`.
 5. If configuration has errors, stop policy routing and surface them for repair.
 6. If configuration has warnings only, continue with its normalized configuration.

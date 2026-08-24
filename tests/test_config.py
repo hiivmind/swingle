@@ -430,3 +430,62 @@ def test_set_config_value_accepts_model_effort_object(tmp_path):
         {"model": "frontier-model", "effort": "high"}
     ]
     assert result.errors == ()
+
+
+
+def test_grounding_ttl_precedence_and_zero(tmp_path):
+    path = tmp_path / "config.json"
+    path.write_text(json.dumps({
+        "grounding_cache": {
+            "ttl_seconds": 100,
+            "by_provider": {"codex": {"ttl_seconds": 200}},
+        },
+    }))
+
+    result = load_config(path, PROVIDERS)
+
+    from swingle.liveness import resolve_grounding_ttl
+
+    assert resolve_grounding_ttl(result.config, "codex", override=300) == 300
+    assert resolve_grounding_ttl(result.config, "codex") == 200
+    assert resolve_grounding_ttl({"grounding_cache": {"ttl_seconds": 0}}, "codex") == 0
+    assert resolve_grounding_ttl({}, "codex") == 604800
+
+
+def test_unknown_grounding_provider_is_retained_with_warning(tmp_path):
+    path = tmp_path / "config.json"
+    path.write_text(json.dumps({
+        "grounding_cache": {
+            "by_provider": {"future-cli": {"ttl_seconds": 123}},
+        },
+    }))
+
+    result = load_config(path, PROVIDERS)
+
+    assert result.config["grounding_cache"]["by_provider"]["future-cli"] == {
+        "ttl_seconds": 123
+    }
+    assert any("future-cli" in warning for warning in result.warnings)
+
+
+def test_invalid_optional_grounding_branch_warns_and_falls_back(tmp_path):
+    path = tmp_path / "config.json"
+    path.write_text(json.dumps({
+        "grounding_cache": {
+            "ttl_seconds": 200,
+            "by_provider": {
+                "codex": {"ttl_seconds": -1},
+                "grok": {"ttl_seconds": "later"},
+            },
+        },
+    }))
+
+    result = load_config(path, PROVIDERS)
+
+    from swingle.liveness import resolve_grounding_ttl
+
+    assert result.config["grounding_cache"]["by_provider"] == {}
+    assert len(result.warnings) == 2
+    assert resolve_grounding_ttl(result.config, "codex") == 200
+    with pytest.raises(ValueError):
+        resolve_grounding_ttl(result.config, "codex", override=-1)

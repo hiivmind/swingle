@@ -15,15 +15,25 @@ LANE_CONTRACT_ALIASES = {
     "review": ("task-reviewer", "design-reviewer"),
 }
 TIERS = ("cheapest", "standard", "most-capable")
+LIVENESS_FIELDS = (
+    "check_interval_seconds",
+    "startup_grace_seconds",
+    "silence_warning_seconds",
+    "hard_timeout_seconds",
+)
 DEFAULT_CONFIG = {
     "disable": [],
     "providers_by_contract": {},
     "model_preferences": {},
+    "grounding_cache": {},
+    "liveness": {},
 }
 KNOWN_KEYS = {
-    "disable", "default_provider", "providers_by_contract", "model_preferences"
+    "disable", "default_provider", "providers_by_contract", "model_preferences",
+    "grounding_cache", "liveness",
 }
 REMOVED_KEYS = {"require-verified-version", "superpowers", "note"}
+_MISSING = object()
 
 
 @dataclass(frozen=True)
@@ -39,6 +49,8 @@ def _defaults() -> dict[str, Any]:
         "disable": [],
         "providers_by_contract": {},
         "model_preferences": {},
+        "grounding_cache": {},
+        "liveness": {},
     }
 
 
@@ -84,6 +96,151 @@ def _provider_is_known(provider: str, provider_ids: set[str] | None) -> bool:
     typo'd provider reference before it's written is worth the check.
     """
     return provider_ids is None or provider in provider_ids
+
+
+def _valid_nonnegative_integer(value: Any) -> bool:
+    return isinstance(value, int) and not isinstance(value, bool) and value >= 0
+
+
+def _valid_liveness_value(field: str, value: Any) -> bool:
+    if field == "hard_timeout_seconds" and value is None:
+        return True
+    return isinstance(value, int) and not isinstance(value, bool) and value > 0
+
+
+def _normalise_grounding(
+    raw: Any,
+    provider_ids: set[str] | None,
+    warnings: list[str],
+) -> dict[str, Any]:
+    if raw is None:
+        return {}
+    if not isinstance(raw, dict):
+        warnings.append("grounding_cache: must be an object")
+        return {}
+    result: dict[str, Any] = {}
+    for key, value in raw.items():
+        if key == "ttl_seconds":
+            if _valid_nonnegative_integer(value):
+                result[key] = value
+            else:
+                warnings.append("grounding_cache.ttl_seconds: must be a non-negative integer")
+        elif key == "by_provider":
+            if not isinstance(value, dict):
+                warnings.append("grounding_cache.by_provider: must be an object")
+                continue
+            providers: dict[str, Any] = {}
+            for provider, branch in value.items():
+                prefix = f"grounding_cache.by_provider.{provider}"
+                if not isinstance(provider, str):
+                    warnings.append(f"{prefix}: provider must be a string")
+                    continue
+                if not _provider_is_known(provider, provider_ids):
+                    warnings.append(f"{prefix}: unknown provider")
+                if not isinstance(branch, dict):
+                    warnings.append(f"{prefix}: must be an object")
+                    continue
+                normalized_branch: dict[str, Any] = {}
+                valid = True
+                for field, field_value in branch.items():
+                    if field != "ttl_seconds":
+                        warnings.append(f"{prefix}.{field}: unknown field")
+                    elif _valid_nonnegative_integer(field_value):
+                        normalized_branch[field] = field_value
+                    else:
+                        warnings.append(f"{prefix}.ttl_seconds: must be a non-negative integer")
+                        valid = False
+                if valid and normalized_branch:
+                    providers[provider] = normalized_branch
+            result[key] = providers
+        else:
+            warnings.append(f"grounding_cache.{key}: unknown field")
+    return result
+
+
+def _normalise_liveness(
+    raw: Any,
+    provider_ids: set[str] | None,
+    warnings: list[str],
+) -> dict[str, Any]:
+    if raw is None:
+        return {}
+    if not isinstance(raw, dict):
+        warnings.append("liveness: must be an object")
+        return {}
+
+    def field_map(value: Any, prefix: str) -> dict[str, Any]:
+        if not isinstance(value, dict):
+            warnings.append(f"{prefix}: must be an object")
+            return {}
+        result: dict[str, Any] = {}
+        for field, field_value in value.items():
+            if field not in LIVENESS_FIELDS:
+                warnings.append(f"{prefix}.{field}: unknown field")
+            elif _valid_liveness_value(field, field_value):
+                result[field] = field_value
+            else:
+                warnings.append(f"{prefix}.{field}: invalid value")
+        return result
+
+    result: dict[str, Any] = {}
+    for key, value in raw.items():
+        if key == "default":
+            result[key] = field_map(value, "liveness.default")
+        elif key == "by_tier":
+            if not isinstance(value, dict):
+                warnings.append("liveness.by_tier: must be an object")
+                continue
+            tiers: dict[str, Any] = {}
+            for tier, branch in value.items():
+                prefix = f"liveness.by_tier.{tier}"
+                if tier not in TIERS:
+                    warnings.append(f"{prefix}: unknown tier")
+                    continue
+                normalized = field_map(branch, prefix)
+                if normalized:
+                    tiers[tier] = normalized
+            result[key] = tiers
+        elif key == "by_provider":
+            if not isinstance(value, dict):
+                warnings.append("liveness.by_provider: must be an object")
+                continue
+            providers: dict[str, Any] = {}
+            for provider, branch in value.items():
+                prefix = f"liveness.by_provider.{provider}"
+                if not isinstance(provider, str):
+                    warnings.append(f"{prefix}: provider must be a string")
+                    continue
+                if not _provider_is_known(provider, provider_ids):
+                    warnings.append(f"{prefix}: unknown provider")
+                if not isinstance(branch, dict):
+                    warnings.append(f"{prefix}: must be an object")
+                    continue
+                normalized_provider: dict[str, Any] = {}
+                for provider_key, provider_value in branch.items():
+                    if provider_key == "default":
+                        normalized_provider[provider_key] = field_map(provider_value, f"{prefix}.default")
+                    elif provider_key == "by_tier":
+                        if not isinstance(provider_value, dict):
+                            warnings.append(f"{prefix}.by_tier: must be an object")
+                            continue
+                        tiers: dict[str, Any] = {}
+                        for tier, tier_value in provider_value.items():
+                            tier_prefix = f"{prefix}.by_tier.{tier}"
+                            if tier not in TIERS:
+                                warnings.append(f"{tier_prefix}: unknown tier")
+                                continue
+                            normalized = field_map(tier_value, tier_prefix)
+                            if normalized:
+                                tiers[tier] = normalized
+                        normalized_provider[provider_key] = tiers
+                    else:
+                        warnings.append(f"{prefix}.{provider_key}: unknown field")
+                providers[provider] = normalized_provider
+            result[key] = providers
+        else:
+            warnings.append(f"liveness.{key}: unknown field")
+    return result
 
 
 def _normalise_config(
@@ -227,6 +384,13 @@ def _normalise_config(
             normalized_preferences[provider] = normalized_rows
         config["model_preferences"] = normalized_preferences
 
+    config["grounding_cache"] = _normalise_grounding(
+        raw.get("grounding_cache"), provider_ids, warnings
+    )
+    config["liveness"] = _normalise_liveness(
+        raw.get("liveness"), provider_ids, warnings
+    )
+
     disabled = set(config["disable"])
     default_provider = config.get("default_provider")
     if default_provider in disabled:
@@ -320,6 +484,35 @@ def set_config_value(
         if parts[2] not in TIERS:
             raise ValueError(f"unknown tier: {parts[2]}")
 
+    if parts[0] == "grounding_cache":
+        valid = parts == ["grounding_cache", "ttl_seconds"]
+        valid = valid or (
+            len(parts) == 4
+            and parts[1:2] == ["by_provider"]
+            and parts[3] == "ttl_seconds"
+        )
+        if not valid:
+            raise ValueError(
+                "grounding_cache key must be ttl_seconds or "
+                "by_provider.provider.ttl_seconds"
+            )
+    if parts[0] == "liveness":
+        valid = False
+        if len(parts) == 3 and parts[1] == "default":
+            valid = parts[2] in LIVENESS_FIELDS
+        elif len(parts) == 4 and parts[1] == "by_tier":
+            valid = parts[2] in TIERS and parts[3] in LIVENESS_FIELDS
+        elif len(parts) == 5 and parts[1] == "by_provider":
+            valid = parts[3] == "default" and parts[4] in LIVENESS_FIELDS
+        elif len(parts) == 6 and parts[1] == "by_provider":
+            valid = (
+                parts[3] == "by_tier"
+                and parts[4] in TIERS
+                and parts[5] in LIVENESS_FIELDS
+            )
+        if not valid:
+            raise ValueError("invalid liveness configuration key")
+
     updated = json.loads(json.dumps(current.config))
     target: dict[str, Any] = updated
     for part in parts[:-1]:
@@ -336,10 +529,10 @@ def set_config_value(
     kept_value: Any = normalized
     for part in parts:
         if not isinstance(kept_value, dict) or part not in kept_value:
-            kept_value = None
+            kept_value = _MISSING
             break
         kept_value = kept_value[part]
-    if kept_value is None or kept_value != value:
+    if kept_value is _MISSING or kept_value != value:
         raise ValueError(f"invalid configuration value for {dotted_key}")
     config_path.parent.mkdir(parents=True, exist_ok=True)
     config_path.write_text(json.dumps(normalized, indent=2) + "\n", encoding="utf-8")

@@ -157,15 +157,15 @@ def _append_events_locked(handle, drafts: Sequence[EventDraft], event_ids: Seque
         handle.flush()
         os.fsync(handle.fileno())
     return tuple(final_events)
-
-
 def append_events(ledger_dir: Path, controller_session_id: str, drafts: Sequence[EventDraft]) -> tuple[Path, tuple[dict[str, Any], ...]]:
     drafts = tuple(drafts)
+    validated_drafts: list[EventDraft] = []
     for draft in drafts:
-        if draft.controller_session_id != controller_session_id:
+        validated = validate_draft(draft, for_append=True)
+        if validated.controller_session_id != controller_session_id:
             raise LedgerValidationError("draft controller_session_id differs from selected session")
-        validate_draft(draft, for_append=True)
-    # Event identity is Python-owned and allocated before touching the filesystem or lock.
+        validated_drafts.append(validated)
+    drafts = tuple(validated_drafts)
     event_ids = tuple(new_uuid() for _ in drafts)
     path, handle = _open_session(ledger_dir, controller_session_id)
     try:

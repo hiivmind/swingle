@@ -154,6 +154,12 @@ def test_append_rejects_draft_for_another_controller_before_identity_allocation(
     assert not list(tmp_path.glob("*.ndjson"))
 
 
+def test_append_rejects_non_event_draft_with_ledger_error(tmp_path):
+    with pytest.raises(LedgerValidationError):
+        append_events(tmp_path, SESSION, [object()])
+    assert not list(tmp_path.glob("*.ndjson"))
+
+
 def test_append_rejects_invalid_job_id_before_file_open(tmp_path):
     with pytest.raises(LedgerValidationError):
         append_events(tmp_path, SESSION, [draft("provider-session", job="not-a-uuid", data={"attempt": 1, "provider_session_id": "p"})])

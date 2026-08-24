@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from copy import deepcopy
 from datetime import datetime, timezone
 import json
 
@@ -342,6 +343,75 @@ def test_each_schema_field_rejects_invalid_value(event, path, bad):
     for key in path[:-1]:
         target = target[key]
     target[path[-1]] = bad
+    job_id = None if event in {"run-started", "run-completed"} else JOB
+    with pytest.raises(LedgerValidationError):
+        build_event(_draft(event, job_id=job_id, data=data), timestamp=STAMP, event_id=new_uuid())
+
+
+NESTED_FIELDS = (
+    ("dispatched", ("liveness_policy", "check_interval_seconds")),
+    ("dispatched", ("liveness_policy", "startup_grace_seconds")),
+    ("dispatched", ("liveness_policy", "silence_warning_seconds")),
+    ("dispatched", ("liveness_policy", "hard_timeout_seconds")),
+    ("complete", ("evidence", 0, "kind")),
+    ("complete", ("evidence", 0, "value")),
+    ("complete", ("provider_outcome", "status")),
+    ("complete", ("provider_outcome", "claim")),
+    ("complete", ("provider_outcome", "exit_code")),
+    ("complete", ("provider_outcome", "model_requested")),
+    ("complete", ("provider_outcome", "model_used")),
+    ("complete", ("provider_outcome", "session_id")),
+    ("complete", ("provider_outcome", "stop_reason")),
+    ("complete", ("provider_outcome", "usage", "input_tokens")),
+    ("complete", ("provider_outcome", "usage", "output_tokens")),
+    ("complete", ("provider_outcome", "usage", "reasoning_tokens")),
+    ("complete", ("provider_outcome", "usage", "cache_read_tokens")),
+    ("complete", ("provider_outcome", "usage", "cache_write_tokens")),
+    ("complete", ("provider_outcome", "usage", "total_tokens")),
+    ("complete", ("provider_outcome", "cost", "amount")),
+    ("complete", ("provider_outcome", "cost", "currency")),
+    ("complete", ("provider_outcome", "result_artifact")),
+    ("complete", ("repository_verification", "required")),
+    ("complete", ("repository_verification", "status")),
+    ("complete", ("repository_verification", "changed_path_count")),
+    ("complete", ("repository_verification", "summary")),
+    ("complete", ("repository_verification", "verification_artifact")),
+)
+
+
+def _nested_target(data, path):
+    target = data
+    for key in path[:-1]:
+        target = target[key]
+    return target, path[-1]
+
+
+@pytest.mark.parametrize("event,path", NESTED_FIELDS)
+def test_each_required_nested_field_rejects_missing(event, path):
+    data = deepcopy(valid_data(event))
+    target, key = _nested_target(data, path)
+    del target[key]
+    job_id = None if event in {"run-started", "run-completed"} else JOB
+    with pytest.raises(LedgerValidationError):
+        build_event(_draft(event, job_id=job_id, data=data), timestamp=STAMP, event_id=new_uuid())
+
+@pytest.mark.parametrize("event,path", NESTED_FIELDS)
+def test_each_nested_field_rejects_invalid_value(event, path):
+    data = deepcopy(valid_data(event))
+    target, key = _nested_target(data, path)
+    if key in {"model_used", "session_id", "stop_reason", "verification_artifact"}:
+        bad = 1
+    elif key in {"hard_timeout_seconds", "exit_code", "changed_path_count"}:
+        bad = -1
+    elif key in {"check_interval_seconds", "startup_grace_seconds", "silence_warning_seconds", "input_tokens", "output_tokens", "reasoning_tokens", "cache_read_tokens", "cache_write_tokens", "total_tokens", "amount"}:
+        bad = -1
+    elif key == "required":
+        bad = "true"
+    elif key in {"status", "kind", "currency"}:
+        bad = "invalid"
+    else:
+        bad = None
+    target[key] = bad
     job_id = None if event in {"run-started", "run-completed"} else JOB
     with pytest.raises(LedgerValidationError):
         build_event(_draft(event, job_id=job_id, data=data), timestamp=STAMP, event_id=new_uuid())

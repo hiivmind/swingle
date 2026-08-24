@@ -350,6 +350,10 @@ def validate_draft(draft: EventDraft, *, for_append: bool = False) -> EventDraft
     if draft.event in RUN_EVENTS:
         if draft.job_id is not None:
             _fail("run-level events require null job_id")
+    else:
+        if draft.job_id is None:
+            _fail("job events require a job_id")
+        _uuid(draft.job_id, "job_id")
     data = _dict(draft.data, "data")
     if for_append:
         forbidden = {key for key in ("timestamp", "event_id") if key in data}

@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from swingle.errors import LedgerValidationError
+from swingle.errors import LedgerEventTooLarge, LedgerValidationError
 from swingle.ledger import (
     HEADER,
     allocate_job,
@@ -14,11 +14,12 @@ from swingle.ledger import (
     append_events,
     begin_direct,
     finalize_run,
+    finish_direct,
     init_ledger,
     read_ledger,
     record_event,
 )
-from swingle.ledger_schema import EventDraft, encode_event, new_uuid
+from swingle.ledger_schema import EventDraft, build_event, encode_event, new_uuid
 
 SESSION = "11111111-1111-4111-8111-111111111111"
 OTHER_SESSION = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
@@ -121,10 +122,19 @@ def test_clock_rollback_reuses_last_timestamp(tmp_path, monkeypatch):
 
 
 def test_aggregate_order_matches_full_sort_oracle(tmp_path):
+    from swingle.ledger import read_events
     append_events(tmp_path, SESSION, _valid_opening())
     append_events(tmp_path, OTHER_SESSION, [draft(session=OTHER_SESSION)])
-    events = [json.loads(line) for path in tmp_path.glob("*.ndjson") for line in path.read_text().splitlines()]
-    assert sorted(events, key=lambda event: (event["timestamp"], event["controller_session_id"], event["event_id"]))
+    observed = list(read_events(tmp_path))
+    records = []
+    for path in sorted(tmp_path.glob("*.ndjson")):
+        offset = 0
+        for line in path.read_bytes().splitlines(keepends=True):
+            event = json.loads(line)
+            records.append((event, offset))
+            offset += len(line)
+    oracle = [event for event, _ in sorted(records, key=lambda item: (item[0]["timestamp"], item[0]["controller_session_id"], item[1]))]
+    assert observed == oracle
 
 
 def test_append_rejects_caller_timestamp_and_event_id(tmp_path):
@@ -132,6 +142,22 @@ def test_append_rejects_caller_timestamp_and_event_id(tmp_path):
         append_events(tmp_path, SESSION, [draft(data={"kind": "direct", "timestamp": STAMP})])
     with pytest.raises(LedgerValidationError):
         append_events(tmp_path, SESSION, [draft(data={"kind": "direct", "event_id": new_uuid()})])
+
+
+def test_append_rejects_draft_for_another_controller_before_identity_allocation(tmp_path, monkeypatch):
+    import swingle.ledger as ledger
+    allocated = []
+    monkeypatch.setattr(ledger, "new_uuid", lambda: allocated.append(True) or new_uuid())
+    with pytest.raises(LedgerValidationError):
+        append_events(tmp_path, SESSION, [draft(session=OTHER_SESSION)])
+    assert allocated == []
+    assert not list(tmp_path.glob("*.ndjson"))
+
+
+def test_append_rejects_invalid_job_id_before_file_open(tmp_path):
+    with pytest.raises(LedgerValidationError):
+        append_events(tmp_path, SESSION, [draft("provider-session", job="not-a-uuid", data={"attempt": 1, "provider_session_id": "p"})])
+    assert not list(tmp_path.glob("*.ndjson"))
 
 
 def test_v2_write_rejects_a_file_as_ledger_directory(tmp_path):
@@ -189,6 +215,34 @@ def test_grounding_reused_age_uses_append_timestamp_after_clock_advance(tmp_path
     data = {"receipt_id": RECEIPT, "receipt_revision": 1, "storage": "cache", "provider": "codex", "cache_path": "/cache", "grounded_at": STAMP, "expires_at": "2026-08-31T04:15:30.123Z", "executable": "/bin/codex", "provider_guidance_sha256": "0" * 64, "scopes": [], "model_count": 0}
     _, events = append_events(tmp_path, SESSION, [draft("grounding-reused", job=JOB, data=data)])
     assert events[0]["data"]["age_seconds"] == 61
+
+
+def test_begin_direct_rejects_caller_supplied_observed_receipt(tmp_path):
+    with pytest.raises(LedgerValidationError):
+        _begin(tmp_path, "observed", RECEIPT)
+    assert not list((tmp_path / "ledger").glob("*.ndjson")) if (tmp_path / "ledger").exists() else True
+
+
+def test_finish_direct_clean_emits_one_lock_final_sequence(tmp_path):
+    started = _begin(tmp_path)
+    result = finish_direct(ledger_dir=tmp_path / "ledger", controller_session_id=SESSION, run_id=started["run_id"], job_id=started["job_id"], provider_outcome=_provider(), repository_verification=_repo(), outcome="result", evidence=[{"kind": "report", "value": "result.json"}], provider_session_id="provider-1")
+    events = result["events"]
+    assert [event["event"] for event in events] == ["provider-session", "complete", "run-completed"]
+    assert events[0]["data"]["attempt"] == 1
+    assert events[1]["data"]["status"] == "DONE"
+    assert events[2]["data"] == {"status": "DONE", "outcome": "jobs=1 done=1 done_with_concerns=0 needs_context=0 blocked=0"}
+
+
+def test_finish_direct_retry_omits_existing_provider_session(tmp_path):
+    started = _begin(tmp_path)
+    ledger_dir = tmp_path / "ledger"
+    record_event(ledger_dir=ledger_dir, controller_session_id=SESSION, run_id=started["run_id"], job_id=started["job_id"], event="attempt-failed", data={"attempt": 1, "signature": "transient", "recovery": "retry"})
+    record_event(ledger_dir=ledger_dir, controller_session_id=SESSION, run_id=started["run_id"], job_id=started["job_id"], event="resumed", data={"attempt": 2, "provider_session_id": "provider-2", "reason": "retry"})
+    record_event(ledger_dir=ledger_dir, controller_session_id=SESSION, run_id=started["run_id"], job_id=started["job_id"], event="provider-session", data={"attempt": 2, "provider_session_id": "provider-2"})
+    result = finish_direct(ledger_dir=ledger_dir, controller_session_id=SESSION, run_id=started["run_id"], job_id=started["job_id"], provider_outcome=_provider(), repository_verification=_repo(), outcome="result", evidence=[{"kind": "report", "value": "result.json"}])
+    assert [event["event"] for event in result["events"]] == ["complete", "run-completed"]
+    assert result["events"][0]["data"]["status"] == "DONE"
+    assert result["events"][1]["data"]["outcome"] == "jobs=1 done=1 done_with_concerns=0 needs_context=0 blocked=0"
 
 
 def test_controller_supplied_age_seconds_is_rejected(tmp_path):
@@ -253,6 +307,38 @@ def test_max_size_event_allows_following_append(tmp_path):
     assert len(encode_event(events[0])) < 65536
     append_events(tmp_path, SESSION, [draft("run-completed", data={"status": "DONE", "outcome": "done"})])
     assert len((tmp_path / f"{SESSION}.ndjson").read_text().splitlines()) == 2
+
+
+def _exact_size_complete(target):
+    data = _complete().data
+    heavy = "💣" * 3500
+    provider = data["provider_outcome"]
+    for field in ("claim", "model_requested", "model_used"):
+        provider[field] = heavy
+    data["evidence"] = [{"kind": "report", "value": "x" * 1024} for _ in range(16)]
+    for count in range(4096):
+        for suffix in range(4):
+            if 1 + count + suffix > 4096:
+                continue
+            data["outcome"] = "x" + "💣" * count + "a" * suffix
+            event = build_event(EventDraft("complete", SESSION, RUN, JOB, data), timestamp=STAMP, event_id=new_uuid())
+            if len(encode_event(event)) == target:
+                return event
+    raise AssertionError(f"unable to construct {target}-byte event")
+
+def test_exact_encoded_cap_and_following_append(tmp_path):
+    event = _exact_size_complete(65536)
+    assert len(encode_event(event)) == 65536
+    append_events(tmp_path, SESSION, [EventDraft("complete", SESSION, RUN, JOB, event["data"])])
+    assert (tmp_path / f"{SESSION}.ndjson").stat().st_size >= 65537
+    append_events(tmp_path, SESSION, [draft("provider-session", job=JOB, data={"attempt": 1, "provider_session_id": "next"})])
+    assert len((tmp_path / f"{SESSION}.ndjson").read_bytes().splitlines()) == 2
+    oversized = _exact_size_complete(65536)
+    oversized["data"]["outcome"] += "a"
+    oversized_length = len(json.dumps(oversized, ensure_ascii=False, separators=(",", ":"), sort_keys=True).encode())
+    assert oversized_length == 65537
+    with pytest.raises(LedgerEventTooLarge):
+        encode_event(oversized)
 
 
 def test_run_finalization_one_job_exact_aggregate(tmp_path):

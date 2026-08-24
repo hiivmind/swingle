@@ -231,3 +231,117 @@ def test_encoded_event_limit_raises_typed_error(monkeypatch):
     monkeypatch.setattr("swingle.ledger_schema.MAX_ENCODED_EVENT_BYTES", encoded_length - 1)
     with pytest.raises(LedgerEventTooLarge):
         encode_event(event)
+
+
+def test_named_text_and_collection_boundaries():
+    data = valid_data("complete")
+    data["outcome"] = "x" * 4096
+    build_event(_draft("complete", job_id=JOB, data=data), timestamp=STAMP, event_id=new_uuid())
+    data["outcome"] = "x" * 4097
+    with pytest.raises(LedgerValidationError):
+        build_event(_draft("complete", job_id=JOB, data=data), timestamp=STAMP, event_id=new_uuid())
+
+    for count in (16, 17):
+        data = valid_data("complete")
+        data["evidence"] = [{"kind": "report", "value": "x"} for _ in range(count)]
+        if count == 16:
+            build_event(_draft("complete", job_id=JOB, data=data), timestamp=STAMP, event_id=new_uuid())
+        else:
+            with pytest.raises(LedgerValidationError):
+                build_event(_draft("complete", job_id=JOB, data=data), timestamp=STAMP, event_id=new_uuid())
+
+    for length in (1024, 1025):
+        data = valid_data("complete")
+        data["evidence"][0]["value"] = "x" * length
+        if length == 1024:
+            build_event(_draft("complete", job_id=JOB, data=data), timestamp=STAMP, event_id=new_uuid())
+        else:
+            with pytest.raises(LedgerValidationError):
+                build_event(_draft("complete", job_id=JOB, data=data), timestamp=STAMP, event_id=new_uuid())
+
+    for count in (16, 17):
+        data = valid_data("grounding-observed")
+        data["evidence_commands"] = ["x" * 1024 for _ in range(count)]
+        if count == 16:
+            build_event(_draft("grounding-observed", job_id=JOB, data=data), timestamp=STAMP, event_id=new_uuid())
+        else:
+            with pytest.raises(LedgerValidationError):
+                build_event(_draft("grounding-observed", job_id=JOB, data=data), timestamp=STAMP, event_id=new_uuid())
+
+    data = valid_data("grounding-observed")
+    data["evidence_commands"] = ["x" * 1025]
+    with pytest.raises(LedgerValidationError):
+        build_event(_draft("grounding-observed", job_id=JOB, data=data), timestamp=STAMP, event_id=new_uuid())
+
+
+INVALID_FIELDS = (
+    ("run-started", ("kind",), "invalid"),
+    ("run-completed", ("status",), "invalid"),
+    ("run-completed", ("outcome",), None),
+    ("allocated", ("role",), None),
+    ("allocated", ("contract",), "/absolute/contract.md"),
+    ("allocated", ("tier",), "invalid"),
+    ("allocated", ("task",), None),
+    ("grounding-observed", ("receipt_id",), "invalid"),
+    ("grounding-observed", ("receipt_revision",), -1),
+    ("grounding-observed", ("storage",), "invalid"),
+    ("grounding-observed", ("provider",), None),
+    ("grounding-observed", ("cache_path",), 1),
+    ("grounding-observed", ("grounded_at",), "invalid"),
+    ("grounding-observed", ("expires_at",), "invalid"),
+    ("grounding-observed", ("executable",), None),
+    ("grounding-observed", ("provider_guidance_sha256",), "invalid"),
+    ("grounding-observed", ("scopes",), [1]),
+    ("grounding-observed", ("model_count",), -1),
+    ("grounding-observed", ("evidence_commands",), [1]),
+    ("grounding-reused", ("receipt_id",), "invalid"),
+    ("grounding-reused", ("receipt_revision",), -1),
+    ("grounding-reused", ("storage",), "invalid"),
+    ("grounding-reused", ("provider",), None),
+    ("grounding-reused", ("cache_path",), None),
+    ("grounding-reused", ("grounded_at",), "invalid"),
+    ("grounding-reused", ("expires_at",), "invalid"),
+    ("grounding-reused", ("age_seconds",), -1),
+    ("grounding-reused", ("executable",), None),
+    ("grounding-reused", ("provider_guidance_sha256",), "invalid"),
+    ("grounding-reused", ("scopes",), [1]),
+    ("grounding-reused", ("model_count",), -1),
+    ("dispatched", ("provider",), None),
+    ("dispatched", ("model",), None),
+    ("dispatched", ("effort",), None),
+    ("dispatched", ("attempt",), 0),
+    ("dispatched", ("liveness_policy",), {}),
+    ("dispatched", ("grounding_receipt_id",), "invalid"),
+    ("dispatched", ("grounding_receipt_revision",), -1),
+    ("dispatched", ("grounding_source",), "invalid"),
+    ("provider-session", ("attempt",), 0),
+    ("provider-session", ("provider_session_id",), None),
+    ("liveness-warning", ("attempt",), 0),
+    ("liveness-warning", ("elapsed_seconds",), -1),
+    ("liveness-warning", ("silence_seconds",), -1),
+    ("liveness-warning", ("process_state",), "invalid"),
+    ("liveness-warning", ("action",), "invalid"),
+    ("attempt-failed", ("attempt",), 0),
+    ("attempt-failed", ("signature",), None),
+    ("attempt-failed", ("recovery",), None),
+    ("resumed", ("attempt",), 0),
+    ("resumed", ("provider_session_id",), None),
+    ("resumed", ("reason",), None),
+    ("complete", ("status",), "invalid"),
+    ("complete", ("outcome",), None),
+    ("complete", ("evidence",), [{}]),
+    ("complete", ("provider_outcome",), {}),
+    ("complete", ("repository_verification",), {}),
+)
+
+
+@pytest.mark.parametrize("event,path,bad", INVALID_FIELDS)
+def test_each_schema_field_rejects_invalid_value(event, path, bad):
+    data = valid_data(event)
+    target = data
+    for key in path[:-1]:
+        target = target[key]
+    target[path[-1]] = bad
+    job_id = None if event in {"run-started", "run-completed"} else JOB
+    with pytest.raises(LedgerValidationError):
+        build_event(_draft(event, job_id=job_id, data=data), timestamp=STAMP, event_id=new_uuid())

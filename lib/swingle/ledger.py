@@ -162,6 +162,8 @@ def _append_events_locked(handle, drafts: Sequence[EventDraft], event_ids: Seque
 def append_events(ledger_dir: Path, controller_session_id: str, drafts: Sequence[EventDraft]) -> tuple[Path, tuple[dict[str, Any], ...]]:
     drafts = tuple(drafts)
     for draft in drafts:
+        if draft.controller_session_id != controller_session_id:
+            raise LedgerValidationError("draft controller_session_id differs from selected session")
         validate_draft(draft, for_append=True)
     # Event identity is Python-owned and allocated before touching the filesystem or lock.
     event_ids = tuple(new_uuid() for _ in drafts)
@@ -173,6 +175,30 @@ def append_events(ledger_dir: Path, controller_session_id: str, drafts: Sequence
         fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
         handle.close()
     return path, events
+
+
+def read_events(ledger_dir: Path) -> tuple[dict[str, Any], ...]:
+    ledger_dir = Path(ledger_dir).expanduser()
+    if not ledger_dir.is_dir():
+        if ledger_dir.exists():
+            raise NotADirectoryError(f"ledger directory is not a directory: {ledger_dir}")
+        return ()
+    records: list[tuple[dict[str, Any], int]] = []
+    for path in ledger_dir.glob("*.ndjson"):
+        offset = 0
+        for line in path.read_bytes().splitlines(keepends=True):
+            if not line.strip():
+                offset += len(line)
+                continue
+            try:
+                event = json.loads(line)
+            except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+                raise LedgerValidationError(f"{path}: invalid JSON") from exc
+            validate_event(event)
+            records.append((event, offset))
+            offset += len(line)
+    records.sort(key=lambda item: (item[0]["timestamp"], item[0]["controller_session_id"], item[1]))
+    return tuple(event for event, _ in records)
 
 
 def _artifact_directory(project: Path, run_id: str, job_id: str) -> Path:

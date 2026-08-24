@@ -415,3 +415,23 @@ def test_each_nested_field_rejects_invalid_value(event, path):
     job_id = None if event in {"run-started", "run-completed"} else JOB
     with pytest.raises(LedgerValidationError):
         build_event(_draft(event, job_id=job_id, data=data), timestamp=STAMP, event_id=new_uuid())
+
+
+@pytest.mark.parametrize("container", ["usage", "cost"])
+def test_provider_outcome_nested_container_is_required_and_object(container):
+    data = deepcopy(valid_data("complete"))
+    del data["provider_outcome"][container]
+    with pytest.raises(LedgerValidationError):
+        build_event(_draft("complete", job_id=JOB, data=data), timestamp=STAMP, event_id=new_uuid())
+    data = deepcopy(valid_data("complete"))
+    data["provider_outcome"][container] = []
+    with pytest.raises(LedgerValidationError):
+        build_event(_draft("complete", job_id=JOB, data=data), timestamp=STAMP, event_id=new_uuid())
+
+
+@pytest.mark.parametrize("leaf", ["input_tokens", "output_tokens", "reasoning_tokens", "cache_read_tokens", "cache_write_tokens", "total_tokens"])
+def test_each_provider_usage_numeric_leaf_rejects_string(leaf):
+    data = deepcopy(valid_data("complete"))
+    data["provider_outcome"]["usage"][leaf] = "0"
+    with pytest.raises(LedgerValidationError):
+        build_event(_draft("complete", job_id=JOB, data=data), timestamp=STAMP, event_id=new_uuid())

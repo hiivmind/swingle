@@ -100,6 +100,16 @@ def _check_provider_directories(root: Path) -> list[str]:
         note_path = provider / "pack.md"
         if not note_path.is_file():
             findings.append(f"{note_path}: missing provider note")
+            continue
+        dispatch_headings = sum(
+            line.strip() == "## Dispatch guidance"
+            for line in note_path.read_text().splitlines()
+        )
+        if dispatch_headings != 1:
+            findings.append(
+                f"{note_path}: expected exactly one ## Dispatch guidance heading "
+                f"(found {dispatch_headings})"
+            )
     return findings
 
 
@@ -110,13 +120,30 @@ def write_note(root: Path, body: str = "# Alpha provider notes\n") -> Path:
     return path
 
 
+def test_dispatch_guidance_heading_is_required_exactly_once(tmp_path):
+    write_note(tmp_path, "# Alpha provider notes\n")
+    findings = _check_provider_directories(tmp_path)
+    assert any("exactly one ## Dispatch guidance heading" in finding for finding in findings)
+
+    write_note(
+        tmp_path,
+        "# Alpha provider notes\n\n## Dispatch guidance\n\n## Dispatch guidance\n",
+    )
+    findings = _check_provider_directories(tmp_path)
+    assert any("exactly one ## Dispatch guidance heading" in finding for finding in findings)
+
+    write_note(tmp_path, "# Alpha provider notes\n\n## Dispatch guidance\n")
+    assert _check_provider_directories(tmp_path) == []
+
+
 def test_free_form_note_has_no_findings(tmp_path):
     write_note(tmp_path, """# Alpha provider notes
+
+## Dispatch guidance
 
 Whatever shape the author chooses: prose, one table, several tables under
 different headings. Nothing here parses the content back out.
 """)
-
     assert _check_provider_directories(tmp_path) == []
 
 

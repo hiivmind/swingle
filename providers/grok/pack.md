@@ -1,6 +1,8 @@
-# Grok gotchas
+# Grok notes
 
 CLI: `grok`
+
+## Gotchas
 
 | Failure signature | Impact | Recovery | Evidence |
 | --- | --- | --- | --- |

@@ -1,6 +1,8 @@
-# Agy gotchas
+# Agy notes
 
 CLI: `agy`
+
+## Gotchas
 
 | Failure signature | Impact | Recovery | Evidence |
 | --- | --- | --- | --- |

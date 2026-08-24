@@ -1,6 +1,8 @@
-# Claude gotchas
+# Claude notes
 
 CLI: `claude`
+
+## Gotchas
 
 | Failure signature | Impact | Recovery | Evidence |
 | --- | --- | --- | --- |

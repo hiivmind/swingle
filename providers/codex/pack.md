@@ -1,6 +1,8 @@
-# Codex gotchas
+# Codex notes
 
 CLI: `codex`
+
+## Gotchas
 
 | Failure signature | Impact | Recovery | Evidence |
 | --- | --- | --- | --- |

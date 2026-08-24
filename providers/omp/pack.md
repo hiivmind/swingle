@@ -1,6 +1,8 @@
-# Omp gotchas
+# Omp notes
 
 CLI: `omp`
+
+## Gotchas
 
 | Failure signature | Impact | Recovery | Evidence |
 | --- | --- | --- | --- |

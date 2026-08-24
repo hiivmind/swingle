@@ -2,9 +2,13 @@
 
 CLI: `cursor-agent`
 
+## Gotchas
+
 | Failure signature | Impact | Recovery | Evidence |
 | --- | --- | --- | --- |
 | `--print` headless run in a directory the CLI has not seen trusted interactively exits 1 with a "Workspace Trust Required" prompt instead of running | headless dispatch fails immediately with no work done | pass `--trust` on every headless dispatch | cursor-agent 2026.07.09-a3815c0, 2026-08-22 |
+
+## Dispatch guidance
 
 | Decision point | Guidance | Rationale | Evidence |
 | --- | --- | --- | --- |

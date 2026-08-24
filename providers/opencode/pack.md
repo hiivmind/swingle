@@ -1,6 +1,8 @@
-# Opencode gotchas
+# Opencode notes
 
 CLI: `opencode`
+
+## Gotchas
 
 | Failure signature | Impact | Recovery | Evidence |
 | --- | --- | --- | --- |

@@ -1,6 +1,8 @@
-# Pi gotchas
+# Pi notes
 
 CLI: `pi`
+
+## Gotchas
 
 | Failure signature | Impact | Recovery | Evidence |
 | --- | --- | --- | --- |

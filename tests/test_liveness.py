@@ -1,3 +1,4 @@
+import pytest
 from swingle.config import load_config
 from swingle.liveness import resolve_liveness_policy
 
@@ -134,3 +135,42 @@ def test_unknown_provider_policy_is_retained_with_warning(tmp_path):
     }
     assert result.policy["check_interval_seconds"] == 99
     assert any("future-cli" in warning for warning in loaded.warnings)
+
+
+@pytest.mark.parametrize(
+    ("config", "explicit", "expected"),
+    [
+        ({}, {"check_interval_seconds": 11}, 11),
+        (
+            {"liveness": {"by_provider": {"codex": {"by_tier": {
+                "standard": {"check_interval_seconds": 22}
+            }}}}},
+            None,
+            22,
+        ),
+        (
+            {"liveness": {"by_provider": {"codex": {"default": {
+                "check_interval_seconds": 33
+            }}}}},
+            None,
+            33,
+        ),
+        (
+            {"liveness": {"by_tier": {"standard": {
+                "check_interval_seconds": 44
+            }}}},
+            None,
+            44,
+        ),
+        (
+            {"liveness": {"default": {"check_interval_seconds": 55}}},
+            None,
+            55,
+        ),
+        ({}, None, 60),
+    ],
+)
+def test_each_liveness_layer_can_supply_an_omitted_field(config, explicit, expected):
+    result = resolve_liveness_policy(config, "codex", "standard", explicit)
+
+    assert result.policy["check_interval_seconds"] == expected

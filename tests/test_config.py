@@ -489,3 +489,57 @@ def test_invalid_optional_grounding_branch_warns_and_falls_back(tmp_path):
     assert resolve_grounding_ttl(result.config, "codex") == 200
     with pytest.raises(ValueError):
         resolve_grounding_ttl(result.config, "codex", override=-1)
+
+
+
+def test_unknown_grounding_provider_empty_branch_is_retained(tmp_path):
+    path = tmp_path / "config.json"
+    path.write_text(json.dumps({
+        "grounding_cache": {
+            "by_provider": {
+                "future-cli": {},
+                "future-fields": {"future_ttl": 456},
+            },
+        },
+    }))
+
+    result = load_config(path, PROVIDERS)
+
+    assert result.config["grounding_cache"]["by_provider"] == {
+        "future-cli": {},
+        "future-fields": {},
+    }
+    assert any("future-cli" in warning for warning in result.warnings)
+    assert any("future-fields.future_ttl" in warning for warning in result.warnings)
+
+
+@pytest.mark.parametrize(
+    ("dotted_key", "json_value", "expected"),
+    [
+        ("grounding_cache.ttl_seconds", "7", 7),
+        ("grounding_cache.by_provider.future-cli.ttl_seconds", "8", 8),
+        ("liveness.default.check_interval_seconds", "9", 9),
+        ("liveness.by_tier.standard.startup_grace_seconds", "10", 10),
+        ("liveness.by_provider.future-cli.default.silence_warning_seconds", "11", 11),
+        (
+            "liveness.by_provider.future-cli.by_tier.standard.hard_timeout_seconds",
+            "null",
+            None,
+        ),
+    ],
+)
+def test_set_config_value_supports_grounding_and_liveness_paths(
+    tmp_path, dotted_key, json_value, expected
+):
+    path = tmp_path / "config.json"
+    init_config(path)
+
+    set_config_value(path, dotted_key, json_value, PROVIDERS)
+
+    result = load_config(path, PROVIDERS)
+    value = result.config
+    for part in dotted_key.split("."):
+        value = value[part]
+    assert value == expected
+    if "future-cli" in dotted_key:
+        assert any("future-cli" in warning for warning in result.warnings)

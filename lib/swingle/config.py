@@ -150,7 +150,7 @@ def _normalise_grounding(
                     else:
                         warnings.append(f"{prefix}.ttl_seconds: must be a non-negative integer")
                         valid = False
-                if valid and normalized_branch:
+                if valid:
                     providers[provider] = normalized_branch
             result[key] = providers
         else:

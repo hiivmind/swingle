@@ -13,6 +13,7 @@ from .config import (
     set_config_value,
 )
 from .errors import SwingleError
+from .grounding_cli import add_grounding_parser, command_grounding
 from .ledger_cli import (
     command_allocate,
     command_begin_direct,
@@ -199,6 +200,7 @@ def _parser() -> argparse.ArgumentParser:
     validate = ledger_commands.add_parser("validate")
     validate.add_argument("--dir", required=True)
     validate.add_argument("--controller-session-id")
+    add_grounding_parser(commands, ARGUMENT_PARSER)
     return parser
 
 
@@ -218,6 +220,8 @@ def main(
             if args.config_command == "validate":
                 return _config_validate(args, root)
             return _config_set(args, root)
+        if args.command == "grounding":
+            return _emit(command_grounding(args, root))
         handlers = {
             "start": command_start,
             "begin-direct": command_begin_direct,

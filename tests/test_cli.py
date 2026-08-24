@@ -99,6 +99,23 @@ def test_python_cli_never_runs_provider_binaries(tmp_path):
     env = dict(os.environ, PATH=f"{bin_dir}:{os.environ['PATH']}")
 
     config_path = tmp_path / "boundary-config.json"
+    grounding_payload = tmp_path / "grounding.json"
+    grounding_payload.write_text(json.dumps({
+        "complete_profile_observed_at": None,
+        "ttl_seconds": 604800,
+        "executable": str(bin_dir / "codex"),
+        "provider_guidance_sha256": "a" * 64,
+        "scopes": {
+            "headless-command": {
+                "state": "observed",
+                "observation": {},
+                "applicability": "dispatch",
+                "evidence_command": "codex --help",
+                "observed_at": "2026-08-24T04:15:30.123Z",
+            }
+        },
+        "models": {"discovery_command": "codex debug models", "observed_at": "2026-08-24T04:15:30.123Z", "entries": []},
+    }))
     commands = (
         ("config", "init", "--path", str(config_path)),
         ("config", "show", "--config", str(config_path)),
@@ -107,6 +124,10 @@ def test_python_cli_never_runs_provider_binaries(tmp_path):
             "config", "set", "--path", str(config_path),
             "default_provider", '"codex"', "--root", str(ROOT),
         ),
+        ("grounding", "record", "--project", str(tmp_path), "--provider", "codex", "--payload-file", str(grounding_payload)),
+        ("grounding", "show", "--project", str(tmp_path), "--provider", "codex"),
+        ("grounding", "invalidate", "--project", str(tmp_path), "--provider", "codex", "--scope", "headless-command", "--reason", "test"),
+        ("grounding", "refresh", "--project", str(tmp_path), "--provider", "codex", "--scope", "headless-command", "--reason", "test"),
     )
     for command in commands:
         result = run_cli(*command, env=env)
@@ -138,6 +159,36 @@ def test_typed_ledger_error_emits_stable_code(tmp_path):
     payload = json.loads(result.stdout)
     assert payload["code"] == "ledger_invalid_lifecycle"
     assert payload["errors"]
+
+
+def test_grounding_cli_reads_stdin_and_returns_next_actions(tmp_path):
+    payload = {
+        "complete_profile_observed_at": None,
+        "ttl_seconds": 604800,
+        "executable": "/usr/bin/codex",
+        "provider_guidance_sha256": "a" * 64,
+        "scopes": {
+            "headless-command": {
+                "state": "observed",
+                "observation": {},
+                "applicability": "dispatch",
+                "evidence_command": "codex --help",
+                "observed_at": "2026-08-24T04:15:30.123Z",
+            }
+        },
+        "models": {"discovery_command": "codex debug models", "observed_at": "2026-08-24T04:15:30.123Z", "entries": []},
+    }
+    result = subprocess.run(
+        [sys.executable, str(SCRIPT), "grounding", "record", "--project", str(tmp_path), "--provider", "codex", "--payload-file", "-"],
+        input=json.dumps(payload),
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0
+    assert json.loads(result.stdout)["next_action"] == "refresh_context"
+    shown = run_cli("grounding", "show", "--project", str(tmp_path), "--provider", "codex")
+    assert shown.returncode == 0
+    assert json.loads(shown.stdout)["action"] == "ground_and_record"
 
 def test_config_show_expands_user_path(tmp_path):
     home = tmp_path / "home"

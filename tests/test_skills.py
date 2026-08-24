@@ -18,22 +18,60 @@ RETIRED = (
 )
 
 
-def test_delegate_uses_live_cli_contract_and_ledger():
+def test_delegate_uses_next_action_controller_flow():
     text = DELEGATE.read_text()
     for required in (
-        "executable", "--help", "live", "contract", "ledger",
-        "python3 <root>/scripts/swingle", "Path(<this SKILL.md>).parents[2]",
-        "Tier policy", "outcome",
-        "disable", "providers_by_contract", "default_provider",
-        "explicit user model", ".swingle/delegate/ledger.md", "--path",
-        "DONE_WITH_CONCERNS", "NEEDS_CONTEXT", "BLOCKED",
-        "Dispatch guidance", "Gotchas", "joined choice", "model-tiering.md",
-        "rejected invocation", "references/isolation.md", "tier intent",
+        "$PLUGIN_ROOT",
+        "$REPO_ROOT",
+        "dispatch context",
+        "next_action",
+        "ledger begin-direct",
+        "ledger finish-direct",
+        "ledger finalize-run",
+        "grounding record",
+        "grounding refresh",
+        "setup_repair",
+        "ground_without_cache",
+        "grounding_source",
+        "exact authored briefing",
+        "artifact directory",
+        "selected provider pack path",
+        "Dispatch-guidance fingerprint",
+        "read and adapt Dispatch guidance",
+        "temporary parser",
+        "repository_verification",
+        "VERIFIED",
+        "run-completed",
+        "wait or join concurrent jobs",
+        "jobs=N done=N done_with_concerns=N needs_context=N blocked=N",
+        "BLOCKED > NEEDS_CONTEXT > DONE_WITH_CONCERNS > DONE",
     ):
         assert required in text
-    for retired in RETIRED:
-        assert retired not in text
-
+    for command in (
+        "python3 $PLUGIN_ROOT/scripts/swingle dispatch context",
+        "python3 $PLUGIN_ROOT/scripts/swingle ledger begin-direct",
+        "python3 $PLUGIN_ROOT/scripts/swingle ledger finish-direct",
+        "python3 $PLUGIN_ROOT/scripts/swingle ledger finalize-run",
+        "python3 $PLUGIN_ROOT/scripts/swingle grounding record",
+        "python3 $PLUGIN_ROOT/scripts/swingle grounding refresh",
+    ):
+        assert command in text
+    for removed in (
+        "ledger init",
+        "ledger append",
+        "ledger record run-completed",
+        ".swingle/delegate/ledger.md",
+        "config show --project",
+        "acquire grounding",
+        "claim token",
+        "busy wait",
+        "refresh lease",
+        "dispatch render",
+        "result extract",
+        "selector program",
+        "prompt paraphrase",
+    ):
+        assert removed not in text
 
 def test_setup_manages_only_swingle_owned_state():
     text = SETUP.read_text()

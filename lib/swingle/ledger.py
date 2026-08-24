@@ -27,58 +27,8 @@ def new_uuid() -> str:
 def utc_timestamp(now=None) -> str:
     return _schema.utc_timestamp(now)
 
-HEADER = "# Swingle delegation ledger\n\n"
 _SESSION_EVENT_TAIL_BYTES = MAX_ENCODED_EVENT_BYTES + 1
 _ARTIFACT_IGNORE = "*\n!.gitignore\n"
-
-
-def _locked_file(path: Path, mode: str, lock: int):
-    path.parent.mkdir(parents=True, exist_ok=True)
-    handle = path.open(mode, encoding="utf-8")
-    fcntl.flock(handle.fileno(), lock)
-    return handle
-
-
-# Legacy v1 write/read APIs remain importable until Task 3's CLI cutover.
-def init_ledger(path: Path) -> None:
-    handle = _locked_file(path, "a+", fcntl.LOCK_EX)
-    try:
-        handle.seek(0)
-        content = handle.read()
-        if not content:
-            handle.write(HEADER)
-            handle.flush()
-            os.fsync(handle.fileno())
-        elif not content.startswith(HEADER):
-            raise ValueError(f"{path}: invalid Swingle ledger header")
-    finally:
-        fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
-        handle.close()
-
-
-def append_event(path: Path, event: str) -> None:
-    if not event or "\n" in event or "\r" in event:
-        raise ValueError("ledger event must be one line and non-empty")
-    init_ledger(path)
-    handle = _locked_file(path, "a", fcntl.LOCK_EX)
-    try:
-        handle.write(event + "\n")
-        handle.flush()
-        os.fsync(handle.fileno())
-    finally:
-        fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
-        handle.close()
-
-
-def read_ledger(path: Path) -> list[str]:
-    init_ledger(path)
-    handle = _locked_file(path, "r", fcntl.LOCK_SH)
-    try:
-        lines = handle.read().splitlines()
-    finally:
-        fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
-        handle.close()
-    return [line for line in lines[2:] if line]
 
 
 def _require_uuid(value: str, field: str) -> None:
@@ -271,6 +221,8 @@ def _grounding_from_context(dispatch_context: dict[str, Any], provider: str) -> 
     else:
         grounding.pop("age_seconds", None)
         event_name = "grounding-reused"
+    if grounding.get("provider") not in (None, provider):
+        raise LedgerValidationError("grounding provider differs from selected provider")
     return event_name, grounding
 
 

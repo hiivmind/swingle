@@ -8,15 +8,11 @@ import pytest
 
 from swingle.errors import LedgerEventTooLarge, LedgerValidationError
 from swingle.ledger import (
-    HEADER,
     allocate_job,
-    append_event,
     append_events,
     begin_direct,
     finalize_run,
     finish_direct,
-    init_ledger,
-    read_ledger,
     record_event,
 )
 from swingle.ledger_schema import EventDraft, build_event, encode_event, new_uuid
@@ -174,12 +170,6 @@ def test_v2_write_rejects_a_file_as_ledger_directory(tmp_path):
     assert ledger_file.read_text() == "untouched"
 
 
-def test_legacy_exports_remain_importable(tmp_path):
-    path = tmp_path / "ledger.md"
-    init_ledger(path)
-    append_event(path, "legacy event")
-    assert path.read_text().startswith(HEADER)
-    assert read_ledger(path) == ["legacy event"]
 
 
 def _context(source="observed", receipt_id=None):

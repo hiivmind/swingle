@@ -49,20 +49,40 @@ def test_config_validate_reports_malformed_json(tmp_path):
     assert "errors" in json.loads(result.stdout)
 
 
-def test_ledger_cli_round_trip(tmp_path):
-    path = tmp_path / "ledger.md"
-
-    assert run_cli("ledger", "init", "--path", str(path)).returncode == 0
-    assert run_cli(
-        "ledger", "append", "--path", str(path),
-        "001 allocated: role=reader task=a contract=reader tier=standard",
-    ).returncode == 0
-    result = run_cli("ledger", "show", "--path", str(path))
+def test_ledger_v2_start_and_show_round_trip(tmp_path):
+    ledger_dir = tmp_path / "ledger"
+    result = run_cli("ledger", "start", "--dir", str(ledger_dir), "--kind", "direct")
 
     assert result.returncode == 0
-    assert json.loads(result.stdout)["events"] == [
-        "001 allocated: role=reader task=a contract=reader tier=standard"
-    ]
+    payload = json.loads(result.stdout)
+    assert payload["controller_session_id"]
+    assert payload["run_id"]
+    assert payload["ledger_file"] == str((ledger_dir / f"{payload['controller_session_id']}.ndjson").resolve())
+    assert payload["events"][0]["event"] == "run-started"
+
+    shown = run_cli("ledger", "show", "--dir", str(ledger_dir))
+    assert shown.returncode == 0
+    assert json.loads(shown.stdout)["events"][0]["event"] == "run-started"
+
+
+def test_ledger_legacy_reader_is_read_only(tmp_path):
+    path = tmp_path / "ledger.md"
+    path.write_text("# Swingle delegation ledger\n\n001 complete: status=DONE outcome=ok\n")
+
+    result = run_cli("ledger", "show", "--legacy-path", str(path), "--format", "json")
+
+    assert result.returncode == 0
+    payload = json.loads(result.stdout)
+    assert payload["events"] == [{"schema_version": 1, "raw": "001 complete: status=DONE outcome=ok"}]
+    assert payload["warnings"]
+    assert result.stderr == ""
+
+
+def test_ledger_v1_write_commands_are_removed(tmp_path):
+    result = run_cli("ledger", "init", "--path", str(tmp_path / "ledger.md"))
+
+    assert result.returncode != 0
+    assert "code" not in json.loads(result.stdout)
 
 
 def test_python_cli_never_runs_provider_binaries(tmp_path):
@@ -79,7 +99,6 @@ def test_python_cli_never_runs_provider_binaries(tmp_path):
     env = dict(os.environ, PATH=f"{bin_dir}:{os.environ['PATH']}")
 
     config_path = tmp_path / "boundary-config.json"
-    ledger_path = tmp_path / "boundary-ledger.md"
     commands = (
         ("config", "init", "--path", str(config_path)),
         ("config", "show", "--config", str(config_path)),
@@ -88,12 +107,6 @@ def test_python_cli_never_runs_provider_binaries(tmp_path):
             "config", "set", "--path", str(config_path),
             "default_provider", '"codex"', "--root", str(ROOT),
         ),
-        ("ledger", "init", "--path", str(ledger_path)),
-        (
-            "ledger", "append", "--path", str(ledger_path),
-            "001 complete: status=DONE outcome=ok",
-        ),
-        ("ledger", "show", "--path", str(ledger_path)),
     )
     for command in commands:
         result = run_cli(*command, env=env)
@@ -106,8 +119,25 @@ def test_invalid_invocation_returns_json_error(tmp_path):
 
     assert result.returncode == 1
     assert result.stderr == ""
-    assert json.loads(result.stdout)["errors"]
+    payload = json.loads(result.stdout)
+    assert payload["errors"]
+    assert "code" not in payload
 
+
+def test_typed_ledger_error_emits_stable_code(tmp_path):
+    result = run_cli(
+        "ledger", "record", "run-completed",
+        "--dir", str(tmp_path / "ledger"),
+        "--controller-session-id", "11111111-1111-4111-8111-111111111111",
+        "--run-id", "22222222-2222-4222-8222-222222222222",
+        "--job-id", "33333333-3333-4333-8333-333333333333",
+    )
+
+    assert result.returncode == 1
+    assert result.stderr == ""
+    payload = json.loads(result.stdout)
+    assert payload["code"] == "ledger_invalid_lifecycle"
+    assert payload["errors"]
 
 def test_config_show_expands_user_path(tmp_path):
     home = tmp_path / "home"

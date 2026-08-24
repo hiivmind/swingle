@@ -8,162 +8,172 @@ description: >-
 
 # Set Up Swingle-Owned State
 
-## Scope
+## Scope and boundary
 
-This skill manages Swingle configuration, preferences, and ledgers.
-It does not inspect provider auth, versions, readiness, permissions, or controller installation.
-Resolve `<root>` as `Path(<this SKILL.md>).parents[2]`. It must contain `skills/`, `scripts/`, `contracts/`, and `providers/`.
-Run every Swingle-owned command as `python3 <root>/scripts/swingle`.
+This skill manages only Swingle configuration, grounding policy, liveness policy, and
+ledger placement. It never probes provider authentication, readiness, CLI version metadata,
+permissions, or controller installation. See
+[references/isolation.md](../../references/isolation.md) for the grounding boundary:
+local cache and ledger decisions remain in the controller while live provider mechanics
+may be isolated. Resolve `<root>` as
+`Path(<this SKILL.md>).parents[2]`; it must contain `skills/`, `scripts/`, `contracts/`,
+and `providers/`. Run every Swingle-owned command as `python3 <root>/scripts/swingle`.
+
 The known-provider set is the live directory listing of `<root>/providers/`, one entry per
-subdirectory. List it fresh each run; never recall or assume the set from memory, an
-earlier session, or a prior config file. Adding or removing a provider pack directory
-changes this set. Each provider directory also holds one living `pack.md` operating note —
-read the target provider's note before grounding model names; it documents how to ask that
-CLI what models it has (and flags the providers where no listing exists).
-See [references/concepts.md](../../references/concepts.md) for how the classification
-matrix, contract, tier, provider, model, and effort relate.
+subdirectory. Read the selected provider's `pack.md` before grounding model names or
+mechanics. The pack note is operational guidance, not authority for a model preference:
+the live provider CLI is the authority.
 
-Work runs in four stages: **Inspect** (read-only), **Propose** (stop and wait for a
-decision), **Write** (explicit consent), **Verify**. Run the read-only inspection of
-each stage per [references/isolation.md](../../references/isolation.md) — isolated in
-a harness subagent when one exists, inline otherwise — so only findings and proposals
-reach this thread. Never skip from Inspect to Write:
-a status report is not a proposal, and a proposal is not consent.
-
-Stages 2–4 form a loop, not a straight line: after each verified write, return to
-Stage 2 with the updated findings and offer the next decision. A setup session ends
-only when the user declines further changes — never after the first successful write.
-A typical first run covers several rounds (default provider → contract routing →
-model preferences → ledger) before closing.
+The stages are **Inspect**, **Propose**, **Write**, and **Verify**. Inspect is read-only.
+Propose stops for a decision. Write requires explicit consent for that specific
+configuration change. Verify reports what changed. A successful write returns to Propose
+with the updated findings; the session ends only when the user declines further changes.
 
 ## Stage 1 — Inspect (read-only)
 
-1. Run `python3 <root>/scripts/swingle config show --project .` for the current project.
-2. Report exactly three things: the resolved layer and path, any errors, any warnings.
-   If no configuration exists at any layer, say so plainly.
-3. Report executable presence only when an approved write names providers or the user
-   asks for availability. Summarize the result (`all known providers resolve`,
-   `codex is missing`) rather than listing every path.
-4. Initialize or inspect a ledger on request with `python3 <root>/scripts/swingle ledger`.
-   The ledger commands take an explicit `--path`; delegate's default is
-   `<project>/.swingle/delegate/ledger.md`.
+Run:
+
+```bash
+python3 <root>/scripts/swingle config show --project <project>
+```
+
+Report exactly the resolved layer and path, errors, and warnings. If no layer exists,
+say so plainly. Do not turn a configuration error into a provider-availability claim.
+If the user asks to inspect ledger state, use the explicit project ledger directory:
+
+```bash
+python3 <root>/scripts/swingle ledger show --dir <project>/.swingle/delegate/ledger/
+```
+
+The command may show an empty directory as absent; Inspect does not create an empty ledger
+or a readiness marker.
+
+Only after an approved routing or model change names a provider, report executable
+presence with the harness command lookup. Summarize the result, for example
+`all known providers resolve` or `codex is missing`; do not turn this into an
+authentication, readiness, version, or permission probe.
 
 ## Stage 2 — Propose (stop and wait)
 
-If the findings would be new to this user — empty config, first run, hesitation about a
-term — offer a quick explanation of how Swingle works, and give it in plain words when
-they accept:
+Explain Swingle in plain words when the user asks or when an empty configuration needs
+context:
 
-> Swingle steers work you delegate to provider CLIs already installed on this machine —
-> codex, claude, and so on actually do the job; Swingle only advises who gets it. Each
-> kind of work (writing code, reviewing, research) has one fixed briefing called a
-> contract, so every dispatch of that kind is held to the same standard. Your choices
-> here are advice, not locks: they say whom to try first, and anything installed stays
-> usable no matter what. Every delegation leaves one line in a ledger file kept under
-> `.swingle/` in your project, so you can always see what ran, where, and how it ended.
-> That folder is local activity history — if you would rather not commit it, add
-> `.swingle/` to `.gitignore`.
+> Swingle steers delegated work to provider CLIs already installed on this machine.
+> Contracts provide the fixed briefing for each kind of work; routing preferences say
+> whom to try first. Each direct delegation records activity under
+> `.swingle/delegate/ledger/`. Raw provider artifacts remain local and are never
+> committed.
 
-Keep it to that scale — a few sentences, no schema vocabulary unless the user asks.
+Offer decisions about work rather than config keys. Use the Stage 1 findings and name
+only providers whose executables were observed. A routing choice resolves in this order:
 
-If the user asks for guidance on what the configuration actually controls, explain how
-a request is routed — four choices, resolved in this order:
+1. **Contract** — the role and fixed briefing for the work.
+2. **Tier** — `cheapest`, `standard`, or `most-capable`.
+3. **Provider** — the installed coding agent.
+4. **Model and effort** — the provider's model and effort pair.
 
-> 1. **Contract** — what kind of work the job is: writing code, reviewing changes,
->    research. The contract fixes the briefing the job receives, so every task of
->    that kind is held to the same standard.
-> 2. **Tier** — how heavy the job is: quick mechanical work, everyday work, or the
->    hardest long-context jobs.
-> 3. **Provider** — which installed coding agent runs the job: codex, claude, grok,
->    and so on.
-> 4. **Model and effort** — within that agent, which model handles it and how hard it
->    thinks, decided together because they shape cost and quality as one.
+Offer at most one sentence per direction plus a concrete example, then stop. Restate the
+selected direction in plain words and as exact commands, including the destination layer.
+An ambiguous answer is not consent; ask again.
 
-Setting defaults in config pins these choices once, so every future delegation routes
-the same way without deciding case by case. Keep it to that scale too.
+### Targeted repair offers
 
-Then present the findings and offer directions as decisions about *work*, not about
-config keys. A human understands questions like these:
+When a delegate returns `next_action=setup_repair`, explain the exact blocker and offer
+only the matching repair. The five repair targets are:
 
-- **Who does the work when nothing specific applies?** In config this is
-  `default_provider`.
-- **Who writes code, who reviews it, who does lookups?** In config this is
-  `providers_by_contract`: `implementer` writes or changes code, `task-reviewer`
-  checks completed changes, `design-reviewer` critiques proposed ones, `reader` does
-  research and reports, `fact-checker` verifies outside claims against sources,
-  `independent-review` judges an argued position, `general-task` catches everything
-  else.
-- **Which model for which weight of work?** In config this is `model_preferences`:
-  for one provider, a preferred model per weight — quick mechanical jobs, everyday
-  work, the hardest long-context jobs.
+- `repair=config-error` — repair malformed or misplaced Swingle configuration after
+  inspecting the reported path and error.
+- `repair=provider-routing` — repair a named default or contract route after checking the
+  named executable; do not substitute another provider.
+- `repair=grounding-policy` — repair a grounding TTL or requested scope policy after
+  showing the current configuration.
+- `repair=liveness-policy` — repair a liveness policy value after showing its current
+  fields; this does not run a provider.
+- `repair=provider-grounding` — obtain fresh provider mechanics for the named provider,
+  but only after the user gives named consent for proactive provider grounding.
+Use `grounding refresh` only for the named provider and requested scopes after that
+consent; it is a repair action, not a configuration write.
 
-For each direction you offer, build a concrete example **from the Stage 1 findings** and
-say in one line why you suggest it. Name only providers whose executables resolved;
-use only the roles listed above; never invent a role to fit something the user said.
-Example shape (values come from your inspection, not from this text):
+A delegated repair preserves the task, role, tier, provider intent, explicit model and
+effort, `$REPO_ROOT`, ledger directory, config path, and blocker in controller context.
+It does not silently change the requested work. After one verified repair, return directly
+to the suspended delegate flow. Return only one of these outcomes, followed by the exact
+unresolved blocker when applicable:
 
-> Nothing routes yet and both codex and claude are installed. A common start: codex
-> does the coding, claude reviews it — I'd write those two mappings plus nothing else
-> until you want more.
+```text
+REPAIRED
+DECLINED
+BLOCKED
+```
 
-Offer at most one sentence per direction plus its example, then stop.
+`DECLINED` returns `NEEDS_CONTEXT` to the delegate. One failed verified repair returns
+`BLOCKED`; it does not start an automatic setup loop.
 
-When the user answers, bind the answer to exactly the option's text:
-
-- Restate the selected direction in plain words and as the exact commands you will run,
-  name the destination layer, and proceed only on that basis.
-- An ambiguous or out-of-scope reply ("2" when you offered different options, "yes"
-  to a status report) means re-ask, never improvise a nearby action.
-- Do not write because the user answered a menu. A menu selects a topic; only your
-  restated commands, approved, are consent.
+Proactive provider grounding has its own named-consent gate. Safe grounding required by
+an already-authorized direct delegation needs no extra consent. Every configuration write
+has a separate consent gate, including a write proposed after grounding.
 
 ## Stage 3 — Write (explicit consent)
 
-1. If the destination layer has no file yet, run `config init` for that layer first —
-   as part of the approved write, saying so in one line. Creating a layer is a
-   precondition of an approved write, never a substitute for one and never a standalone
-   surprise.
-2. If the user did not name a layer, ask before writing. Repo-specific routing belongs
-   in the project layer (`<project>/.swingle.json`); machine-wide habits belong in the
-   user layer.
-3. Before writing `default_provider` or `providers_by_contract`, report executable
-   presence for the named provider(s) with the harness command lookup, so the routing
-   choice points at something actually installed. Keys are role stems under `contracts/`
-   (`implementer`, never `implementer-contract`); a value is a single provider ID or a
-   map from tier to provider ID; never write an invented role name to fit a task
-   description the user gives.
-4. Before writing a `model_preferences` entry, read `<root>/providers/<provider>/pack.md`
-   and run the model-discovery command it documents (or inspect current `--help` where
-   the note records that no listing exists), so the preferred model name comes from what
-   the live CLI names now, never a guess — and never from the pack's orientation list,
-   which is a cold-start hint only, not authority. This is the same help-first grounding
-   `swingle-delegate` applies before a dispatch. An entry is a model name, or a joined
-   `{"model", "effort"}` object when the user states an effort preference for that tier;
-   verify the effort value against what the live CLI exposes before storing it. A request
-   that names no effort stores a bare model name.
-5. Apply the change with `python3 <root>/scripts/swingle config set`.
-6. Show warnings from malformed optional preferences.
+A menu selection is not write consent. Before each write, state the exact command, the
+destination layer, and the value being changed; obtain consent for that write alone.
+If the destination has no file, create it as part of that approved write:
 
-A configuration failure never establishes that an external provider is unavailable.
+```bash
+python3 <root>/scripts/swingle config init --project <project>
+```
+
+Project routing belongs in `<project>/.swingle.json`; user-wide habits belong in the
+user layer. Apply approved values with `config set`, for example:
+
+```bash
+python3 <root>/scripts/swingle config set \
+  --path <config-path> <key> '<json-value>'
+```
+
+Setup may show and edit default routing, `providers_by_contract`, model preferences,
+grounding TTL, and liveness policy. It may run `grounding show` for diagnosis. It does
+not probe authentication, readiness, CLI version metadata, permissions, or installation.
+
+Before writing `default_provider` or `providers_by_contract`, check executable presence
+for each named provider. Before writing a `model_preferences` entry, read
+`<root>/providers/<provider>/pack.md` and run its documented model-discovery command (or
+the documented help form when no listing exists). Store only the live CLI's model name;
+when the user states an effort preference, verify that effort against live help before
+storing the `{ "model": ..., "effort": ... }` value. Show warnings from malformed
+optional preferences.
+
+The first cache write is handled by Python: it creates
+`.swingle/grounding/.gitignore` containing an ignore-all rule while retaining that
+ignore file. The first `begin-direct` run creates
+`.swingle/delegate/artifacts/.gitignore`; raw artifacts never committed. Setup never
+offers to commit cache or artifact files. It separately offers commit or ignore for
+`.swingle/delegate/ledger/`, because ledger events are project activity history.
+
+Do not create a cache, ledger, or marker merely because setup was invoked. A configuration
+failure never establishes that an external provider is unavailable.
 
 ## Stage 4 — Verify
 
-Run `config show` scoped to the written layer and report the resulting values in one
-short block. If the written file is `<project>/.swingle.json`, note that it is a repo
-file and let the user decide whether to commit it or gitignore it.
+After each approved configuration write, run:
 
-Then loop: return to Stage 2 with the updated findings and offer what is still unset
-(contract routing, model preferences for the providers now in play, ledger init). When
-the user declines further changes, close with a one-line summary of every layer written
-this session plus the commit-or-gitignore note — that closing summary is the only place
-the session ends.
+```bash
+python3 <root>/scripts/swingle config show --config <config-path>
+```
+
+Report the resulting values, errors, and warnings in one short block. For grounding
+repair, run the matching `grounding show` and report its next action. For ledger
+placement, inspect the explicit directory and report its path. If the written file is
+`<project>/.swingle.json`, identify it as a repository file and let the user choose
+commit or ignore. Return to Stage 2 with what remains unset.
 
 ## Explicit migration
 
-Run migration only when the user asks for it.
-Inspect the old override walk in precedence order: `$SWINGLE_MODELS`, project `.swingle/models/`, then the user model directory.
-Retain `disable`, `default_provider`, and compatible `providers_by_contract` routing; a legacy `providers_by_lane` entry maps to the contracts its lane held.
-Convert clear winning `verified` or `experimental` rows into ordered model preferences by provider and tier.
-Show cross-layer or contract-routing conflicts as ambiguous rows before a write.
-Apply approved values with `python3 <root>/scripts/swingle config set`.
-Remove each old key, directory, or environment reference only after explicit approval.
+Run migration only when the user asks. Inspect old overrides in precedence order:
+`$SWINGLE_MODELS`, project `.swingle/models/`, then the user model directory. Retain
+`disable`, `default_provider`, and compatible `providers_by_contract` routing; map a
+legacy `providers_by_lane` entry to the contracts its lane held. Convert clear winning
+`verified` or `experimental` rows into ordered model preferences by provider and tier.
+Show cross-layer or contract-routing conflicts as ambiguous rows before a write. Apply
+approved values with `config set`. Remove each old key, directory, or environment
+reference only after explicit approval.

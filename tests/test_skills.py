@@ -4,6 +4,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DELEGATE = ROOT / "skills" / "delegate" / "SKILL.md"
 SETUP = ROOT / "skills" / "swingle-setup" / "SKILL.md"
 SDD = ROOT / "skills" / "sdd" / "SKILL.md"
+ISOLATION = ROOT / "references" / "isolation.md"
 
 RETIRED = (
     "verified-version",
@@ -73,6 +74,7 @@ def test_delegate_uses_next_action_controller_flow():
     ):
         assert removed not in text
 
+
 def test_setup_manages_only_swingle_owned_state():
     text = SETUP.read_text()
     for required in (
@@ -115,3 +117,71 @@ def test_removed_skill_and_controller_surfaces_are_absent():
     assert not (ROOT / "skills" / "swingle-verify").exists()
     assert not (ROOT / "controllers").exists()
     assert not (ROOT / "core").exists()
+
+
+def test_setup_defines_targeted_repairs_and_cache_git_behavior():
+    text = SETUP.read_text()
+    for required in (
+        "repair=config-error",
+        "repair=provider-routing",
+        "repair=grounding-policy",
+        "repair=liveness-policy",
+        "repair=provider-grounding",
+        "REPAIRED",
+        "DECLINED",
+        "BLOCKED",
+        "grounding refresh",
+        ".swingle/grounding/.gitignore",
+        ".swingle/delegate/ledger/",
+        ".swingle/delegate/artifacts/.gitignore",
+        "raw artifacts never committed",
+    ):
+        assert required in text
+    for forbidden in ("lease", "polling", "setup-complete", "watchdog"):
+        assert forbidden not in text.lower()
+
+
+def test_sdd_defines_shared_run_ledger_and_outcome_contract():
+    text = SDD.read_text()
+    for required in (
+        "ledger start",
+        "--kind sdd",
+        "controller-session-id",
+        "run-id",
+        "dispatch context",
+        "ledger allocate",
+        "ledger finalize-run",
+        "run-completed",
+        "provider_outcome",
+        "repository_verification",
+        "VERIFIED",
+        "jobs=N done=N done_with_concerns=N needs_context=N blocked=N",
+        "BLOCKED > NEEDS_CONTEXT > DONE_WITH_CONCERNS > DONE",
+    ):
+        assert required in text
+    assert "ledger record run-completed" not in text
+    for forbidden in ("lease", "polling", "setup-complete", "watchdog"):
+        assert forbidden not in text.lower()
+
+
+def test_grounding_isolation_keeps_controller_state_local():
+    text = ISOLATION.read_text()
+    for local in (
+        "dispatch context",
+        "grounding record",
+        "grounding invalidate",
+        "ledger writes",
+        "config reads and writes",
+        "temporary parser and artifact management",
+        "task-specific repository verification",
+    ):
+        assert local in text
+    for isolated in (
+        "live provider help",
+        "model listing",
+        "provider-note recovery analysis",
+        "safe behavioral probes",
+        "failure-repair hunts",
+    ):
+        assert isolated in text
+    assert "warm dispatch never creates a grounding worker" in text

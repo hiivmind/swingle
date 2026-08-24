@@ -75,6 +75,20 @@ def test_fingerprint_ignores_gotcha_and_typical_model_edits(tmp_path):
     assert dispatch_guidance_sha256(first) == dispatch_guidance_sha256(second)
 
 
+def test_fingerprint_includes_nested_dispatch_subsections_only(tmp_path):
+    first = _pack(
+        tmp_path,
+        "# Pack\n## Dispatch guidance\n### Result-only command\none\n## Typical models\nold\n",
+        "first-nested.md",
+    )
+    second = _pack(
+        tmp_path,
+        "# Pack\n## Dispatch guidance\n### Result-only command\ntwo\n## Typical models\nnew\n",
+        "second-nested.md",
+    )
+    assert dispatch_guidance_sha256(first) != dispatch_guidance_sha256(second)
+
+
 def test_fingerprint_changes_for_dispatch_guidance_edits(tmp_path):
     first = _pack(tmp_path, "# Pack\n## Dispatch guidance\nkeep\n", "first.md")
     second = _pack(tmp_path, "# Pack\n## Dispatch guidance\nchanged\n", "second.md")

@@ -1,104 +1,141 @@
 # Adding provider notes
 
 Each provider directory contains one living `pack.md` note identifying the provider CLI
-and recording real, non-obvious operating guidance. Nothing parses this file back out at
-dispatch time; the LLM reads it as Markdown, so its internal shape is not machine-enforced
-(`tests/test_repo_integrity.py` only confirms the file exists and that the provider
-directory holds nothing else). Discipline here is authoring judgment, not a validator.
+and recording real, non-obvious operating guidance. The LLM reads the note as Markdown at
+dispatch time. Repository checks enforce the provider file shape and the exact Dispatch
+guidance heading; they do not certify provider behavior or execute examples.
 
-## Adding a new provider
+## Required pack shape
 
-The directory name under `providers/` *is* the provider's identity everywhere in Swingle:
-the ID used in `disable`, `default_provider`, `providers_by_contract`, and
-`model_preferences`, and the literal executable name the LLM looks up on `PATH` at
-dispatch time. Choose it to match the CLI's real command name exactly (lowercase,
-`[a-z0-9-]+`), since that's what makes the provider resolvable at all.
-
-Registration is exactly this: create `providers/<id>/` and one `pack.md` inside it. There
-is no separate registry, index, or list to update; `discover_provider_ids` reads the
-directory listing fresh every time, and delegation resolves the same way. A minimal file:
+Use this order and keep each heading exactly as written:
 
 ```markdown
 # <Provider> notes
 
 CLI: `<id>`
+
+## Gotchas
+
+<gotcha table, possibly empty>
+
+## Dispatch guidance
+
+<guidance table and optional subsections, possibly empty>
+
+## Typical models
+
+<optional orientation only>
 ```
 
-Either category's table (see below) can start empty and grow as real gotchas or dispatch
-guidance are observed.
+Every provider note MUST contain exactly one `## Dispatch guidance` heading. Do not rename,
+duplicate, or move that heading. Gotchas and Typical models are optional; an empty section is
+better than invented evidence.
 
-A note holds two kinds of row, and only these two:
+A note holds two kinds of evidence-backed row, and only these two:
 
-**Gotchas**: reactive, a real failure was observed and the note changes recovery.
+**Gotchas** are reactive. A real failure was observed and the row changes recovery:
 
 ```markdown
 | Failure signature | Impact | Recovery | Evidence |
 | --- | --- | --- | --- |
-| <observable signature> | <unreliable result> | <proven action> | <issue, commit, or date> |
+| <observable signature> | <unreliable result> | <proven action> | <issue, commit, help command, or approved probe> |
 ```
 
-Every gotcha must satisfy all three inclusion rules:
+Every gotcha MUST satisfy all three inclusion rules:
 
 1. The behavior is silent, misleading, confusing, or missing from normal help.
 2. The behavior occurred in real operation.
-3. The note changes recovery after the LLM observes the signature.
+3. The row changes recovery after the LLM observes the signature.
 
-**Dispatch guidance**: proactive, a real, verified, non-obvious operating fact that changes
-how a dispatch is built, without any failure having occurred.
+**Dispatch guidance** is proactive. It is a real, verified, non-obvious operating fact that
+changes how a dispatch is built without requiring a failure:
 
 ```markdown
 | Decision point | Guidance | Rationale | Evidence |
 | --- | --- | --- | --- |
-| <what's being decided> | <what to do> | <why> | <help excerpt, issue, commit, or date> |
+| <what is being decided> | <what to do> | <why> | <help command, issue, commit, or approved probe> |
 ```
 
-Every guidance row must satisfy all three inclusion rules:
+Every guidance row MUST satisfy all three inclusion rules:
 
-1. The fact is not obvious from a single glance at `--help`: an interaction between
+1. The fact is not obvious from a single glance at `--help`: it is an interaction between
    documented flags, a precedence rule, a subcommand-specific behavior, or similar.
 2. The fact was verified against the live CLI, not assumed or carried forward from another
    provider or an earlier version.
-3. The note changes what the LLM does at dispatch time after reading it.
+3. The row changes what the LLM does at dispatch time after reading it.
 
-Every row in either table requires a non-empty Evidence cell. If CLI behavior is unclear,
-inspect the current provider help before adding a row.
+Every row MUST have a non-empty Evidence cell. Replace historical or deleted log-path
+citations with the exact current help command, approved probe, issue, or commit. If current
+behavior is unclear, inspect current help and omit the row when the evidence still does not
+support it.
 
-## Keep notes narrow
+## Dispatch guidance contents
 
-This applies to both tables equally: `pack.md` contains no command tutorial, version,
-success matrix, changelog digest, or positive inventory. Do not include successful
-probe results, effort values, permission summaries, sandbox inventories,
-output-format inventories, changelog summaries, current version claims, or cross-provider
-comparison tables. A dispatch-guidance row states one decision and its rationale; it does
-not become a second home for content this section already excludes.
+The Dispatch guidance section may contain its table plus optional `### Result-only command`
+and `### Structured output` subsections. Include a copyable result-only command for each
+provider with a supported headless route. When current evidence exposes structured output,
+include one structured command and a human-readable interpretation that names its completion,
+final-text, session, usage, cost, or denial fields only where observed. A command example is
+LLM guidance, not a machine-executed template.
 
-Two model-related exceptions carry strict conditions:
+Use these canonical placeholders in command examples and mutation guidance:
 
-1. **Discovery-method rows are welcome.** A guidance row teaching *how to ask this CLI*
-   what models it has (the listing subcommand or flag, and where prices appear if they
-   do) is exactly the kind of non-obvious fact the Dispatch-guidance table exists for.
-   It teaches fishing, not fish.
-2. **One orientation list is allowed.** A pack may end with a single `## Typical models`
-   section holding a short, dated list of typically available model IDs under all of
-   these conditions: a header line reading "Orientation only — not definitive, not a
-   gate", the snapshot date, the live command that supersedes it, at most ~5 entries,
-   and nothing anywhere in Swingle consults the list as eligibility (per the
-   orientation-list exception in `live-cli-as-authority`). When the live listing and the
-   list disagree, the list loses. A section that grows unbounded, loses its date, or
-   starts steering without a fresh listing must be trimmed or removed.
+- `$PROJECT`: the absolute project or workspace directory.
+- `$PROMPT`: the complete authored prompt file (or its content where the CLI requires text).
+- `$MODEL`: the model route selected from current provider evidence.
+- `$EFFORT`: the provider's effort/reasoning setting when the provider exposes one.
+- `$ARTIFACT`: an absolute path for captured provider output.
 
-Git supplies history. Provider notes are living documents: update or remove a row when it is
-no longer true. Swingle does not ship append-only provider verification history.
+Preserve the complete authored mutation briefing in `$PROMPT`; do not shorten it, paraphrase
+it, or ask a controller to rewrite it. Record narrow write modes, workspace trust, tool-class
+differences, denial signatures, and exit-code traps only when current evidence supports them.
+Repository verification remains separate from provider completion.
+
+Do not add version stamps, success matrices, static model catalogs, permission inventories,
+provider tutorials, or cross-provider tables. Prohibit fixed command templates, selector
+programs that parse provider output for the controller, and controller paraphrasing of authored
+mutation briefings. A result-only command is still allowed when it uses the canonical
+placeholders and explains its human interpretation; it MUST NOT become executable controller
+logic.
+
+## Fingerprint boundary
+
+The provider guidance fingerprint covers exactly the section beginning at the single line
+`## Dispatch guidance` and ending immediately before the next line whose trimmed text starts
+with `## `, or at end of file. The fingerprint normalizes CRLF and CR line endings to LF,
+removes trailing newlines from that section, then hashes one final LF. Therefore:
+
+- Changes in the Dispatch guidance table or any `###` subsection change the fingerprint.
+- Changes in Gotchas or `## Typical models` do not change the fingerprint.
+- A missing or duplicate Dispatch guidance heading is invalid, even when the section is empty.
+- Keep all dispatch examples, interpretations, and guidance rows inside this boundary.
+
+This boundary lets reactive gotcha maintenance and optional orientation maintenance proceed
+without invalidating a cached dispatch-guidance receipt, while every proactive dispatch change
+correctly requires fresh grounding.
+
+## Model orientation exception
+
+Discovery-method rows are welcome. A row may teach how to ask this CLI what models it has
+(the listing subcommand or flag, and where prices appear when current evidence supports that
+fact); it teaches fishing, not fish.
+
+A pack MAY end with one short `## Typical models` section only when it has a line reading
+`Orientation only — not definitive, not a gate`, a snapshot date, the live command that
+supersedes it, at most about five entries, and no consumer that treats the list as eligibility.
+When the live listing disagrees, the list loses. Remove the section when it becomes stale or
+starts steering dispatch.
+
+Git supplies history. Provider notes are living documents, not append-only verification logs.
 
 ## Check a change
 
-After editing a note, run the test suite:
+Run focused repository checks after editing:
 
 ```bash
-python3 -m pytest -q
+python3 -m pytest -q tests/test_repo_integrity.py tests/test_grounding.py -k "provider or fingerprint"
+git diff --check
 ```
 
-`tests/test_repo_integrity.py` confirms the provider directory contains only `pack.md` (no
-stray assets) and that links, anchors, and contract references across the repo's owned
-Markdown resolve. It does not certify provider behavior, validate the note's internal table
-structure, or replace a live CLI observation.
+The checks confirm provider shape, links, anchors, and fingerprint behavior. They do not
+replace a live CLI observation, execute a command example, or certify a model/account route.

@@ -6,19 +6,19 @@ CLI: `pi`
 
 | Failure signature | Impact | Recovery | Evidence |
 | --- | --- | --- | --- |
-| open stdin can end in `RangeError: Invalid string length` | headless dispatch crashes before completing | close stdin with `/dev/null` before launch | providers/pi/log/2026-07.md; issue #71 |
 
 ## Dispatch guidance
 
 | Decision point | Guidance | Rationale | Evidence |
 | --- | --- | --- | --- |
-| which models exist | run `pi --list-models [search]` — a table with provider, context, max-out, thinking, and images columns; `--model` takes `provider/id` and an optional `:<thinking>` suffix | pi aggregates many upstream providers; the suffix syntax appears only in help examples and is easy to miss | `pi --help` and live listing, 2026-08-23 |
+| result-only headless dispatch | use `-p`, JSON mode, an account-usable `$MODEL`, `--thinking "$EFFORT"`, a session directory under the project, and the complete authored prompt-file reference; capture output to absolute `$ARTIFACT` | Pi's help establishes the headless, model, thinking, session-directory, and file-prompt slots, while the current account-blocked smoke does not certify a successful result | `pi --help`; approved invocation shape (2026-08-24) |
+| prompt and project transport | preserve the complete authored briefing in `$PROMPT` and pass it as `"@$PROMPT"`; select the session directory explicitly under `$PROJECT` | the accepted command shape uses Pi's file-prompt syntax; current stdin behavior was not promoted because the model route was blocked before execution | `pi --help`; approved invocation shape (2026-08-24) |
+| model and effort encoding | resolve an account-usable provider/id route for `$MODEL`, then pass the supported level as `--thinking "$EFFORT"` (or the documented `provider/id:<thinking>` form); do not infer entitlement from unavailable inventory | help establishes the encoding, but the live inventory returned no models and the approved call stopped at a usage limit | `pi --help`; `pi --list-models`; approved invocation smoke (2026-08-24) |
 
-## Typical models
+### Result-only command
 
-Orientation only — not definitive, not a gate. Run `pi --list-models` for the live list.
-Snapshot 2026-08-23.
+```bash
+pi -p --mode json --model "$MODEL" --thinking "$EFFORT" --session-dir "$PROJECT/.swingle-session" "@$PROMPT" < /dev/null > "$ARTIFACT"
+```
 
-- opencode-go/gpt-5.6-luna
-- opencode-go/deepseek-v4-pro
-- opencode-go/glm-5.2
+The current smoke reached Pi but stopped at a provider usage-limit error before model execution. Treat the artifact as an error report unless a live account supplies a model result; no output schema, session continuity, permission, or liveness interpretation is shipped from the blocked evidence.

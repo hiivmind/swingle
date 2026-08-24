@@ -205,3 +205,33 @@ def test_config_show_expands_user_path(tmp_path):
     payload = json.loads(result.stdout)
     assert payload["path"] == str(path.resolve())
     assert payload["config"]["default_provider"] == "codex"
+def test_dispatch_context_cli_accepts_liveness_policy_from_stdin(tmp_path):
+    project = tmp_path / "project"
+    project.mkdir()
+    (project / ".swingle.json").write_text(json.dumps({"default_provider": "codex"}))
+    result = subprocess.run(
+        [sys.executable, str(SCRIPT), "dispatch", "context", "--project", str(project), "--role", "reader", "--tier", "standard", "--liveness-policy-file", "-"],
+        input=json.dumps({"check_interval_seconds": 9}),
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0
+    payload = json.loads(result.stdout)
+    assert payload["liveness_policy"]["check_interval_seconds"] == 9
+    assert result.stderr == ""
+
+
+def test_dispatch_context_cli_returns_json_only_and_does_not_run_provider(tmp_path):
+    project = tmp_path / "project"
+    project.mkdir()
+    (project / ".swingle.json").write_text(json.dumps({"default_provider": "codex"}))
+    marker = tmp_path / "provider-ran"
+    executable = tmp_path / "codex"
+    executable.write_text(f"#!/bin/sh\ntouch {marker}\n")
+    executable.chmod(0o755)
+    env = dict(os.environ, PATH=f"{tmp_path}:{os.environ['PATH']}")
+    result = run_cli("dispatch", "context", "--project", str(project), "--role", "reader", "--tier", "standard", env=env)
+    assert result.returncode == 0
+    json.loads(result.stdout)
+    assert result.stderr == ""
+    assert not marker.exists()

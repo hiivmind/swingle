@@ -3,7 +3,7 @@
 ## Status
 
 Implemented all 19 Critical and Important findings from `sol-final-findings.md`.
-Repair commit: `1d3c71f fix: repair final Sol review findings`.
+Repair commits: `1d3c71f fix: repair final Sol review findings`; `778bb93 docs: preserve setup repair context`.
 
 ## Per-finding mapping
 

@@ -173,7 +173,7 @@ def _nullable_float(value: str | None) -> float | None:
 def command_finish_direct(args: Any) -> dict[str, Any]:
     _required(args, "dir", "controller_session_id", "run_id", "job_id", "status", "outcome", "evidence_file", "completion_file")
     completion = _completion(args)
-    result = finish_direct(ledger_dir=_path(args.dir), controller_session_id=args.controller_session_id, run_id=args.run_id, job_id=args.job_id, provider_outcome=completion["provider_outcome"], repository_verification=completion["repository_verification"], outcome=args.outcome, evidence=_evidence(args), provider_session_id=args.provider_session_id)
+    result = finish_direct(ledger_dir=_path(args.dir), controller_session_id=args.controller_session_id, run_id=args.run_id, job_id=args.job_id, provider_outcome=completion["provider_outcome"], repository_verification=completion["repository_verification"], outcome=args.outcome, evidence=_evidence(args), status=args.status, provider_session_id=args.provider_session_id)
     return _json_paths(result)
 
 
@@ -293,7 +293,7 @@ def validate_ledger(ledger_dir: Path, controller_session_id: str | None = None) 
     all_events: list[dict[str, Any]] = []
     seen_event_ids: dict[str, Path] = {}
     seen_runs: dict[str, Path] = {}
-    seen_jobs: dict[str, Path] = {}
+    seen_jobs: dict[str, tuple[Path, str]] = {}
     try:
         paths = [directory / f"{controller_session_id}.ndjson"] if controller_session_id else sorted(directory.glob("*.ndjson"))
         for path in paths:
@@ -318,10 +318,12 @@ def validate_ledger(ledger_dir: Path, controller_session_id: str | None = None) 
                         seen_runs[run_id] = path
                     if event["job_id"] is not None:
                         job_id = event["job_id"]
-                        if job_id in seen_jobs and seen_jobs[job_id] != path:
-                            errors.append(f"{path}: cross-file UUID collision for job_id {job_id}")
+                        if job_id in seen_jobs:
+                            first_path, first_run = seen_jobs[job_id]
+                            if first_path != path or first_run != run_id:
+                                errors.append(f"{path}: UUID collision for job_id {job_id} (first in {first_path}, run {first_run})")
                         else:
-                            seen_jobs[job_id] = path
+                            seen_jobs[job_id] = (path, run_id)
                     if event["controller_session_id"] != path.stem:
                         errors.append(f"{path}: envelope session mismatch")
                     session_events.append(event)

@@ -89,16 +89,13 @@ only the matching repair. The five repair targets are:
   showing the current configuration.
 - `repair=liveness-policy` — repair a liveness policy value after showing its current
   fields; this does not run a provider.
-- `repair=provider-grounding` — obtain fresh provider mechanics for the named provider,
-  but only after the user gives named consent for proactive provider grounding.
-Use `grounding refresh` only for the named provider and requested scopes after that
-consent; it is a repair action, not a configuration write.
-
-A delegated repair preserves the task, role, tier, provider intent, explicit model and
-effort, `$REPO_ROOT`, ledger directory, config path, and blocker in controller context.
-It does not silently change the requested work. After one verified repair, return directly
-to the suspended delegate flow. Return only one of these outcomes, followed by the exact
-unresolved blocker when applicable:
+- `repair=provider-grounding` — obtain fresh mechanics for the named provider only after
+  named consent. A repair is not complete when refresh merely invalidates the cache:
+  the controller must run `grounding refresh`, ground every returned scope, record the
+  observations, then run `grounding show` and confirm usable status with a non-null expiry.
+  Only that refresh → live grounding → record → show sequence may return `REPAIRED`.
+Return only one of the following outcomes, followed by the exact unresolved blocker when
+applicable:
 
 ```text
 REPAIRED

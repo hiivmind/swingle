@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from .config import load_config
+from .config import load_config, resolve_config_path
 from .grounding import (
     GROUNDING_SCOPES,
     dispatch_guidance_sha256,
@@ -52,7 +52,8 @@ def _guidance(provider: str) -> str:
 
 
 def _project_ttl(project: Path, provider: str) -> int:
-    config = load_config(project / ".swingle.json").config
+    _, config_path = resolve_config_path(project=project)
+    config = load_config(config_path).config if config_path is not None else {}
     return resolve_grounding_ttl(config, provider)
 
 

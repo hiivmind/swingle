@@ -157,11 +157,6 @@ def _ledger_event(provider: str, grounding: dict[str, Any], required: tuple[str,
             "provider_guidance_sha256": receipt.get("provider_guidance_sha256"),
             "scopes": selected,
             "model_count": len(grounding.get("models", {}).get("entries", [])),
-            "evidence_commands": sorted({
-                mechanics[scope].get("evidence_command", "")
-                for scope in selected
-                if isinstance(mechanics.get(scope), dict) and mechanics[scope].get("evidence_command", "")
-            }),
         },
     }
 
@@ -256,7 +251,7 @@ def build_dispatch_context(
     result["liveness_policy"] = policy.policy
 
     grounding = evaluate_grounding(project, selection_provider, provider_guidance_sha256=fingerprint, required_scopes=required, ttl_seconds=ttl)
-    if grounding.get("status") == "missing" and ttl > 0:
+    if grounding.get("status") in {"missing", "invalid", "stale"} and ttl > 0:
         required = tuple(GROUNDING_SCOPES)
         grounding = evaluate_grounding(project, selection_provider, provider_guidance_sha256=fingerprint, required_scopes=required, ttl_seconds=ttl)
     grounding["ledger_event"] = _ledger_event(selection_provider, grounding, required)

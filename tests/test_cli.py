@@ -235,3 +235,17 @@ def test_dispatch_context_cli_returns_json_only_and_does_not_run_provider(tmp_pa
     json.loads(result.stdout)
     assert result.stderr == ""
     assert not marker.exists()
+def test_record_subparser_rejects_irrelevant_event_flags(tmp_path):
+    result = run_cli(
+        "ledger", "record", "provider-session",
+        "--dir", str(tmp_path / "ledger"),
+        "--controller-session-id", "11111111-1111-4111-8111-111111111111",
+        "--run-id", "22222222-2222-4222-8222-222222222222",
+        "--job-id", "33333333-3333-4333-8333-333333333333",
+        "--attempt", "1",
+        "--provider-session-id", "session-1",
+        "--provider", "codex",
+    )
+    assert result.returncode == 1
+    payload = json.loads(result.stdout)
+    assert any("unrecognized arguments" in error for error in payload["errors"])

@@ -401,7 +401,9 @@ def test_each_nested_field_rejects_invalid_value(event, path):
     target, key = _nested_target(data, path)
     if key in {"model_used", "session_id", "stop_reason", "verification_artifact"}:
         bad = 1
-    elif key in {"hard_timeout_seconds", "exit_code", "changed_path_count"}:
+    elif key == "exit_code":
+        bad = "invalid"
+    elif key in {"hard_timeout_seconds", "changed_path_count"}:
         bad = -1
     elif key in {"check_interval_seconds", "startup_grace_seconds", "silence_warning_seconds", "input_tokens", "output_tokens", "reasoning_tokens", "cache_read_tokens", "cache_write_tokens", "total_tokens", "amount"}:
         bad = -1
@@ -435,3 +437,35 @@ def test_each_provider_usage_numeric_leaf_rejects_string(leaf):
     data["provider_outcome"]["usage"][leaf] = "0"
     with pytest.raises(LedgerValidationError):
         build_event(_draft("complete", job_id=JOB, data=data), timestamp=STAMP, event_id=new_uuid())
+
+def test_provider_outcome_accepts_signed_exit_code_and_rejects_missing_success_code():
+    data = deepcopy(valid_data("complete"))
+    data["provider_outcome"]["exit_code"] = -15
+    build_event(_draft("complete", job_id=JOB, data=data), timestamp=STAMP, event_id=new_uuid())
+    data["provider_outcome"]["exit_code"] = None
+    with pytest.raises(LedgerValidationError):
+        build_event(_draft("complete", job_id=JOB, data=data), timestamp=STAMP, event_id=new_uuid())
+
+
+def test_allocated_contract_basename_must_match_role():
+    data = deepcopy(valid_data("allocated"))
+    data["contract"] = "$PLUGIN_ROOT/contracts/implementer-contract.md"
+    with pytest.raises(LedgerValidationError):
+        build_event(_draft("allocated", job_id=JOB, data=data), timestamp=STAMP, event_id=new_uuid())
+
+
+def test_grounding_scopes_must_be_canonical_and_unique():
+    data = deepcopy(valid_data("grounding-observed"))
+    data["scopes"] = ["headless-command", "headless-command"]
+    with pytest.raises(LedgerValidationError):
+        build_event(_draft("grounding-observed", job_id=JOB, data=data), timestamp=STAMP, event_id=new_uuid())
+    data["scopes"] = ["not-a-scope"]
+    with pytest.raises(LedgerValidationError):
+        build_event(_draft("grounding-observed", job_id=JOB, data=data), timestamp=STAMP, event_id=new_uuid())
+
+
+def test_resolved_liveness_thresholds_must_be_positive():
+    data = deepcopy(valid_data("dispatched"))
+    data["liveness_policy"]["check_interval_seconds"] = 0
+    with pytest.raises(LedgerValidationError):
+        build_event(_draft("dispatched", job_id=JOB, data=data), timestamp=STAMP, event_id=new_uuid())

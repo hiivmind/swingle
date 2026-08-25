@@ -73,13 +73,22 @@ python3 $PLUGIN_ROOT/scripts/swingle ledger allocate \
   --task <exact-task-summary>
 ```
 
-Retain the returned artifact directory for that job. Pass the selected provider pack
-path, artifact directory, ledger directory, controller-session-id, run-id, job ID,
-`$REPO_ROOT`, exact task, role, tier, provider intent, model, and effort to
-`swingle-delegate`. The delegate performs `ledger begin-direct`, reads and adapts the
-selected pack's Dispatch guidance, composes and runs provider Bash, captures output,
-interprets it, verifies repository state for mutating work, and performs
-`ledger finish-direct`.
+Retain the returned artifact directory for that job. The controller, not a direct
+sub-run helper, appends the job's typed lifecycle records to this same SDD run and
+session. Use the allocated job ID and shared IDs for:
+
+```text
+grounding-observed or grounding-reused
+dispatched
+provider-session (when supplied)
+retry/attempt records (when applicable)
+complete
+```
+
+Do not call `ledger begin-direct` or `ledger finish-direct` for an allocated SDD job:
+those commands create and finalize a separate direct run. The controller performs the
+provider transport, interpretation, repository verification, and typed record appends
+against the existing allocation, then retains both independently interpreted outcomes.
 
 For each job, retain both independently interpreted outcomes:
 
@@ -93,16 +102,20 @@ replace either outcome with a provider self-report.
 
 ## Shared ledger lifecycle
 
-The controller retains each job's terminal status. A job's direct lifecycle is:
+The controller retains each job's terminal status in the one shared SDD run. Its
+per-job lifecycle is:
 
 ```text
 dispatch context
 ledger allocate
-ledger begin-direct
-provider Bash
-provider_outcome + repository_verification
-ledger finish-direct
+grounding-observed/reused
+dispatched
+provider-session/retry records
+complete
 ```
+
+Never use `begin-direct` or `finish-direct` in this flow. They are direct-run helpers,
+not SDD job transitions.
 
 For concurrent jobs, the controller waits for or joins concurrent jobs. If the run is
 stopping, terminalize every remaining allocated job with one valid `complete` event.

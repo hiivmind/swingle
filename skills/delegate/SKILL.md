@@ -216,10 +216,12 @@ python3 $PLUGIN_ROOT/scripts/swingle grounding refresh \
 ```
 
 
-For `ground_without_cache`, do not read or write
-`$REPO_ROOT/.swingle/grounding/<provider-id>.json`. Keep the normalized grounding result
-in controller context and pass an uncached `grounding-observed` begin intent with
-`receipt_id: null`; `begin-direct` replaces that sentinel with a generated receipt UUID.
+For `ground_without_cache`, do not read or write the cache. Keep the normalized
+grounding result and the returned `ledger_event` in controller context across
+`refresh_context`. Pass that exact event as `grounding-observed` when the cache was
+written (preserving its Python-generated receipt ID and revision), or with
+`storage: none` and null receipt fields when cache is bypassed; only the latter
+sentinel receives a fresh receipt UUID in `begin-direct`.
 
 If live grounding cannot resolve the executable, do not cache negative availability and
 do not allocate a ledger job. For a configured provider, offer `repair=provider-routing`.

@@ -8,7 +8,7 @@ import subprocess
 
 import swingle.grounding as grounding_module
 from swingle.dispatch import NEXT_ACTIONS, build_dispatch_context, required_grounding_scopes
-from swingle.grounding import GROUNDING_SCOPES, dispatch_guidance_sha256, record_grounding
+from swingle.grounding import GROUNDING_SCOPES, dispatch_guidance_sha256, invalidate_grounding, record_grounding
 
 STAMP = "2026-08-24T04:15:30.123Z"
 
@@ -200,3 +200,11 @@ def test_dispatch_context_is_read_only_and_never_resolves_or_runs_provider(tmp_p
     assert result["next_action"] == "ground_and_record"
     assert {path: path.read_bytes() for path in project.rglob("*") if path.is_file()} == before
     assert not (project / ".swingle").exists()
+
+def test_fully_invalidated_epoch_requests_all_grounding_scopes(tmp_path):
+    plugin_root, project = _base(tmp_path, {"default_provider": "codex"})
+    _record(project, plugin_root)
+    invalidate_grounding(project, "codex", None, "fresh contradiction")
+    result = build_dispatch_context(plugin_root=plugin_root, project=project, role="reader", tier="standard")
+    assert result["grounding"]["required_scopes"] == list(GROUNDING_SCOPES)
+    assert result["next_action"] == "ground_and_record"

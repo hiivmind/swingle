@@ -445,7 +445,13 @@ def evaluate_grounding(
     if current >= expiry:
         base.update({"status": "stale", "receipt": _public_receipt(record, cache_path), "mechanics": deepcopy(receipt.get("mechanics", {})), "models": deepcopy(receipt.get("models", {})), "next_action": "ground_and_record", "storage": "cache", "reason": "receipt expired"})
         return base
-    status = "usable" if all(scope in receipt.get("mechanics", {}) and scope not in record.get("invalid_scopes", {}) for scope in required) else "partial"
+    usable_scopes = [scope for scope in required if scope in receipt.get("mechanics", {}) and scope not in record.get("invalid_scopes", {})]
+    if len(usable_scopes) == len(required):
+        status = "usable"
+    elif set(record.get("invalid_scopes", {})) >= set(GROUNDING_SCOPES):
+        status = "invalid"
+    else:
+        status = "partial"
     result = _result_from_record(record, cache_path, status=status, required_scopes=required)
     result["ttl_seconds"] = ttl_seconds
     result["storage"] = "cache"
@@ -596,12 +602,19 @@ def record_grounding(project: Path, provider: str, payload: dict[str, Any]) -> d
                 stale = _now() >= _timestamp(valid_existing["receipt"]["expires_at"], "receipt.expires_at")
             except GroundingValidationError:
                 stale = True
-        if valid_existing is None or (stale and full):
+        replace_full = False
+        if valid_existing is not None and full:
+            incoming_times = [_timestamp(normalized["complete_profile_observed_at"], "complete_profile_observed_at")]
+            incoming_times.extend(_timestamp(observation["observed_at"], "scope.observed_at") for observation in normalized["scopes"].values())
+            existing_times = [_timestamp(valid_existing["receipt"]["grounded_at"], "receipt.grounded_at")]
+            existing_times.extend(_timestamp(observation["observed_at"], "receipt.scope.observed_at") for observation in valid_existing["receipt"]["mechanics"].values())
+            replace_full = max(incoming_times) > max(existing_times)
+        if valid_existing is None or (full and replace_full) or (stale and full):
             record = _new_record(root, swingle_dir, provider, normalized)
             accepted = sorted(normalized["scopes"])
             if normalized["models"]:
                 accepted = sorted(set(accepted) | {"model-inventory"})
-        else:
+        elif not full:
             record = deepcopy(valid_existing)
             receipt = record["receipt"]
             invalid = record.setdefault("invalid_scopes", {})
@@ -633,6 +646,9 @@ def record_grounding(project: Path, provider: str, payload: dict[str, Any]) -> d
                         superseded.append("model-inventory")
             if accepted:
                 receipt["revision"] += 1
+        else:
+            record = deepcopy(valid_existing)
+            superseded = sorted(set(normalized["scopes"]) | ({"model-inventory"} if normalized["models"] else set()))
         _validate_record(record, root, swingle_dir, provider)
         _atomic_write(cache_path, record)
         _ensure_ignore(grounding_dir)

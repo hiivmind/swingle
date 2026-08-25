@@ -186,8 +186,8 @@ def start_run(ledger_dir: Path, kind: str, controller_session_id: str | None = N
 
 def allocate_job(*, project: Path, ledger_dir: Path, controller_session_id: str, run_id: str, role: str, contract: str, tier: str, task: str) -> dict[str, Any]:
     job_id = new_uuid()
-    path, events = append_events(ledger_dir, controller_session_id, [EventDraft("allocated", controller_session_id, run_id, job_id, {"role": role, "contract": contract, "tier": tier, "task": task})])
     artifact_dir = _artifact_directory(project, run_id, job_id)
+    path, events = append_events(ledger_dir, controller_session_id, [EventDraft("allocated", controller_session_id, run_id, job_id, {"role": role, "contract": contract, "tier": tier, "task": task})])
     return _result(path, events, controller_session_id=controller_session_id, run_id=run_id, job_id=job_id, artifact_dir=artifact_dir)
 
 
@@ -213,9 +213,8 @@ def _grounding_from_context(dispatch_context: dict[str, Any], provider: str) -> 
         raise LedgerValidationError("dispatch context must contain grounding event data")
     grounding.setdefault("provider", provider)
     if source == "observed":
-        if grounding.get("receipt_id") is not None:
-            raise LedgerValidationError("grounding-observed receipt_id must be null in begin context")
-        grounding["receipt_id"] = new_uuid()
+        if grounding.get("receipt_id") is None:
+            grounding["receipt_id"] = new_uuid()
         grounding.pop("age_seconds", None)
         event_name = "grounding-observed"
     else:
@@ -253,15 +252,19 @@ def begin_direct(*, project: Path, ledger_dir: Path, controller_session_id: str 
     output["receipt_id"] = receipt_id
     return output
 
-def finish_direct(*, ledger_dir: Path, controller_session_id: str, run_id: str, job_id: str, provider_outcome: dict[str, Any], repository_verification: dict[str, Any], outcome: str, evidence: Sequence[dict[str, Any]], provider_session_id: str | None = None) -> dict[str, Any]:
-    status = derive_complete_status(provider_outcome, repository_verification)
-    complete_data = {"status": status, "outcome": outcome, "evidence": list(evidence), "provider_outcome": deepcopy(provider_outcome), "repository_verification": deepcopy(repository_verification)}
+def finish_direct(*, ledger_dir: Path, controller_session_id: str, run_id: str, job_id: str, provider_outcome: dict[str, Any], repository_verification: dict[str, Any], outcome: str, evidence: Sequence[dict[str, Any]], status: str | None = None, provider_session_id: str | None = None) -> dict[str, Any]:
+    _schema._validate_provider_outcome(provider_outcome)
+    _schema._validate_repository_verification(repository_verification)
+    derived_status = derive_complete_status(provider_outcome, repository_verification)
+    if status is not None and status != derived_status:
+        raise LedgerValidationError(f"status must be {derived_status} for provider and repository outcomes")
+    complete_data = {"status": derived_status, "outcome": outcome, "evidence": list(evidence), "provider_outcome": deepcopy(provider_outcome), "repository_verification": deepcopy(repository_verification)}
     drafts: list[EventDraft] = []
     if provider_session_id is not None:
         drafts.append(EventDraft("provider-session", controller_session_id, run_id, job_id, {"attempt": 1, "provider_session_id": provider_session_id}))
     drafts.extend([
         EventDraft("complete", controller_session_id, run_id, job_id, complete_data),
-        EventDraft("run-completed", controller_session_id, run_id, None, {"status": status, "outcome": f"jobs=1 done={int(status == 'DONE')} done_with_concerns={int(status == 'DONE_WITH_CONCERNS')} needs_context={int(status == 'NEEDS_CONTEXT')} blocked={int(status == 'BLOCKED')}"}),
+        EventDraft("run-completed", controller_session_id, run_id, None, {"status": derived_status, "outcome": f"jobs=1 done={int(derived_status == 'DONE')} done_with_concerns={int(derived_status == 'DONE_WITH_CONCERNS')} needs_context={int(derived_status == 'NEEDS_CONTEXT')} blocked={int(derived_status == 'BLOCKED')}"}),
     ])
     for draft in drafts:
         validate_draft(draft, for_append=True)
@@ -273,7 +276,6 @@ def finish_direct(*, ledger_dir: Path, controller_session_id: str, run_id: str, 
         fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
         handle.close()
     return _result(path, events, controller_session_id=controller_session_id, run_id=run_id, job_id=job_id)
-
 
 def _all_events(handle) -> list[dict[str, Any]]:
     handle.seek(0)

@@ -34,6 +34,10 @@ class _ArgumentError(ValueError):
 
 
 class _JsonArgumentParser(argparse.ArgumentParser):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        kwargs["allow_abbrev"] = False
+        super().__init__(*args, **kwargs)
+
     def error(self, message: str) -> None:
         raise _ArgumentError(message)
 
@@ -169,15 +173,55 @@ def _parser() -> argparse.ArgumentParser:
     for name in ("project", "dir", "controller-session-id", "run-id", "role", "contract", "tier", "task"):
         allocate.add_argument("--" + name, required=True)
     record = ledger_commands.add_parser("record")
-    record.add_argument("event_type")
-    for name in ("dir", "controller-session-id", "run-id", "job-id"):
-        record.add_argument("--" + name, required=True)
-    for name in ("receipt-id", "receipt-revision", "storage", "provider", "cache-path", "grounded-at", "expires-at", "executable", "provider-guidance-sha256", "scopes-file", "evidence-commands-file", "model", "effort", "liveness-policy-file", "grounding-receipt-id", "grounding-receipt-revision", "grounding-source", "provider-session-id", "process-state", "action", "signature", "recovery", "reason", "status", "outcome", "evidence-file", "completion-file"):
-        record.add_argument("--" + name)
-    record.add_argument("--model-count", type=int)
-    record.add_argument("--attempt", type=int)
-    record.add_argument("--elapsed-seconds", type=float)
-    record.add_argument("--silence-seconds")
+    record_commands = record.add_subparsers(dest="event_type", required=True, parser_class=ARGUMENT_PARSER)
+
+    def record_parser(event: str) -> argparse.ArgumentParser:
+        sub = record_commands.add_parser(event)
+        for name in ("dir", "controller-session-id", "run-id", "job-id"):
+            sub.add_argument("--" + name, required=True)
+        return sub
+
+    grounding_observed = record_parser("grounding-observed")
+    grounding_reused = record_parser("grounding-reused")
+    for sub in (grounding_observed, grounding_reused):
+        for name in ("receipt-id", "receipt-revision", "storage", "provider", "cache-path", "grounded-at", "expires-at", "executable", "provider-guidance-sha256", "scopes-file"):
+            sub.add_argument("--" + name, required=True)
+        sub.add_argument("--model-count", type=int, required=True)
+    grounding_observed.add_argument("--evidence-commands-file", required=True)
+
+    dispatched = record_parser("dispatched")
+    for name in ("provider", "model", "effort", "liveness-policy-file", "grounding-receipt-id", "grounding-receipt-revision", "grounding-source"):
+        dispatched.add_argument("--" + name, required=True)
+    dispatched.add_argument("--attempt", type=int, required=True)
+
+    provider_session = record_parser("provider-session")
+    provider_session.add_argument("--attempt", type=int, required=True)
+    provider_session.add_argument("--provider-session-id", required=True)
+
+    liveness_warning = record_parser("liveness-warning")
+    for name in ("process-state", "action"):
+        liveness_warning.add_argument("--" + name, required=True)
+    liveness_warning.add_argument("--attempt", type=int, required=True)
+    liveness_warning.add_argument("--elapsed-seconds", type=float, required=True)
+    liveness_warning.add_argument("--silence-seconds", required=True)
+
+    attempt_failed = record_parser("attempt-failed")
+    for name in ("signature", "recovery"):
+        attempt_failed.add_argument("--" + name, required=True)
+    attempt_failed.add_argument("--attempt", type=int, required=True)
+
+    resumed = record_parser("resumed")
+    for name in ("provider-session-id", "reason"):
+        resumed.add_argument("--" + name, required=True)
+    resumed.add_argument("--attempt", type=int, required=True)
+
+    complete = record_parser("complete")
+    for name in ("status", "outcome", "evidence-file", "completion-file"):
+        complete.add_argument("--" + name, required=True)
+    complete.add_argument("--provider-session-id")
+    record_parser("run-started")
+    record_parser("run-completed")
+    record_parser("allocated")
     finalize = ledger_commands.add_parser("finalize-run")
     for name in ("dir", "controller-session-id", "run-id"):
         finalize.add_argument("--" + name, required=True)

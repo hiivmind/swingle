@@ -213,10 +213,11 @@ def test_grounding_reused_age_uses_append_timestamp_after_clock_advance(tmp_path
     assert events[0]["data"]["age_seconds"] == 61
 
 
-def test_begin_direct_rejects_caller_supplied_observed_receipt(tmp_path):
-    with pytest.raises(LedgerValidationError):
-        _begin(tmp_path, "observed", RECEIPT)
-    assert not list((tmp_path / "ledger").glob("*.ndjson")) if (tmp_path / "ledger").exists() else True
+def test_begin_direct_preserves_observed_receipt(tmp_path):
+    result = _begin(tmp_path, "observed", RECEIPT)
+    event = json.loads((tmp_path / "ledger" / f"{SESSION}.ndjson").read_text().splitlines()[2])
+    assert event["data"]["receipt_id"] == RECEIPT
+    assert result["receipt_id"] == RECEIPT
 
 
 def test_finish_direct_clean_emits_one_lock_final_sequence(tmp_path):
@@ -374,3 +375,35 @@ def test_exactly_one_final_event_valid_ledger_and_no_warnings(tmp_path):
     finalize_run(tmp_path, SESSION, RUN)
     events = [json.loads(line) for line in (tmp_path / f"{SESSION}.ndjson").read_text().splitlines()]
     assert [event["event"] for event in events].count("run-completed") == 1 and events[-1]["event"] == "run-completed"
+
+def test_finish_direct_rejects_derived_status_mismatch_before_append(tmp_path):
+    started = _begin(tmp_path)
+    with pytest.raises(LedgerValidationError):
+        finish_direct(
+            ledger_dir=tmp_path / "ledger",
+            controller_session_id=SESSION,
+            run_id=started["run_id"],
+            job_id=started["job_id"],
+            provider_outcome=_provider(),
+            repository_verification=_repo(),
+            status="BLOCKED",
+            outcome="result",
+            evidence=[{"kind": "report", "value": "result.json"}],
+        )
+    events = json.loads((tmp_path / "ledger" / f"{SESSION}.ndjson").read_text().splitlines()[-1])
+    assert events["event"] == "dispatched"
+
+
+def test_finish_direct_reports_nested_validation_without_key_error(tmp_path):
+    started = _begin(tmp_path)
+    with pytest.raises(LedgerValidationError):
+        finish_direct(
+            ledger_dir=tmp_path / "ledger",
+            controller_session_id=SESSION,
+            run_id=started["run_id"],
+            job_id=started["job_id"],
+            provider_outcome={},
+            repository_verification={},
+            outcome="result",
+            evidence=[],
+        )

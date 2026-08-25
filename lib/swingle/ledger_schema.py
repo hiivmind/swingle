@@ -161,11 +161,17 @@ def _validate_evidence(value: Any) -> None:
 def _validate_liveness_policy(value: Any) -> None:
     policy = _dict(value, "data.liveness_policy")
     _keys(policy, {"check_interval_seconds", "startup_grace_seconds", "silence_warning_seconds", "hard_timeout_seconds"}, "data.liveness_policy")
-    _integer(policy["check_interval_seconds"], "check_interval_seconds", minimum=0)
-    _integer(policy["startup_grace_seconds"], "startup_grace_seconds", minimum=0)
-    _integer(policy["silence_warning_seconds"], "silence_warning_seconds", minimum=0)
-    _integer(policy["hard_timeout_seconds"], "hard_timeout_seconds", minimum=0, nullable=True)
+    _integer(policy["check_interval_seconds"], "check_interval_seconds", minimum=1)
+    _integer(policy["startup_grace_seconds"], "startup_grace_seconds", minimum=1)
+    _integer(policy["silence_warning_seconds"], "silence_warning_seconds", minimum=1)
+    _integer(policy["hard_timeout_seconds"], "hard_timeout_seconds", minimum=1, nullable=True)
 
+
+_GROUNDING_SCOPES = {
+    "headless-command", "stdin-closure", "permission-trust", "model-discovery",
+    "model-inventory", "model-effort-encoding", "output-report-mode",
+    "session-resume-fork", "liveness-signal",
+}
 
 def _validate_grounding_observed(data: dict[str, Any]) -> None:
     _keys(data, {"receipt_id", "receipt_revision", "storage", "provider", "cache_path", "grounded_at", "expires_at", "executable", "provider_guidance_sha256", "scopes", "model_count", "evidence_commands"})
@@ -180,7 +186,10 @@ def _validate_grounding_observed(data: dict[str, Any]) -> None:
     _text(data["executable"], "executable")
     if not isinstance(data["provider_guidance_sha256"], str) or not _HASH_RE.fullmatch(data["provider_guidance_sha256"]):
         _fail("provider_guidance_sha256 must be 64 lowercase hexadecimal characters")
-    _text_list(data["scopes"], "scopes", maximum=16, limit=MAX_EVIDENCE_VALUE_CODEPOINTS)
+    scopes = data["scopes"]
+    _text_list(scopes, "scopes", maximum=16, limit=MAX_EVIDENCE_VALUE_CODEPOINTS)
+    if len(scopes) != len(set(scopes)) or any(scope not in _GROUNDING_SCOPES for scope in scopes):
+        _fail("scopes must contain unique canonical grounding scopes")
     _integer(data["model_count"], "model_count", minimum=0)
     _text_list(data["evidence_commands"], "evidence_commands", maximum=MAX_EVIDENCE_ENTRIES, limit=MAX_EVIDENCE_VALUE_CODEPOINTS)
     if data["storage"] == "none" and any(data[key] is not None for key in ("receipt_revision", "cache_path", "expires_at")):
@@ -203,7 +212,10 @@ def _validate_grounding_reused(data: dict[str, Any]) -> None:
     _text(data["executable"], "executable")
     if not isinstance(data["provider_guidance_sha256"], str) or not _HASH_RE.fullmatch(data["provider_guidance_sha256"]):
         _fail("provider_guidance_sha256 must be 64 lowercase hexadecimal characters")
-    _text_list(data["scopes"], "scopes", maximum=16, limit=MAX_EVIDENCE_VALUE_CODEPOINTS)
+    scopes = data["scopes"]
+    _text_list(scopes, "scopes", maximum=16, limit=MAX_EVIDENCE_VALUE_CODEPOINTS)
+    if len(scopes) != len(set(scopes)) or any(scope not in _GROUNDING_SCOPES for scope in scopes):
+        _fail("scopes must contain unique canonical grounding scopes")
     _integer(data["model_count"], "model_count", minimum=0)
 
 
@@ -212,7 +224,8 @@ def _validate_provider_outcome(value: Any) -> None:
     _keys(data, {"status", "claim", "exit_code", "model_requested", "model_used", "session_id", "stop_reason", "usage", "cost", "result_artifact"}, "data.provider_outcome")
     _enum(data["status"], "provider_outcome.status", STATUSES)
     _text(data["claim"], "provider_outcome.claim")
-    _integer(data["exit_code"], "provider_outcome.exit_code", minimum=0, nullable=True)
+    if data["exit_code"] is not None and (isinstance(data["exit_code"], bool) or not isinstance(data["exit_code"], int)):
+        _fail("provider_outcome.exit_code must be an integer")
     _text(data["model_requested"], "provider_outcome.model_requested")
     _nullable_text(data["model_used"], "provider_outcome.model_used")
     _nullable_text(data["session_id"], "provider_outcome.session_id")
@@ -228,6 +241,8 @@ def _validate_provider_outcome(value: Any) -> None:
         _number(cost["amount"], "provider_outcome.cost.amount")
         if not isinstance(cost["currency"], str) or not re.fullmatch(r"[A-Z]{3}", cost["currency"]):
             _fail("provider_outcome.cost.currency must be an ISO currency code")
+    if data["status"] in {"DONE", "DONE_WITH_CONCERNS"} and data["exit_code"] is None:
+        _fail("successful provider outcomes require a concrete exit_code")
     _text(data["result_artifact"], "provider_outcome.result_artifact")
 
 
@@ -295,8 +310,10 @@ def _validate_data(event: str, data: dict[str, Any]) -> None:
         _text(data["role"], "role")
         if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]*", data["role"]):
             _fail("role must be a compact role identifier")
-        if not re.fullmatch(r"\$PLUGIN_ROOT/contracts/[A-Za-z0-9][A-Za-z0-9_.-]*-contract\.md", data["contract"]):
+        if not isinstance(data["contract"], str) or not re.fullmatch(r"\$PLUGIN_ROOT/contracts/[A-Za-z0-9][A-Za-z0-9_.-]*-contract\.md", data["contract"]):
             _fail("contract must be a canonical $PLUGIN_ROOT/contracts/<role>-contract.md path")
+        if data["contract"].rsplit("/", 1)[-1] != f"{data['role']}-contract.md":
+            _fail("contract basename must match role")
         _text(data["task"], "task")
         _enum(data["tier"], "tier", {"cheapest", "standard", "most-capable"})
     elif event == "grounding-observed":

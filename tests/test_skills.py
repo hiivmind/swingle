@@ -185,3 +185,62 @@ def test_grounding_isolation_keeps_controller_state_local():
     ):
         assert isolated in text
     assert "warm dispatch never creates a grounding worker" in text
+
+
+def test_living_documentation_describes_v2_state_and_commands():
+    concepts = (ROOT / "references" / "concepts.md").read_text()
+    config = (ROOT / "references" / "config.md").read_text()
+    tiering = (ROOT / "references" / "model-tiering.md").read_text()
+    entry_docs = "\n".join((ROOT / name).read_text() for name in ("README.md", "CLAUDE.md"))
+    for name in ("README.md", "CLAUDE.md"):
+        text = (ROOT / name).read_text()
+        assert "read-only dispatch context, grounding" not in text
+        assert (
+            "read-only dispatch context plus typed grounding and ledger state/inspection "
+            "commands"
+        ) in text
+
+    for required in (
+        "Tier → Provider → Project grounding → Model + Effort",
+        "LLM-composed command",
+        "Provider outcome",
+        "Repository verification",
+        "observed mechanics",
+        "advisory inventory",
+        "live invocation wins",
+        "Python never renders commands",
+        '"grounding_cache"',
+        '"ttl_seconds": 604800',
+        '"liveness"',
+        "unknown providers",
+        "invalid optional branches",
+        "invalid explicit liveness policy stops before dispatch",
+        "cached inventory",
+        "invalidate",
+        "accepted explicit model",
+        "dispatch context --project <project-root> --role <role> --tier <tier>",
+        "grounding show --project <project-root> --provider <provider-id>",
+        "ledger show --dir <ledger-directory> --format text",
+        "ledger validate --dir <ledger-directory>",
+        ".swingle/delegate/ledger/",
+        ".swingle/delegate/artifacts/",
+        "provider_outcome",
+        "repository_verification",
+        "--legacy-path",
+        "references/liveness.md",
+        "exact authored briefing",
+        "dynamic result interpretation",
+    ):
+        assert required in "\n".join((concepts, config, tiering, entry_docs))
+
+    for retired in (
+        "ledger init",
+        "ledger append",
+        "ledger record run-completed",
+        ".swingle/delegate/ledger.md",
+        "dispatch render",
+        "result extract",
+        "selector program",
+        "runnable recipe",
+    ):
+        assert retired not in entry_docs

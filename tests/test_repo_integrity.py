@@ -26,11 +26,44 @@ def _heading_slugs(text: str) -> set[str]:
 
 def _owned_markdown(root: Path) -> list[Path]:
     paths: list[Path] = []
-    for directory in ("skills", "contracts", "providers"):
+    for path in (root / "README.md", root / "CLAUDE.md"):
+        if path.is_file():
+            paths.append(path)
+    for directory in ("skills", "contracts", "providers", "references", "docs"):
         base = root / directory
         if base.is_dir():
             paths.extend(path for path in base.rglob("*.md") if path.is_file())
     return sorted(paths)
+
+
+def _living_markdown(root: Path) -> list[Path]:
+    return [
+        path
+        for path in (root / "README.md", root / "CLAUDE.md")
+        if path.is_file()
+    ]
+
+OBSOLETE_LIVING_GUIDANCE = (
+    "ledger init",
+    "ledger append",
+    ".swingle/delegate/ledger.md",
+    "<root>/scripts/swingle",
+    "<project>/.swingle",
+    "dispatch render",
+    "result extract",
+    "selector program",
+    "runnable recipe",
+)
+
+
+def _check_obsolete_living_guidance(root: Path) -> list[str]:
+    findings: list[str] = []
+    for path in _living_markdown(root):
+        text = path.read_text(encoding="utf-8")
+        for phrase in OBSOLETE_LIVING_GUIDANCE:
+            if phrase in text:
+                findings.append(f"{path}: obsolete guidance {phrase}")
+    return findings
 
 
 def _check_links(root: Path) -> list[str]:
@@ -115,7 +148,7 @@ def _check_provider_directories(root: Path) -> list[str]:
 
 def write_note(root: Path, body: str = "# Alpha provider notes\n") -> Path:
     path = root / "providers" / "alpha" / "pack.md"
-    path.parent.mkdir(parents=True)
+    path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(body)
     return path
 
@@ -180,3 +213,12 @@ def test_this_repos_provider_directories_are_well_formed():
 
 def test_this_repos_owned_markdown_links_resolve():
     assert _check_links(ROOT) == []
+def test_owned_markdown_includes_repository_documents():
+    owned = set(_owned_markdown(ROOT))
+    assert {ROOT / "README.md", ROOT / "CLAUDE.md"} <= owned
+    assert any(path.parent == ROOT / "references" for path in owned)
+    assert any(path.parent == ROOT / "docs" for path in owned)
+
+
+def test_this_repos_living_documents_have_no_obsolete_guidance():
+    assert _check_obsolete_living_guidance(ROOT) == []

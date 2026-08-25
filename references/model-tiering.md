@@ -34,6 +34,16 @@ A stale preference therefore falls through rather than rejecting the provider.
 An explicit user model goes directly to the provider CLI. The CLI accepts or rejects it;
 Swingle does not pre-check it against cached data. No preference can exclude a live model.
 
+The grounding cache may also carry a **cached model inventory**. That inventory is
+advisory evidence for composing a dispatch, not a membership gate: an explicit model
+always bypasses cached membership checks and goes directly to the provider CLI.
+
+If the provider CLI rejects an explicit model that was selected from the cached
+inventory, invalidate the affected cached model observation, record the rejection, and
+refresh grounding before retrying or asking for another model. If the provider accepts
+the explicit model, do **not** invalidate the cache merely because it was not in the
+cached inventory; accepted explicit models never trigger invalidation.
+
 The configuration file follows whole-file precedence. Use the commands below to inspect or
 validate the active file:
 

@@ -96,7 +96,10 @@ only the matching repair. The five repair targets are:
   Only that refresh → live grounding → record → show sequence may return `REPAIRED`.
 Return only one of the following outcomes, followed by the exact unresolved blocker when
 applicable:
-
+A delegated repair preserves the task, role, tier, provider intent, explicit model and
+effort, `$REPO_ROOT`, ledger directory, config path, and blocker in controller context.
+It does not silently change the requested work. After one verified repair, return directly
+to the suspended delegate flow.
 ```text
 REPAIRED
 DECLINED

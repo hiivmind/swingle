@@ -2,21 +2,35 @@
 
 CLI: `cursor-agent`
 
+## Gotchas
+
 | Failure signature | Impact | Recovery | Evidence |
 | --- | --- | --- | --- |
-| `--print` headless run in a directory the CLI has not seen trusted interactively exits 1 with a "Workspace Trust Required" prompt instead of running | headless dispatch fails immediately with no work done | pass `--trust` on every headless dispatch | cursor-agent 2026.07.09-a3815c0, 2026-08-22 |
+| `--print` in an untrusted workspace exits 1 with `Workspace Trust Required` | headless dispatch fails before doing work | pass `--trust` for unattended workspace use, then verify the result | `cursor-agent --help`; approved mutation smoke (2026-08-24) |
+| a listed named model is rejected by the account plan while `auto` succeeds | model discovery is mistaken for entitlement and dispatch fails before the task | treat the live list as orientation, retry only with the account-accepted model route, and record the live rejection | `cursor-agent models`; approved invocation and mutation smokes (2026-08-24) |
+
+## Dispatch guidance
 
 | Decision point | Guidance | Rationale | Evidence |
 | --- | --- | --- | --- |
-| setting effort for a dispatch | fold effort into the `--model` value as a bracket suffix, for example `--model 'sonnet-4-thinking[effort=high]'`; there is no separate `--effort` flag | `--help` documents `--model <model>` as accepting "Parameterized models accept quoted bracket overrides, e.g. `claude-opus-4-8[context=1m,effort=high,fast=false]`" and lists no `--effort` flag | cursor-agent 2026.07.09-a3815c0 --help, 2026-08-22 |
-| which models exist | run `cursor-agent models` (account-scoped; the `--list-models` flag is the equivalent one-shot form) | the account's model set differs from any generic list and ids carry effort/fast suffixes not guessable from `--help` alone | `cursor-agent --help` and live listing, 2026-08-23 |
+| result-only headless dispatch | read the complete authored `$PROMPT` into `PROMPT_TEXT`, pass it as Cursor's positional prompt, and use `--print`, JSON output, `--trust`, `$MODEL`, and `$REPO_ROOT`; capture stdout to absolute `$ARTIFACT` | Cursor documents the initial prompt as a positional argument, separate from its workspace, trust, model, and output controls | `cursor-agent --help`; approved invocation smoke (2026-08-24) |
+| prompt and workspace transport | load `$PROMPT` with Bash's NUL-delimited `read` builtin, pass `"$PROMPT_TEXT"` as the positional prompt, set `--workspace "$REPO_ROOT"`, and close stdin with `/dev/null` | the approved smoke used a positional prompt with closed stdin; the shell read preserves the authored briefing without command substitution | `cursor-agent --help`; approved invocation smoke (2026-08-24) |
+| model discovery and effort encoding | run `cursor-agent models` (or the equivalent `--list-models` help surface), then pass a permitted model in `$MODEL`; encode effort as a quoted bracket override such as `[effort=$EFFORT]` when the selected model supports it | listing is account-scoped, and parameterized model syntax is separate from entitlement | `cursor-agent --help`; `cursor-agent models` |
+| structured result interpretation | require `type=result`, `subtype=success`, and `is_error=false`; read final text from `result` and retain session, request, duration, and usage fields | the JSON result includes narration before final text, so the `result` field must remain separate from surrounding output | approved invocation smoke (2026-08-24) |
+| mutation permission and verification | preserve the complete authored mutation briefing, pass `--trust`, and verify exact bytes plus unexpected paths after completion | the corrected `auto` route wrote the expected bytes, while the named model was plan-ineligible; provider output is still not repository proof | approved mutation smoke (2026-08-24) |
 
-## Typical models
+### Result-only command
 
-Orientation only — not definitive, not a gate. Run `cursor-agent models` for the live list.
-Snapshot 2026-08-23.
+```bash
+IFS= read -r -d '' PROMPT_TEXT < "$PROMPT" || true
+cursor-agent --print --output-format json --trust --model "$MODEL" --workspace "$REPO_ROOT" "$PROMPT_TEXT" < /dev/null > "$ARTIFACT"
+```
 
-- auto (default)
-- gpt-5.3-codex-high
-- gpt-5.3-codex-fast
-- gpt-5.3-codex-low
+### Structured output
+
+```bash
+IFS= read -r -d '' PROMPT_TEXT < "$PROMPT" || true
+cursor-agent --print --output-format json --trust --model "$MODEL" --workspace "$REPO_ROOT" "$PROMPT_TEXT" < /dev/null > "$ARTIFACT"
+```
+
+The result-only command emits one JSON object. Accept final text only when `type=result`, `subtype=success`, and `is_error=false`; use `result` as final text and retain `session_id`, `request_id`, duration, and usage. A successful object may contain narration before the final text.

@@ -112,22 +112,44 @@ ledger lives in `.swingle/delegate/` so each run has an auditable record.
 
 ## Configuration and state
 
-The Python CLI manages configuration and ledgers:
+The Python CLI exposes read-only dispatch context plus typed grounding and ledger state/inspection commands:
 
 ```bash
-python3 scripts/swingle config init --user
-python3 scripts/swingle config show --project .
-python3 scripts/swingle config validate <path/to/config.json>
-python3 scripts/swingle ledger init --path <path/to/ledger.md>
-python3 scripts/swingle ledger show --path <path/to/ledger.md>
+python3 scripts/swingle dispatch context --project <project-root> --role <role> --tier <tier>
+python3 scripts/swingle grounding show --project <project-root> --provider <provider-id>
+python3 scripts/swingle ledger show --dir <ledger-directory> --format text
+python3 scripts/swingle ledger validate --dir <ledger-directory>
 ```
 
-The `--project .` flag makes the project-layer (`.swingle.json`) file visible.
+The session-ledger directory is
+`<project-root>/.swingle/delegate/ledger/`. Each session is an NDJSON stream selected
+by its controller-session ID. A job's artifact directory is
+`<project-root>/.swingle/delegate/artifacts/<run-id>/<job-id>/`; retain raw provider
+output, reports, and authored evidence there for review.
+
+Grounding cache files live under `<project-root>/.swingle/grounding/` and create a
+cache-local `.gitignore`; raw cache and artifact files are ignored by default. The
+ledger and source changes follow separate Git defaults: commit the ledger only when its
+audit trail is intended to be shared, and review source changes independently.
+
+`ledger show --legacy-path <legacy-ledger>` is available for inspecting a pre-v2
+ledger without converting it. Use the generic [liveness reference](references/liveness.md)
+for controller policy terms rather than provider-specific thresholds.
+
+The controller transports the exact authored briefing as the complete prompt, including
+fenced literals, quotes, blank lines, trailing newlines, dollar signs, backticks, and
+shell metacharacters.
+The LLM composes provider commands from current grounding and guidance; Python does not
+render commands or parse provider output.
+`provider_outcome` records the provider result and `repository_verification` records
+the independent mutation check. Use dynamic result interpretation from observed provider
+evidence, then perform mandatory repository verification for every mutation.
 
 Configuration uses one JSON file with whole-file precedence. `disable`, an optional
-`default_provider`, `providers_by_contract`, and advisory `model_preferences` are documented in
-[references/config.md](references/config.md). Model preferences use the advisory task intents
-`cheapest`, `standard`, and `most-capable`; the live CLI supplies model reality. See
+`default_provider`, `providers_by_contract`, advisory `model_preferences`,
+`grounding_cache`, and `liveness` are documented in [references/config.md](references/config.md).
+Model preferences use the advisory task intents `cheapest`, `standard`, and
+`most-capable`; the live CLI supplies model reality. See
 [references/model-tiering.md](references/model-tiering.md).
 
 ## Provider notes

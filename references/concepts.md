@@ -1,12 +1,18 @@
 # Operating surface concepts
 
-Swingle's dispatch surface is a chain of five resolutions, in order. Each resolution
-narrows the next; nothing downstream re-opens a decision already made upstream.
+Swingle classifies the work first, then resolves the execution side in a fixed order.
+Requirements classification selects the contract and advisory tier; execution then turns
+that choice into one provider attempt whose result is independently checked.
 
 ```
-Intent ──▶ Cell (matrix) ──▶ Contract ──▶ Tier ──▶ Provider ──▶ Model + Effort
-\_______ requirements side _______/  \______________ execution side _______________/
+Intent ──▶ Cell (matrix) ──▶ Contract
+
+Tier → Provider → Project grounding → Model + Effort
+  → LLM-composed command → Provider outcome → Repository verification
 ```
+
+The first line is the requirements side. The second is the execution side: each
+resolution narrows the next, and nothing downstream re-opens an upstream decision.
 
 ## The matrix
 
@@ -64,10 +70,21 @@ creates worktrees or assumes where a dispatch runs.
 ## Execution side
 
 ```
-Tier (3 values: cheapest, standard, most-capable)
-└── Provider (live listing of providers/, plus preferences)
-    └── Model + Effort (one joined choice)
+Tier → Provider → Project grounding → Model + Effort
+  → LLM-composed command → Provider outcome → Repository verification
 ```
+
+**Project grounding** supplies observed provider mechanics and an advisory model
+inventory for this project. The grounding cache stores those observed mechanics and
+advisory inventory; it is not an availability gate. If a live invocation contradicts
+the cache, live invocation wins, and the controller records or invalidates the affected
+observation before continuing.
+
+The LLM composes the provider command from the live grounding, authored task, and
+provider guidance. Python provides deterministic context and ledger structure.
+**Python never renders commands or parses provider output.** The provider outcome
+records what the CLI did; repository verification independently checks requested
+mutations, tests, and invariants.
 
 **Tier** is the advisory task-intent label (`cheapest`, `standard`, `most-capable`
 documented in [model-tiering.md](model-tiering.md)). Tier participates twice on the

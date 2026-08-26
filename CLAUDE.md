@@ -74,23 +74,39 @@ identity and gotchas, not inventories or certification records.
 
 ## Configuration and state
 
-Use the Python CLI for universal Swingle state and deterministic structure:
+The Python CLI exposes read-only dispatch context plus typed grounding and ledger state/inspection commands:
 
 ```bash
-python3 scripts/swingle config init --user
-python3 scripts/swingle config show --project .
-python3 scripts/swingle config validate <path/to/config.json>
-python3 scripts/swingle config set --path <path/to/config.json> <key> <json-value>
-python3 scripts/swingle ledger init --path <path/to/ledger.md>
-python3 scripts/swingle ledger show --path <path/to/ledger.md>
+python3 scripts/swingle dispatch context --project <project-root> --role <role> --tier <tier>
+python3 scripts/swingle grounding show --project <project-root> --provider <provider-id>
+python3 scripts/swingle ledger show --dir <ledger-directory> --format text
+python3 scripts/swingle ledger validate --dir <ledger-directory>
 ```
 
-The `--project .` flag makes the project-layer (`.swingle.json`) file visible.
+The session-ledger directory is
+`<project-root>/.swingle/delegate/ledger/`. Each session is an NDJSON stream selected
+by its controller-session ID. A job's artifact directory is
+`<project-root>/.swingle/delegate/artifacts/<run-id>/<job-id>/`; retain raw provider
+output, reports, and authored evidence there for review.
 
-Configuration uses one JSON file selected with whole-file precedence. Model preferences
-are advisory ordered hints. An absent or stale preference must never make a live provider
-or model unavailable. See [references/config.md](references/config.md) and
-[references/model-tiering.md](references/model-tiering.md).
+Grounding cache files live under `<project-root>/.swingle/grounding/` and create a
+cache-local `.gitignore`; raw cache and artifact files are ignored by default. Keep
+ledger commits and source changes under separate Git decisions. A legacy ledger can be
+inspected with `ledger show --legacy-path <legacy-ledger>`. Use the generic
+[liveness reference](references/liveness.md) for controller policy terms.
+
+The controller transports the exact authored prompt, including fenced literals, quotes,
+blank lines, trailing newlines, dollar signs, backticks, and shell metacharacters. The
+LLM composes provider commands from current grounding and guidance; Python does not
+render commands or parse provider output. Interpret results dynamically from observed
+provider evidence, then perform mandatory independent repository verification for every
+mutation.
+
+Configuration uses one JSON file with whole-file precedence. `disable`, an optional
+`default_provider`, `providers_by_contract`, advisory `model_preferences`,
+`grounding_cache`, and `liveness` are documented in
+[references/config.md](references/config.md). Model preferences are advisory; the live
+CLI supplies model reality. See [references/model-tiering.md](references/model-tiering.md).
 
 ## Contracts
 

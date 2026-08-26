@@ -1,14 +1,34 @@
-# Claude gotchas
+# Claude notes
 
 CLI: `claude`
 
+## Gotchas
+
 | Failure signature | Impact | Recovery | Evidence |
 | --- | --- | --- | --- |
-| headless write exits successfully but leaves no change after an unanswered permission request | intended write is missing despite exit 0 | inspect current help for the non-interactive bypass option (the log cites `--dangerously-skip-permissions`), retry with that bypass, and verify the requested change on disk afterward | providers/claude/log/2026-07.md |
-| A never-closing non-TTY stdin pipe makes `claude -p` hang until killed | headless subprocess never completes | close stdin with `/dev/null` before launch | issue #73; providers/claude/log/2026-07.md |
+| A headless write returns `WRITE_OK` but the target bytes differ from the authored request | provider completion is a false repository-success signal | inspect the result, then verify exact bytes and unexpected paths independently before recording success | `claude --help`; approved mutation smoke (2026-08-24) |
+| A never-closing non-TTY stdin pipe leaves `claude -p` running | the headless subprocess does not reach completion | close stdin with `/dev/null` before launch | `claude --help`; approved invocation smoke (2026-08-24) |
 
 ## Dispatch guidance
 
 | Decision point | Guidance | Rationale | Evidence |
 | --- | --- | --- | --- |
-| which models exist | there is no model-listing subcommand or flag; ground model names in the `--model` help text, which names the current aliases (`fable`, `opus`, `sonnet`) and the full-name form (`claude-fable-5`) | searching for a listing command is a dead end and costs probes; the help examples are the only discovery surface | full `claude --help` inspection, 2026-08-23 |
+| result-only headless dispatch | use `-p` with the complete authored `$PROMPT`, pass `$MODEL` and `$EFFORT` separately, allow only the tool classes required by the prompt, disable session persistence, and capture stdout to absolute `$ARTIFACT` | Claude's print mode, model/effort slots, permission scope, and session behavior are separate controls | `claude --help`; approved invocation smoke (2026-08-24) |
+| prompt and stdin transport | pass the complete authored `$PROMPT` through native stdin and close stdin at EOF; use the project-specific working directory supplied by the controller | native stdin preserves all prompt bytes without shell command substitution | `claude --help`; approved invocation smoke (2026-08-24) |
+| model discovery and effort encoding | there is no model-listing command; use a current help-supported alias or full model name in `$MODEL`, and pass the requested level as `--effort "$EFFORT"` | aliases such as `fable`, `opus`, and `sonnet` are documented, but entitlement and prices remain live facts | `claude --help` |
+| structured result interpretation | require `is_error == false`, a successful subtype, and a completed terminal reason; read final text from `result` and retain `session_id`, usage, model usage, and permission denials | the JSON object separates final text, completion, session, accounting, and denial evidence | approved invocation smoke (2026-08-24) |
+| mutation permission and verification | pass the complete authored mutation briefing unchanged, grant only the required tool classes, and verify exact bytes after completion | the approved `acceptEdits` smoke returned `WRITE_OK` while writing incorrect bytes, so provider output cannot replace repository verification | approved mutation smoke (2026-08-24) |
+
+### Result-only command
+
+```bash
+claude -p --output-format json --model "$MODEL" --effort "$EFFORT" --allowedTools Read --no-session-persistence < "$PROMPT" > "$ARTIFACT"
+```
+
+### Structured output
+
+```bash
+claude -p --output-format json --model "$MODEL" --effort "$EFFORT" --allowedTools Read --no-session-persistence < "$PROMPT" > "$ARTIFACT"
+```
+
+The result-only command emits one JSON object. Accept final text from `result` only when `is_error` is false, the subtype is successful, and the terminal reason indicates completion. Keep `session_id`, usage/model-usage, and `permission_denials` as evidence fields; do not infer cost or entitlement from aliases.

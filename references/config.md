@@ -33,9 +33,40 @@ The target schema is:
       "standard": ["<preferred-model>"],
       "most-capable": ["<preferred-model>"]
     }
+  },
+  "grounding_cache": {
+    "ttl_seconds": 604800,
+    "by_provider": {
+      "<provider-id>": {"ttl_seconds": 86400}
+    }
+  },
+  "liveness": {
+    "default": {
+      "check_interval_seconds": 60,
+      "startup_grace_seconds": 300,
+      "silence_warning_seconds": 300,
+      "hard_timeout_seconds": null
+    },
+    "by_tier": {
+      "most-capable": {"startup_grace_seconds": 600}
+    },
+    "by_provider": {
+      "<provider-id>": {
+        "default": {"silence_warning_seconds": 600},
+        "by_tier": {
+          "standard": {"check_interval_seconds": 30}
+        }
+      }
+    }
   }
 }
 ```
+
+`grounding_cache.ttl_seconds` is the default cache lifetime in seconds
+(`604800` is seven days). A provider branch
+(`grounding_cache.by_provider.<provider-id>.ttl_seconds`) takes precedence over the
+global TTL; an explicit TTL supplied to a grounding operation takes precedence over
+both. TTL `0` disables cache reuse and cache writes for that operation.
 
 `default_provider` is optional. The supported keys are:
 
@@ -55,6 +86,14 @@ The target schema is:
   thinking level) alongside the model. Effort stays advisory like the model name: the
   live CLI decides what it accepts, and an explicit user or task statement outranks the
   stored preference at dispatch time. See [concepts.md](concepts.md).
+- **`grounding_cache`** — optional cache policy for observed provider mechanics and
+  advisory model inventory. The cache is local project state, not a provider-availability
+  gate. The provider-specific `ttl_seconds` branch wins over the global value.
+- **`liveness`** — optional controller policy for one provider attempt. Fields are
+  `check_interval_seconds`, `startup_grace_seconds`, `silence_warning_seconds`, and
+  `hard_timeout_seconds`; positive integers are valid, and `hard_timeout_seconds` may be
+  `null` to disable elapsed-time termination. Liveness diagnoses an attempt; it never
+  certifies a provider or result. See the generic [liveness reference](liveness.md).
 
 Provider IDs come from the provider directories. Model names are not checked against a
 cached catalog. The live provider CLI supplies model reality.
@@ -89,6 +128,28 @@ at config-authoring time. `config show`, the read `swingle-delegate` uses on eve
 skips that live directory check: the provider set is dev-time-static, and a bad reference
 that slipped past authoring still surfaces the normal way, as a missing executable at
 dispatch, rather than being re-litigated on every read.
+
+Optional branches are advisory and fail soft. Unknown provider IDs under
+`grounding_cache.by_provider` or `liveness.by_provider`, unknown tiers, unknown fields,
+and invalid optional branch values produce warnings; Swingle drops the affected branch
+and continues with the remaining policy or built-in defaults. These warnings do not make
+an installed provider unavailable.
+The optional-policy rule is simple: unknown providers and invalid optional branches
+produce warnings; they do not disable a provider or stop a dispatch.
+
+Liveness resolution uses this precedence for each field, from highest to lowest:
+
+1. An explicit liveness policy supplied for this dispatch.
+2. `liveness.by_provider.<provider-id>.by_tier.<tier>`.
+3. `liveness.by_provider.<provider-id>.default`.
+4. `liveness.by_tier.<tier>`.
+5. `liveness.default`.
+6. The built-in policy for the tier.
+
+An invalid explicit liveness policy is different from an invalid optional branch: it is
+an explicit request that cannot be honored, so the controller stops before dispatch and
+reports the error. It must not silently fall back to a built-in policy.
+Therefore, invalid explicit liveness policy stops before dispatch.
 
 Unknown keys and malformed optional `model_preferences` produce warnings. Swingle ignores
 the affected preference and continues; an installed provider remains available. If a

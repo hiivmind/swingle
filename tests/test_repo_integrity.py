@@ -26,14 +26,48 @@ def _heading_slugs(text: str) -> set[str]:
 
 def _owned_markdown(root: Path) -> list[Path]:
     paths: list[Path] = []
-    for directory in ("skills", "contracts", "providers"):
+    for path in (root / "README.md", root / "CLAUDE.md"):
+        if path.is_file():
+            paths.append(path)
+    for directory in ("skills", "contracts", "providers", "references", "docs"):
         base = root / directory
         if base.is_dir():
             paths.extend(path for path in base.rglob("*.md") if path.is_file())
     return sorted(paths)
 
 
+def _living_markdown(root: Path) -> list[Path]:
+    return [
+        path
+        for path in (root / "README.md", root / "CLAUDE.md")
+        if path.is_file()
+    ]
+
+OBSOLETE_LIVING_GUIDANCE = (
+    "ledger init",
+    "ledger append",
+    ".swingle/delegate/ledger.md",
+    "<root>/scripts/swingle",
+    "<project>/.swingle",
+    "dispatch render",
+    "result extract",
+    "selector program",
+    "runnable recipe",
+)
+
+
+def _check_obsolete_living_guidance(root: Path) -> list[str]:
+    findings: list[str] = []
+    for path in _living_markdown(root):
+        text = path.read_text(encoding="utf-8")
+        for phrase in OBSOLETE_LIVING_GUIDANCE:
+            if phrase in text:
+                findings.append(f"{path}: obsolete guidance {phrase}")
+    return findings
+
+
 def _check_links(root: Path) -> list[str]:
+    root = root.resolve()
     findings: list[str] = []
     slug_cache: dict[Path, set[str] | None] = {}
 
@@ -60,7 +94,9 @@ def _check_links(root: Path) -> list[str]:
                 if target.startswith(("http://", "https://", "/", "mailto:")):
                     continue
                 pathpart, _, anchor = target.partition("#")
-                destination = path if not pathpart else (path.parent / pathpart)
+                destination = path if not pathpart else (path.parent / pathpart).resolve()
+                if pathpart and not destination.is_relative_to(root):
+                    continue
                 if pathpart and not destination.exists():
                     findings.append(f"{path}:{number}: broken link {target}")
                     continue
@@ -100,23 +136,50 @@ def _check_provider_directories(root: Path) -> list[str]:
         note_path = provider / "pack.md"
         if not note_path.is_file():
             findings.append(f"{note_path}: missing provider note")
+            continue
+        dispatch_headings = sum(
+            line.strip() == "## Dispatch guidance"
+            for line in note_path.read_text().splitlines()
+        )
+        if dispatch_headings != 1:
+            findings.append(
+                f"{note_path}: expected exactly one ## Dispatch guidance heading "
+                f"(found {dispatch_headings})"
+            )
     return findings
 
 
 def write_note(root: Path, body: str = "# Alpha provider notes\n") -> Path:
     path = root / "providers" / "alpha" / "pack.md"
-    path.parent.mkdir(parents=True)
+    path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(body)
     return path
+
+
+def test_dispatch_guidance_heading_is_required_exactly_once(tmp_path):
+    write_note(tmp_path, "# Alpha provider notes\n")
+    findings = _check_provider_directories(tmp_path)
+    assert any("exactly one ## Dispatch guidance heading" in finding for finding in findings)
+
+    write_note(
+        tmp_path,
+        "# Alpha provider notes\n\n## Dispatch guidance\n\n## Dispatch guidance\n",
+    )
+    findings = _check_provider_directories(tmp_path)
+    assert any("exactly one ## Dispatch guidance heading" in finding for finding in findings)
+
+    write_note(tmp_path, "# Alpha provider notes\n\n## Dispatch guidance\n")
+    assert _check_provider_directories(tmp_path) == []
 
 
 def test_free_form_note_has_no_findings(tmp_path):
     write_note(tmp_path, """# Alpha provider notes
 
+## Dispatch guidance
+
 Whatever shape the author chooses: prose, one table, several tables under
 different headings. Nothing here parses the content back out.
 """)
-
     assert _check_provider_directories(tmp_path) == []
 
 
@@ -147,9 +210,28 @@ def test_broken_relative_link_is_a_finding(tmp_path):
     assert any("broken link" in finding for finding in findings)
 
 
+def test_relative_link_outside_repository_is_not_owned(tmp_path):
+    skills = tmp_path / "skills"
+    skills.mkdir()
+    (skills / "one.md").write_text(
+        "[central](../../external-guidance/PRINCIPLES.md)\n"
+    )
+
+    assert _check_links(tmp_path) == []
+
+
 def test_this_repos_provider_directories_are_well_formed():
     assert _check_provider_directories(ROOT) == []
 
 
 def test_this_repos_owned_markdown_links_resolve():
     assert _check_links(ROOT) == []
+def test_owned_markdown_includes_repository_documents():
+    owned = set(_owned_markdown(ROOT))
+    assert {ROOT / "README.md", ROOT / "CLAUDE.md"} <= owned
+    assert any(path.parent == ROOT / "references" for path in owned)
+    assert any(path.parent == ROOT / "docs" for path in owned)
+
+
+def test_this_repos_living_documents_have_no_obsolete_guidance():
+    assert _check_obsolete_living_guidance(ROOT) == []

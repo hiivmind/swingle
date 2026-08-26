@@ -15,6 +15,7 @@ from swingle.ledger import (
     finish_direct,
     record_event,
 )
+from swingle.ledger_cli import validate_ledger
 from swingle.ledger_schema import EventDraft, build_event, encode_event, new_uuid
 
 SESSION = "11111111-1111-4111-8111-111111111111"
@@ -38,6 +39,28 @@ def _valid_opening(session=SESSION, run=RUN, job=JOB):
         draft("run-started", session=session, run=run, data={"kind": "batch"}),
         draft("allocated", session=session, run=run, job=job, data={"role": "reader", "contract": "$PLUGIN_ROOT/contracts/reader-contract.md", "tier": "standard", "task": "read target"}),
     ]
+
+
+def _dispatched(attempt=1):
+    return draft(
+        "dispatched",
+        job=JOB,
+        data={
+            "provider": "codex",
+            "model": "provider-default",
+            "effort": "none",
+            "attempt": attempt,
+            "liveness_policy": {
+                "check_interval_seconds": 60,
+                "startup_grace_seconds": 300,
+                "silence_warning_seconds": 300,
+                "hard_timeout_seconds": None,
+            },
+            "grounding_receipt_id": RECEIPT,
+            "grounding_receipt_revision": 1,
+            "grounding_source": "reused",
+        },
+    )
 
 
 def _provider(status="DONE", exit_code=0):
@@ -162,6 +185,25 @@ def test_append_rejects_invalid_job_id_before_file_open(tmp_path):
     assert not list(tmp_path.glob("*.ndjson"))
 
 
+def test_allocate_rejects_invalid_run_id_before_artifact_creation(tmp_path):
+    project = tmp_path / "project"
+    escaped = tmp_path / "escaped-run"
+
+    with pytest.raises(LedgerValidationError):
+        allocate_job(
+            project=project,
+            ledger_dir=tmp_path / "ledger",
+            controller_session_id=SESSION,
+            run_id=str(escaped),
+            role="reader",
+            contract="$PLUGIN_ROOT/contracts/reader-contract.md",
+            tier="standard",
+            task="read",
+        )
+
+    assert not escaped.exists()
+
+
 def test_v2_write_rejects_a_file_as_ledger_directory(tmp_path):
     ledger_file = tmp_path / "ledger"
     ledger_file.write_text("untouched")
@@ -193,6 +235,30 @@ def test_begin_direct_returns_artifact_directory_and_installs_local_ignore(tmp_p
     assert [json.loads(line)["event"] for line in (tmp_path / "ledger" / f"{SESSION}.ndjson").read_text().splitlines()] == ["run-started", "allocated", "grounding-observed", "dispatched"]
 
 
+def test_begin_direct_creates_artifacts_before_appending_events(tmp_path):
+    project = tmp_path / "project"
+    artifact_root = project / ".swingle" / "delegate" / "artifacts"
+    artifact_root.parent.mkdir(parents=True)
+    artifact_root.write_text("blocks directory creation")
+
+    with pytest.raises(FileExistsError):
+        begin_direct(
+            project=project,
+            ledger_dir=tmp_path / "ledger",
+            controller_session_id=SESSION,
+            role="reader",
+            contract="$PLUGIN_ROOT/contracts/reader-contract.md",
+            tier="standard",
+            task="read",
+            provider="codex",
+            model="provider-default",
+            effort="none",
+            dispatch_context=_context(),
+        )
+
+    assert not list((tmp_path / "ledger").glob("*.ndjson"))
+
+
 def test_begin_direct_ttl_zero_replaces_null_receipt_sentinel(tmp_path):
     result = _begin(tmp_path)
     event = json.loads((tmp_path / "ledger" / f"{SESSION}.ndjson").read_text().splitlines()[2])
@@ -213,8 +279,37 @@ def test_grounding_reused_age_uses_append_timestamp_after_clock_advance(tmp_path
     assert events[0]["data"]["age_seconds"] == 61
 
 
-def test_begin_direct_preserves_observed_receipt(tmp_path):
-    result = _begin(tmp_path, "observed", RECEIPT)
+def test_begin_direct_rejects_caller_receipt_for_uncached_observation(tmp_path):
+    with pytest.raises(LedgerValidationError):
+        _begin(tmp_path, "observed", RECEIPT)
+    assert not list((tmp_path / "ledger").glob("*.ndjson"))
+
+
+def test_begin_direct_preserves_cached_observed_receipt(tmp_path):
+    context = _context("observed", RECEIPT)
+    context["grounding_event"]["data"].update({
+        "receipt_revision": 2,
+        "storage": "cache",
+        "cache_path": "/p/cache",
+        "expires_at": "2026-08-31T04:15:30.123Z",
+    })
+    project = tmp_path / "project"
+    project.mkdir()
+
+    result = begin_direct(
+        project=project,
+        ledger_dir=tmp_path / "ledger",
+        controller_session_id=SESSION,
+        role="reader",
+        contract="$PLUGIN_ROOT/contracts/reader-contract.md",
+        tier="standard",
+        task="read",
+        provider="codex",
+        model="provider-default",
+        effort="none",
+        dispatch_context=context,
+    )
+
     event = json.loads((tmp_path / "ledger" / f"{SESSION}.ndjson").read_text().splitlines()[2])
     assert event["data"]["receipt_id"] == RECEIPT
     assert result["receipt_id"] == RECEIPT
@@ -278,6 +373,24 @@ def test_not_attempted_accepts_only_needs_context_or_blocked(tmp_path):
 def test_not_attempted_rejects_non_null_exit_code_after_process_start(tmp_path):
     with pytest.raises(LedgerValidationError):
         append_events(tmp_path, SESSION, [_complete(status="NEEDS_CONTEXT", provider_status="NEEDS_CONTEXT", repo_status="NOT_ATTEMPTED", exit_code=1)])
+
+
+@pytest.mark.parametrize(
+    "repo_status",
+    ["VERIFIED", "INVALID_RESULT", "UNCHANGED", "FAILED_TESTS"],
+)
+def test_mutating_repository_result_requires_started_process_exit_code(tmp_path, repo_status):
+    with pytest.raises(LedgerValidationError):
+        append_events(
+            tmp_path,
+            SESSION,
+            [_complete(
+                status="BLOCKED",
+                provider_status="BLOCKED",
+                repo_status=repo_status,
+                exit_code=None,
+            )],
+        )
 
 
 def test_every_provider_repository_reconciliation_row(tmp_path):
@@ -407,3 +520,99 @@ def test_finish_direct_reports_nested_validation_without_key_error(tmp_path):
             outcome="result",
             evidence=[],
         )
+
+
+@pytest.mark.parametrize("late_event", ("dispatched", "grounding-reused"))
+def test_validation_rejects_every_job_event_after_completion(tmp_path, late_event):
+    if late_event == "dispatched":
+        late = _dispatched()
+    else:
+        late = draft(
+            "grounding-reused",
+            job=JOB,
+            data=_context("reused", RECEIPT)["grounding_event"]["data"],
+        )
+    append_events(
+        tmp_path,
+        SESSION,
+        _valid_opening()
+        + [_dispatched(), _complete(), late]
+        + [draft("run-completed", data={"status": "DONE", "outcome": "done"})],
+    )
+
+    result = validate_ledger(tmp_path)
+
+    assert any("event after job completion" in error for error in result["errors"])
+
+
+@pytest.mark.parametrize(
+    "missing",
+    ("object", "receipt_revision", "liveness_policy"),
+)
+def test_begin_direct_reports_malformed_context_as_ledger_error(tmp_path, missing):
+    if missing == "object":
+        context = []
+    else:
+        context = _context()
+        if missing == "receipt_revision":
+            context["grounding_event"]["data"].pop("receipt_revision")
+        else:
+            context.pop("liveness_policy")
+    project = tmp_path / "project"
+    project.mkdir()
+
+    with pytest.raises(LedgerValidationError):
+        begin_direct(
+            project=project,
+            ledger_dir=tmp_path / "ledger",
+            controller_session_id=SESSION,
+            role="reader",
+            contract="$PLUGIN_ROOT/contracts/reader-contract.md",
+            tier="standard",
+            task="read",
+            provider="codex",
+            model="provider-default",
+            effort="none",
+            dispatch_context=context,
+        )
+
+    assert not list((tmp_path / "ledger").glob("*.ndjson"))
+
+
+@pytest.mark.parametrize(
+    ("event", "data"),
+    (
+        ("provider-session", {"attempt": 2, "provider_session_id": "provider-2"}),
+        ("liveness-warning", {"attempt": 2, "elapsed_seconds": 1.0, "silence_seconds": None, "process_state": "running", "action": "continue"}),
+        ("attempt-failed", {"attempt": 2, "signature": "timeout", "recovery": "retry"}),
+        ("resumed", {"attempt": 2, "provider_session_id": "provider-2", "reason": "retry"}),
+    ),
+)
+def test_validation_requires_dispatch_for_exact_attempt(tmp_path, event, data):
+    append_events(
+        tmp_path,
+        SESSION,
+        _valid_opening() + [_dispatched(attempt=1), draft(event, job=JOB, data=data)],
+    )
+
+    result = validate_ledger(tmp_path)
+
+    assert any("attempt without matching dispatch" in error for error in result["errors"])
+
+
+def test_validation_accepts_events_after_matching_retry_dispatch(tmp_path):
+    append_events(
+        tmp_path,
+        SESSION,
+        _valid_opening()
+        + [
+            _dispatched(attempt=1),
+            draft("attempt-failed", job=JOB, data={"attempt": 1, "signature": "timeout", "recovery": "retry"}),
+            _dispatched(attempt=2),
+            draft("provider-session", job=JOB, data={"attempt": 2, "provider_session_id": "provider-2"}),
+        ],
+    )
+
+    result = validate_ledger(tmp_path)
+
+    assert not any("attempt without matching dispatch" in error for error in result["errors"])

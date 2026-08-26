@@ -65,6 +65,28 @@ def test_ledger_v2_start_and_show_round_trip(tmp_path):
     assert json.loads(shown.stdout)["events"][0]["event"] == "run-started"
 
 
+def test_ledger_session_filter_rejects_non_uuid_before_path_access(tmp_path):
+    outside = tmp_path / "outside"
+    started = run_cli(
+        "ledger", "start",
+        "--dir", str(outside),
+        "--kind", "direct",
+        "--controller-session-id", "11111111-1111-4111-8111-111111111111",
+    )
+    assert started.returncode == 0
+    escaped_session = str(outside / "11111111-1111-4111-8111-111111111111")
+    selected = tmp_path / "selected"
+    selected.mkdir()
+    for command in ("show", "validate"):
+        result = run_cli(
+            "ledger", command,
+            "--dir", str(selected),
+            "--controller-session-id", escaped_session,
+        )
+        assert result.returncode == 1
+        assert "canonical lowercase UUID" in json.loads(result.stdout)["errors"][0]
+
+
 def test_ledger_legacy_reader_is_read_only(tmp_path):
     path = tmp_path / "ledger.md"
     path.write_text("# Swingle delegation ledger\n\n001 complete: status=DONE outcome=ok\n")
@@ -143,6 +165,24 @@ def test_invalid_invocation_returns_json_error(tmp_path):
     payload = json.loads(result.stdout)
     assert payload["errors"]
     assert "code" not in payload
+
+
+def test_complete_record_rejects_provider_session_flag(tmp_path):
+    result = run_cli(
+        "ledger", "record", "complete",
+        "--dir", str(tmp_path / "ledger"),
+        "--controller-session-id", "11111111-1111-4111-8111-111111111111",
+        "--run-id", "22222222-2222-4222-8222-222222222222",
+        "--job-id", "33333333-3333-4333-8333-333333333333",
+        "--status", "BLOCKED",
+        "--outcome", "blocked",
+        "--evidence-file", str(tmp_path / "evidence.json"),
+        "--completion-file", str(tmp_path / "completion.json"),
+        "--provider-session-id", "provider-session",
+    )
+
+    assert result.returncode == 1
+    assert "unrecognized arguments: --provider-session-id" in json.loads(result.stdout)["errors"][0]
 
 
 def test_typed_ledger_error_emits_stable_code(tmp_path):

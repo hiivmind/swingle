@@ -573,14 +573,55 @@ def record_grounding(project: Path, provider: str, payload: dict[str, Any]) -> d
     normalized = _validate_payload(payload, provider=provider)
     # TTL zero is deliberately handled before every cache-path operation.
     if normalized["ttl_seconds"] == 0:
+        observed_times = [
+            value["observed_at"]
+            for value in normalized["scopes"].values()
+        ]
+        if normalized["models"].get("observed_at") is not None:
+            observed_times.append(normalized["models"]["observed_at"])
+        if not observed_times:
+            _fail("TTL-zero grounding requires an observation timestamp")
+        grounded_at = max(observed_times)
+        evidence_commands = sorted({
+            value["evidence_command"]
+            for value in normalized["scopes"].values()
+            if value["evidence_command"]
+        })
         return {
-            "status": "recorded", "accepted_scopes": sorted(normalized["scopes"]), "superseded_scopes": [],
-            "receipt": {"receipt_id": None, "revision": None, "storage": "none", "cache_path": None,
-                        "grounded_at": normalized["complete_profile_observed_at"], "expires_at": None,
-                        "executable": normalized["executable"], "provider_guidance_sha256": normalized["provider_guidance_sha256"],
-                        "mechanics": deepcopy(normalized["scopes"]), "models": deepcopy(normalized["models"])},
-            "ledger_event": {"event": "grounding-observed", "data": {"receipt_id": None, "receipt_revision": None, "storage": "none", "provider": provider, "cache_path": None, "grounded_at": normalized["complete_profile_observed_at"], "expires_at": None, "executable": normalized["executable"], "provider_guidance_sha256": normalized["provider_guidance_sha256"], "scopes": sorted(normalized["scopes"]), "model_count": len(normalized["models"].get("entries", [])), "evidence_commands": sorted({value.get("evidence_command", "") for value in normalized["scopes"].values()})}},
-            "next_action": "refresh_context", "storage": "none",
+            "status": "recorded",
+            "accepted_scopes": sorted(normalized["scopes"]),
+            "superseded_scopes": [],
+            "receipt": {
+                "receipt_id": None,
+                "revision": None,
+                "storage": "none",
+                "cache_path": None,
+                "grounded_at": grounded_at,
+                "expires_at": None,
+                "executable": normalized["executable"],
+                "provider_guidance_sha256": normalized["provider_guidance_sha256"],
+                "mechanics": deepcopy(normalized["scopes"]),
+                "models": deepcopy(normalized["models"]),
+            },
+            "ledger_event": {
+                "event": "grounding-observed",
+                "data": {
+                    "receipt_id": None,
+                    "receipt_revision": None,
+                    "storage": "none",
+                    "provider": provider,
+                    "cache_path": None,
+                    "grounded_at": grounded_at,
+                    "expires_at": None,
+                    "executable": normalized["executable"],
+                    "provider_guidance_sha256": normalized["provider_guidance_sha256"],
+                    "scopes": sorted(normalized["scopes"]),
+                    "model_count": len(normalized["models"].get("entries", [])),
+                    "evidence_commands": evidence_commands,
+                },
+            },
+            "next_action": "refresh_context",
+            "storage": "none",
         }
     grounding_dir = cache_path.parent
     grounding_dir.mkdir(parents=True, exist_ok=True)

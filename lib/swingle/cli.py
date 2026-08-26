@@ -218,7 +218,6 @@ def _parser() -> argparse.ArgumentParser:
     complete = record_parser("complete")
     for name in ("status", "outcome", "evidence-file", "completion-file"):
         complete.add_argument("--" + name, required=True)
-    complete.add_argument("--provider-session-id")
     record_parser("run-started")
     record_parser("run-completed")
     record_parser("allocated")

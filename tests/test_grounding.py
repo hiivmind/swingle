@@ -18,6 +18,7 @@ from swingle.grounding import (
     record_grounding,
     refresh_grounding,
 )
+from swingle.ledger import begin_direct
 
 
 STAMP = "2026-08-24T04:15:30.123Z"
@@ -141,6 +142,48 @@ def test_ttl_zero_does_not_read_or_write_cache(tmp_path, monkeypatch):
     assert not cache.exists()
     record_grounding(project, "codex", _payload(ttl=0))
     assert not cache.exists()
+
+
+def test_partial_ttl_zero_event_can_begin_direct_run(tmp_path):
+    project = tmp_path / "project"
+    project.mkdir()
+    scopes = {
+        "headless-command": _scope("headless-command", observed_at=STAMP),
+        "stdin-closure": _scope("stdin-closure", observed_at=LATER),
+    }
+    scopes["stdin-closure"]["evidence_command"] = ""
+
+    recorded = record_grounding(
+        project,
+        "codex",
+        _payload(scopes=scopes, complete=False, ttl=0),
+    )
+
+    event_data = recorded["ledger_event"]["data"]
+    assert event_data["grounded_at"] == LATER
+    assert event_data["evidence_commands"] == ["provider --help"]
+    begun = begin_direct(
+        project=project,
+        ledger_dir=tmp_path / "ledger",
+        role="reader",
+        contract="$PLUGIN_ROOT/contracts/reader-contract.md",
+        tier="standard",
+        task="read",
+        provider="codex",
+        model="provider-default",
+        effort="none",
+        dispatch_context={
+            "grounding_source": "observed",
+            "grounding_event": recorded["ledger_event"],
+            "liveness_policy": {
+                "check_interval_seconds": 60,
+                "startup_grace_seconds": 300,
+                "silence_warning_seconds": 300,
+                "hard_timeout_seconds": None,
+            },
+        },
+    )
+    assert begun["events"][2]["data"]["grounded_at"] == LATER
 
 
 def test_complete_profile_requires_all_nine_scopes(tmp_path):

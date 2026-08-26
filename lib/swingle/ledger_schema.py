@@ -117,6 +117,10 @@ def _uuid(value: Any, field: str, *, nullable: bool = False) -> None:
         raise LedgerValidationError(f"{field} must be a canonical lowercase UUID") from exc
 
 
+def validate_uuid(value: Any, field: str) -> None:
+    _uuid(value, field)
+
+
 def _integer(value: Any, field: str, *, minimum: int = 0, nullable: bool = False) -> None:
     if value is None and nullable:
         return
@@ -292,6 +296,8 @@ def _validate_complete(data: dict[str, Any]) -> None:
     if repository["required"] and repository["status"] == "NOT_ATTEMPTED":
         if provider["status"] not in {"NEEDS_CONTEXT", "BLOCKED"} or provider["exit_code"] is not None:
             _fail("NOT_ATTEMPTED requires NEEDS_CONTEXT or BLOCKED provider status and null exit_code")
+    elif repository["required"] and provider["exit_code"] is None:
+        _fail("mutating repository verification requires a provider exit_code")
     expected = derive_complete_status(provider, repository)
     if data["status"] != expected:
         _fail(f"complete.status must be {expected} for provider and repository outcomes")

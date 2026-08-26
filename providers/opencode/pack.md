@@ -11,8 +11,8 @@ CLI: `opencode`
 
 | Decision point | Guidance | Rationale | Evidence |
 | --- | --- | --- | --- |
-| result-only headless dispatch | use `run` with native stdin for the complete authored `$PROMPT`, `--dir "$REPO_ROOT"`, provider-prefixed `$MODEL`, `--variant "$EFFORT"`, default format, and an absolute `$ARTIFACT` capture | Opencode's project, model, effort, and output controls are separate from its stdin prompt transport | `opencode run --help`; approved invocation smoke (2026-08-24) |
-| prompt and workspace transport | pass the complete authored briefing through native stdin and select the project with `--dir "$REPO_ROOT"`; do not use shell command substitution | stdin preserves the exact prompt bytes | approved invocation smoke (2026-08-24) |
+| result-only headless dispatch | read the complete authored `$PROMPT` into `PROMPT_TEXT`, pass it as the positional `message` to `run`, and set `--dir "$REPO_ROOT"`, provider-prefixed `$MODEL`, `--variant "$EFFORT"`, the output format, and absolute `$ARTIFACT` capture | Opencode documents the prompt as positional `message` input; project, model, effort, and output controls are separate | `opencode run --help`; approved invocation smoke (2026-08-24) |
+| prompt and workspace transport | load `$PROMPT` with Bash's NUL-delimited `read` builtin, pass `"$PROMPT_TEXT"` as the positional message, and select the project with `--dir "$REPO_ROOT"` | the approved smoke used a positional prompt; the shell read preserves prompt bytes without command substitution | `opencode run --help`; approved invocation smoke (2026-08-24) |
 | model discovery and effort encoding | run `opencode models`, preserve the provider prefix in `$MODEL`, and pass the selected model's supported value as `--variant "$EFFORT"`; verify the route because unsupported variants may be ignored | provider-prefixed IDs are required, and absence of a variant error is not proof that the effort took effect | `opencode models`; `opencode run --help`; approved invocation smoke (2026-08-24) |
 | absolute artifact capture | redirect or tee to an absolute `$ARTIFACT` path outside assumptions about `--dir` | shell capture paths follow the shell working directory, not Opencode's provider project directory | approved invocation smoke (2026-08-24) |
 | structured result interpretation | in JSON mode concatenate `text.part.text` and require `step_finish`; retain session, stop, token, cache, and cost fields from `step_finish` | event output separates final text and completion/accounting from ordinary progress events | approved invocation smoke (2026-08-24) |
@@ -22,13 +22,15 @@ CLI: `opencode`
 ### Result-only command
 
 ```bash
-opencode run --dir "$REPO_ROOT" --model "$MODEL" --variant "$EFFORT" --format default < "$PROMPT" > "$ARTIFACT"
+IFS= read -r -d '' PROMPT_TEXT < "$PROMPT" || true
+opencode run --dir "$REPO_ROOT" --model "$MODEL" --variant "$EFFORT" --format default "$PROMPT_TEXT" < /dev/null > "$ARTIFACT"
 ```
 
 ### Structured output
 
 ```bash
-opencode run --dir "$REPO_ROOT" --model "$MODEL" --variant "$EFFORT" --format json < "$PROMPT" > "$ARTIFACT"
+IFS= read -r -d '' PROMPT_TEXT < "$PROMPT" || true
+opencode run --dir "$REPO_ROOT" --model "$MODEL" --variant "$EFFORT" --format json "$PROMPT_TEXT" < /dev/null > "$ARTIFACT"
 ```
 
 In JSON mode, concatenate `text.part.text` for final text and require `step_finish` for completion. Retain its session ID, stop reason, tokens, cache fields, and cost; ordinary `step_start`/`text` events are progress, not completion.

@@ -18,7 +18,7 @@ from .ledger import (
 )
 _UUID_FILENAME = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.ndjson$")
 _LEGACY_HEADER = "# Swingle delegation ledger\n\n"
-from .ledger_schema import EVENTS, STATUSES, validate_event
+from .ledger_schema import EVENTS, STATUSES, validate_event, validate_uuid
 
 
 def _path(value: str | Path) -> Path:
@@ -226,6 +226,8 @@ def _stream_file(path: Path) -> Iterator[tuple[dict[str, Any], int]]:
 
 def stream_events(ledger_dir: Path, *, controller_session_id: str | None = None, limit: int | None = None, **filters: Any) -> Iterator[dict[str, Any]]:
     directory = _path(ledger_dir)
+    if controller_session_id is not None:
+        validate_uuid(controller_session_id, "controller_session_id")
     if not directory.exists():
         return
     if not directory.is_dir():
@@ -288,6 +290,8 @@ def read_legacy(path: Path) -> dict[str, Any]:
 
 def validate_ledger(ledger_dir: Path, controller_session_id: str | None = None) -> dict[str, Any]:
     directory = _path(ledger_dir)
+    if controller_session_id is not None:
+        validate_uuid(controller_session_id, "controller_session_id")
     errors: list[str] = []
     warnings: list[str] = []
     all_events: list[dict[str, Any]] = []
@@ -357,26 +361,34 @@ def _validate_lifecycle(events: list[dict[str, Any]], errors: list[str], warning
         allocated = set(allocation_ids)
         completed_jobs: set[str] = set()
         dispatched_jobs: set[str] = set()
+        dispatched_attempts: set[tuple[str, int]] = set()
         for index, item in enumerate(items):
             job_id = item["job_id"]
             if item["event"] == "allocated":
                 continue
+            if job_id in completed_jobs:
+                errors.append(f"{path}: event after job completion {job_id}")
             if item["event"] == "dispatched":
                 if job_id not in allocated:
                     errors.append(f"{path}: job event without allocation dispatched")
                 dispatched_jobs.add(job_id)
+                dispatched_attempts.add((job_id, item["data"]["attempt"]))
                 continue
             if item["event"] in {"grounding-observed", "grounding-reused"}:
                 if job_id not in allocated:
                     errors.append(f"{path}: job event without allocation {item['event']}")
                 continue
-            if item["event"] in {"provider-session", "liveness-warning", "attempt-failed", "resumed", "complete"}:
+            if item["event"] in {"provider-session", "liveness-warning", "attempt-failed", "resumed"}:
                 if job_id not in allocated:
                     errors.append(f"{path}: job event without allocation {item['event']}")
+                attempt = item["data"]["attempt"]
+                if (job_id, attempt) not in dispatched_attempts:
+                    errors.append(f"{path}: attempt without matching dispatch {item['event']} attempt={attempt}")
+            elif item["event"] == "complete":
+                if job_id not in allocated:
+                    errors.append(f"{path}: job event without allocation complete")
                 if job_id not in dispatched_jobs:
-                    errors.append(f"{path}: attempt without dispatch {item['event']}")
-            if job_id in completed_jobs:
-                errors.append(f"{path}: event after job completion {job_id}")
+                    errors.append(f"{path}: complete without dispatch")
             if item["event"] == "complete":
                 if job_id in completed_jobs:
                     errors.append(f"{path}: duplicate complete {job_id}")

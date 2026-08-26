@@ -186,8 +186,10 @@ def start_run(ledger_dir: Path, kind: str, controller_session_id: str | None = N
 
 def allocate_job(*, project: Path, ledger_dir: Path, controller_session_id: str, run_id: str, role: str, contract: str, tier: str, task: str) -> dict[str, Any]:
     job_id = new_uuid()
+    draft = EventDraft("allocated", controller_session_id, run_id, job_id, {"role": role, "contract": contract, "tier": tier, "task": task})
+    validate_draft(draft, for_append=True)
     artifact_dir = _artifact_directory(project, run_id, job_id)
-    path, events = append_events(ledger_dir, controller_session_id, [EventDraft("allocated", controller_session_id, run_id, job_id, {"role": role, "contract": contract, "tier": tier, "task": task})])
+    path, events = append_events(ledger_dir, controller_session_id, [draft])
     return _result(path, events, controller_session_id=controller_session_id, run_id=run_id, job_id=job_id, artifact_dir=artifact_dir)
 
 
@@ -199,6 +201,8 @@ def record_event(*, ledger_dir: Path, controller_session_id: str, run_id: str, e
 
 
 def _grounding_from_context(dispatch_context: dict[str, Any], provider: str) -> tuple[str, dict[str, Any]]:
+    if not isinstance(dispatch_context, dict):
+        raise LedgerValidationError("dispatch context must be an object")
     source = dispatch_context.get("grounding_source")
     if source not in {"observed", "reused"}:
         raise LedgerValidationError("dispatch context grounding_source must be observed or reused")
@@ -213,7 +217,9 @@ def _grounding_from_context(dispatch_context: dict[str, Any], provider: str) -> 
         raise LedgerValidationError("dispatch context must contain grounding event data")
     grounding.setdefault("provider", provider)
     if source == "observed":
-        if grounding.get("receipt_id") is None:
+        if grounding.get("storage") == "none":
+            if grounding.get("receipt_id") is not None:
+                raise LedgerValidationError("uncached grounding receipt_id must be null")
             grounding["receipt_id"] = new_uuid()
         grounding.pop("age_seconds", None)
         event_name = "grounding-observed"
@@ -230,16 +236,17 @@ def begin_direct(*, project: Path, ledger_dir: Path, controller_session_id: str 
     run_id = run_id or new_uuid()
     job_id = job_id or new_uuid()
     grounding_event, grounding_data = _grounding_from_context(dispatch_context, provider)
-    receipt_id = grounding_data["receipt_id"]
-    grounding_revision = grounding_data["receipt_revision"]
+    receipt_id = grounding_data.get("receipt_id")
+    grounding_revision = grounding_data.get("receipt_revision")
     drafts = [
         EventDraft("run-started", controller_session_id, run_id, None, {"kind": "direct"}),
         EventDraft("allocated", controller_session_id, run_id, job_id, {"role": role, "contract": contract, "tier": tier, "task": task}),
         EventDraft(grounding_event, controller_session_id, run_id, job_id, grounding_data),
-        EventDraft("dispatched", controller_session_id, run_id, job_id, {"provider": provider, "model": model, "effort": effort, "attempt": 1, "liveness_policy": deepcopy(dispatch_context["liveness_policy"]), "grounding_receipt_id": receipt_id, "grounding_receipt_revision": grounding_revision, "grounding_source": dispatch_context["grounding_source"]}),
+        EventDraft("dispatched", controller_session_id, run_id, job_id, {"provider": provider, "model": model, "effort": effort, "attempt": 1, "liveness_policy": deepcopy(dispatch_context.get("liveness_policy")), "grounding_receipt_id": receipt_id, "grounding_receipt_revision": grounding_revision, "grounding_source": dispatch_context["grounding_source"]}),
     ]
     for draft in drafts:
         validate_draft(draft, for_append=True)
+    artifact_dir = _artifact_directory(project, run_id, job_id)
     event_ids = tuple(new_uuid() for _ in drafts)
     path, handle = _open_session(ledger_dir, controller_session_id)
     try:
@@ -247,7 +254,6 @@ def begin_direct(*, project: Path, ledger_dir: Path, controller_session_id: str 
     finally:
         fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
         handle.close()
-    artifact_dir = _artifact_directory(project, run_id, job_id)
     output = _result(path, events, controller_session_id=controller_session_id, run_id=run_id, job_id=job_id, artifact_dir=artifact_dir)
     output["receipt_id"] = receipt_id
     return output

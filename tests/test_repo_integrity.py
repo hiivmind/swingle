@@ -67,6 +67,7 @@ def _check_obsolete_living_guidance(root: Path) -> list[str]:
 
 
 def _check_links(root: Path) -> list[str]:
+    root = root.resolve()
     findings: list[str] = []
     slug_cache: dict[Path, set[str] | None] = {}
 
@@ -93,7 +94,9 @@ def _check_links(root: Path) -> list[str]:
                 if target.startswith(("http://", "https://", "/", "mailto:")):
                     continue
                 pathpart, _, anchor = target.partition("#")
-                destination = path if not pathpart else (path.parent / pathpart)
+                destination = path if not pathpart else (path.parent / pathpart).resolve()
+                if pathpart and not destination.is_relative_to(root):
+                    continue
                 if pathpart and not destination.exists():
                     findings.append(f"{path}:{number}: broken link {target}")
                     continue
@@ -205,6 +208,16 @@ def test_broken_relative_link_is_a_finding(tmp_path):
     findings = _check_links(tmp_path)
 
     assert any("broken link" in finding for finding in findings)
+
+
+def test_relative_link_outside_repository_is_not_owned(tmp_path):
+    skills = tmp_path / "skills"
+    skills.mkdir()
+    (skills / "one.md").write_text(
+        "[central](../../external-guidance/PRINCIPLES.md)\n"
+    )
+
+    assert _check_links(tmp_path) == []
 
 
 def test_this_repos_provider_directories_are_well_formed():

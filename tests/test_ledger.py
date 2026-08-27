@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from swingle.errors import LedgerEventTooLarge, LedgerLifecycleError, LedgerValidationError
+from swingle.errors import LedgerEventTooLarge, LedgerLifecycleError, LedgerValidationError, WorkspaceError
 from swingle.ledger import (
     allocate_job,
     append_events,
@@ -410,6 +410,30 @@ def test_retry_after_manifest_write_but_before_ledger_append_recomputes_manifest
         for line in (tmp_path / "ledger" / f"{SESSION}.ndjson").read_text(encoding="utf-8").splitlines()
     ]
     assert [event["event"] for event in events_after_retry].count("complete") == 1
+
+
+
+def test_finalize_rejects_symlinked_workspace_directory(tmp_path):
+    import shutil
+
+    started = _begin(tmp_path)
+    project = started["project"]
+    workspace_dir = project / ".swingle" / "delegate"
+    outside = tmp_path / "outside-workspace"
+    outside.mkdir()
+    shutil.rmtree(workspace_dir)
+    workspace_dir.symlink_to(outside)
+
+    with pytest.raises(WorkspaceError) as error:
+        finish_direct(project=project, ledger_dir=tmp_path / "ledger", controller_session_id=SESSION, run_id=started["run_id"], job_id=started["job_id"], provider_outcome=_provider(), repository_verification=_repo(), outcome="result", evidence=[{"kind": "report", "value": "result.json"}])
+
+    assert error.value.code == "symlink_rejected"
+    assert not (outside / "artifacts").exists()
+    events = [
+        json.loads(line)
+        for line in (tmp_path / "ledger" / f"{SESSION}.ndjson").read_text(encoding="utf-8").splitlines()
+    ]
+    assert not any(event["event"] == "complete" for event in events)
 
 
 def test_controller_supplied_age_seconds_is_rejected(tmp_path):

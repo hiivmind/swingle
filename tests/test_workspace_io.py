@@ -96,6 +96,19 @@ def test_walk_regular_files_rejects_fifo(tmp_path):
     assert error.value.code == "special_file_rejected"
 
 
+def test_scan_rejects_symlinked_root(tmp_path):
+    real = tmp_path / "real"
+    real.mkdir()
+    (real / "result.md").write_bytes(b"secret")
+    linked_root = tmp_path / "linked-root"
+    linked_root.symlink_to(real)
+
+    with pytest.raises(WorkspaceError) as error:
+        scan_regular_tree(linked_root)
+
+    assert error.value.code == "symlink_rejected"
+
+
 def test_serialized_paths_use_unsigned_utf8_order(tmp_path):
     job = tmp_path / "job"
     job.mkdir()

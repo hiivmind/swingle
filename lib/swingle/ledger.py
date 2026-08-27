@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterator, Sequence
 from . import ledger_schema as _schema
+from . import workspace_io
 from . import workspace_manifest
 from .errors import LedgerLifecycleError, LedgerValidationError, WorkspaceError
 from .ledger_schema import (
@@ -109,12 +110,12 @@ def iter_event_records(ledger_dir: Path, controller_session_id: str | None = Non
 
 def _open_workspace_dir(project: Path) -> int:
     workspace_dir = Path(project).expanduser() / ".swingle" / "delegate"
-    return os.open(str(workspace_dir), os.O_DIRECTORY)
+    return workspace_io._open_dir_no_follow_path(workspace_dir, operation="finalize")
 
 
 def _open_job_dir(project: Path, run_id: str, job_id: str) -> int:
     job_dir = Path(project).expanduser() / ".swingle" / "delegate" / "artifacts" / run_id / job_id
-    return os.open(str(job_dir), os.O_DIRECTORY)
+    return workspace_io._open_dir_no_follow_path(job_dir, operation="finalize")
 
 
 def _require_uuid(value: str, field: str) -> None:

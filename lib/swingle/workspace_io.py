@@ -83,12 +83,31 @@ def _sortable_bytes(name: str, *, operation: str) -> bytes:
     return encoded
 
 
+def _is_symlink_best_effort(path, *, dir_fd: int | None = None) -> bool:
+    """Best-effort post-hoc classification for an already-failed no-follow open.
+
+    Some platforms report a blocked symlink-to-directory open as `ENOTDIR`
+    rather than `ELOOP` when both `O_DIRECTORY` and `O_NOFOLLOW` are set.
+    No descriptor was ever acquired for `path`, so this lstat only refines
+    which error code the already-refused open gets classified under; it
+    changes no filesystem state and grants no access. A vanished or
+    otherwise unreadable entry falls back to `False` (not a symlink),
+    leaving the caller's original classification in place.
+    """
+    try:
+        return stat.S_ISLNK(os.stat(path, dir_fd=dir_fd, follow_symlinks=False).st_mode)
+    except OSError:
+        return False
+
+
 def _open_dir_no_follow_path(root: Path, *, operation: str) -> int:
     try:
         return os.open(str(root), _DIR_NOFOLLOW)
     except FileNotFoundError as exc:
         raise WorkspaceError("workspace_io_error", f"{operation}: missing directory: {root}") from exc
     except NotADirectoryError as exc:
+        if _is_symlink_best_effort(str(root)):
+            raise WorkspaceError("symlink_rejected", f"{operation}: symbolic link rejected: {root}") from exc
         raise WorkspaceError("special_file_rejected", f"{operation}: not a directory: {root}") from exc
     except OSError as exc:
         if exc.errno == errno.ELOOP:
@@ -102,6 +121,8 @@ def _open_dir_no_follow(dir_fd: int, name: str, *, operation: str, path: str) ->
     except FileNotFoundError as exc:
         raise WorkspaceError("file_missing", f"{operation}: missing directory: {path}") from exc
     except NotADirectoryError as exc:
+        if _is_symlink_best_effort(name, dir_fd=dir_fd):
+            raise WorkspaceError("symlink_rejected", f"{operation}: symbolic link rejected: {path}") from exc
         raise WorkspaceError("special_file_rejected", f"{operation}: not a directory: {path}") from exc
     except OSError as exc:
         if exc.errno == errno.ELOOP:

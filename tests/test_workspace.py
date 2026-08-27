@@ -288,6 +288,21 @@ def test_show_reports_terminal_corruption_on_tampered_file(workspace_run):
     assert result["jobs"][0]["manifest_state"] == "corrupt"
 
 
+def test_show_reports_stale_manifest_temps(workspace_run):
+    temp = workspace_run.run_dir / f".manifest-{workspace_run.job_id}-crashed-finalize.tmp"
+    temp.write_bytes(b"partial manifest")
+
+    result = show_workspace(run_id=workspace_run.run_id, cwd=workspace_run.repo)
+
+    assert result["stale_manifest_temps"] == [str(temp)]
+
+
+def test_show_reports_no_stale_manifest_temps_when_none_exist(workspace_run):
+    result = show_workspace(run_id=workspace_run.run_id, cwd=workspace_run.repo)
+
+    assert result["stale_manifest_temps"] == []
+
+
 # --- file selection and path escapes --------------------------------------------
 
 
@@ -674,6 +689,60 @@ def test_copy_rejects_destination_equal_to_workspace_root(completed_run):
         copy_workspace(run_id=completed_run.run_id, destination=str(workspace_root), cwd=completed_run.repo)
 
     assert error.value.code == "destination_inside_workspace"
+
+
+def _filesystem_is_case_insensitive(parent) -> bool:
+    probe = parent / "swingle-case-probe"
+    probe.mkdir()
+    try:
+        return (parent / "SWINGLE-CASE-PROBE").exists()
+    finally:
+        probe.rmdir()
+
+
+def test_containment_rejects_case_aliased_workspace_path(completed_run):
+    import swingle.workspace as workspace_module
+
+    if not _filesystem_is_case_insensitive(completed_run.repo / ".swingle"):
+        pytest.skip("filesystem is case-sensitive; the alias cannot occur here")
+
+    aliased = completed_run.repo / ".SWINGLE" / "DELEGATE" / "somewhere"
+
+    with pytest.raises(WorkspaceError) as error:
+        workspace_module._reject_destination_inside_workspace(str(aliased), completed_run.repo / ".swingle" / "delegate")
+
+    assert error.value.code == "destination_inside_workspace"
+
+
+def test_containment_rejects_missing_leaf_below_workspace(completed_run):
+    import swingle.workspace as workspace_module
+
+    inside = completed_run.repo / ".swingle" / "delegate" / "new" / "deep"
+
+    with pytest.raises(WorkspaceError) as error:
+        workspace_module._reject_destination_inside_workspace(str(inside), completed_run.repo / ".swingle" / "delegate")
+
+    assert error.value.code == "destination_inside_workspace"
+
+
+def test_containment_accepts_outside_and_unrelated_missing_chains(completed_run, tmp_path):
+    import swingle.workspace as workspace_module
+
+    workspace_root = completed_run.repo / ".swingle" / "delegate"
+    outside = tmp_path / "elsewhere"
+    outside.mkdir()
+
+    workspace_module._reject_destination_inside_workspace(str(outside), workspace_root)
+    workspace_module._reject_destination_inside_workspace(str(tmp_path / "no" / "such" / "dir"), workspace_root)
+
+
+def test_containment_accepts_non_directory_chain_component(completed_run, tmp_path):
+    import swingle.workspace as workspace_module
+
+    blocker = tmp_path / "blocker"
+    blocker.write_bytes(b"not a directory")
+
+    workspace_module._reject_destination_inside_workspace(str(blocker / "below"), completed_run.repo / ".swingle" / "delegate")
 
 
 def test_show_to_reports_absent_for_missing_destination(completed_run, tmp_path):
@@ -1176,6 +1245,52 @@ def test_delete_run_apply_uses_exactly_one_rename(completed_run, monkeypatch):
     assert result["deleted_path"] == str(completed_run.run_dir)
     assert result["deleted_files"] == 2
     assert not completed_run.run_dir.exists()
+
+
+def test_delete_preview_reports_pending_deletion_temp_when_root_absent(completed_run):
+    import swingle.workspace as workspace_module
+
+    entries = workspace_module._scan_deletion_tree(completed_run.run_dir)
+    digest = workspace_module._deletion_digest(completed_run.run_id, None, entries)
+    temp_path = completed_run.run_dir.parent / f".swingle-delete-{completed_run.run_id}-run-{digest}"
+    os.rename(completed_run.run_dir, temp_path)
+
+    preview = preview_delete(run_id=completed_run.run_id, cwd=completed_run.repo)
+
+    assert preview["pending_deletion"] == {"temp_path": str(temp_path), "selection_sha256": digest}
+    assert preview["selection_sha256"] == digest
+    assert preview["directories"][0] == str(temp_path)
+    assert {item["path"] for item in preview["files"]} == {
+        f"{completed_run.job_id}/manifest.json",
+        f"{completed_run.job_id}/result.md",
+    }
+
+    result = apply_delete(run_id=completed_run.run_id, expected_selection_sha256=digest, cwd=completed_run.repo)
+
+    assert result["applied"] is True
+    assert not temp_path.exists()
+
+
+def test_delete_preview_reports_ambiguous_pending_deletion_without_digest(completed_run):
+    temp_a = completed_run.run_dir.parent / f".swingle-delete-{completed_run.run_id}-run-{'a' * 64}"
+    temp_b = completed_run.run_dir.parent / f".swingle-delete-{completed_run.run_id}-run-{'b' * 64}"
+    os.rename(completed_run.run_dir, temp_a)
+    temp_b.mkdir()
+
+    preview = preview_delete(run_id=completed_run.run_id, cwd=completed_run.repo)
+
+    assert preview["pending_deletion"] == {
+        "temp_paths": [str(temp_a), str(temp_b)],
+        "selection_sha256": None,
+    }
+    assert preview["directories"] == []
+
+    with pytest.raises(WorkspaceError) as error:
+        apply_delete(run_id=completed_run.run_id, expected_selection_sha256="0" * 64, cwd=completed_run.repo)
+
+    assert error.value.code == "selection_changed"
+    assert temp_a.is_dir()
+    assert temp_b.is_dir()
 
 
 def test_delete_job_apply_uses_exactly_one_rename(completed_run, monkeypatch):

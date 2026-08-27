@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import dataclass
 
 import pytest
@@ -8,7 +9,14 @@ import pytest
 from swingle.errors import LedgerLifecycleError, WorkspaceError
 from swingle.ledger import append_events, finalize_run, record_complete
 from swingle.ledger_schema import EventDraft
-from swingle.workspace import copy_workspace, discover_repository_root, show_workspace, verify_workspace
+from swingle.workspace import (
+    apply_delete,
+    copy_workspace,
+    discover_repository_root,
+    preview_delete,
+    show_workspace,
+    verify_workspace,
+)
 
 SESSION = "11111111-1111-4111-8111-111111111111"
 OTHER_SESSION = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
@@ -978,3 +986,271 @@ def test_copy_narrowed_selection_rejects_tampered_source_file(completed_run, tmp
         )
 
     assert error.value.code == "hash_mismatch"
+
+
+# --- delete: digest sensitivity ------------------------------------------------
+
+
+def test_delete_preview_digest_ignores_directory_metadata_changes(completed_run):
+    nested = completed_run.job_dir / "nested"
+    nested.mkdir()
+
+    before = preview_delete(run_id=completed_run.run_id, cwd=completed_run.repo)
+    os.chmod(nested, 0o700)
+    os.utime(nested, (1700000000, 1700000000))
+    after = preview_delete(run_id=completed_run.run_id, cwd=completed_run.repo)
+
+    assert before["selection_sha256"] == after["selection_sha256"]
+
+
+def test_delete_preview_digest_changes_with_file_bytes(completed_run):
+    before = preview_delete(run_id=completed_run.run_id, cwd=completed_run.repo)
+    (completed_run.job_dir / "result.md").write_bytes(b"RESULT\n")
+    after = preview_delete(run_id=completed_run.run_id, cwd=completed_run.repo)
+
+    assert before["selection_sha256"] != after["selection_sha256"]
+
+
+def test_delete_preview_digest_changes_with_file_size(completed_run):
+    before = preview_delete(run_id=completed_run.run_id, cwd=completed_run.repo)
+    (completed_run.job_dir / "result.md").write_bytes(b"result\nmore\n")
+    after = preview_delete(run_id=completed_run.run_id, cwd=completed_run.repo)
+
+    assert before["selection_sha256"] != after["selection_sha256"]
+
+
+def test_delete_preview_digest_changes_with_entry_type(completed_run):
+    marker = completed_run.job_dir / "marker"
+    marker.write_bytes(b"")
+    before = preview_delete(run_id=completed_run.run_id, cwd=completed_run.repo)
+
+    marker.unlink()
+    marker.mkdir()
+    after = preview_delete(run_id=completed_run.run_id, cwd=completed_run.repo)
+
+    assert before["selection_sha256"] != after["selection_sha256"]
+
+
+def test_delete_preview_digest_changes_with_file_path(completed_run):
+    extra = completed_run.job_dir / "extra.txt"
+    extra.write_bytes(b"same bytes")
+    before = preview_delete(run_id=completed_run.run_id, cwd=completed_run.repo)
+
+    extra.rename(completed_run.job_dir / "renamed.txt")
+    after = preview_delete(run_id=completed_run.run_id, cwd=completed_run.repo)
+
+    assert before["selection_sha256"] != after["selection_sha256"]
+
+
+def test_delete_preview_digest_changes_with_selector(completed_run):
+    run_scope = preview_delete(run_id=completed_run.run_id, cwd=completed_run.repo)
+    job_scope = preview_delete(run_id=completed_run.run_id, job_id=completed_run.job_id, cwd=completed_run.repo)
+
+    assert run_scope["selection_sha256"] != job_scope["selection_sha256"]
+    assert run_scope["directories"] == [str(completed_run.run_dir), str(completed_run.job_dir)]
+    assert job_scope["directories"] == [str(completed_run.job_dir)]
+
+
+# --- delete: preview contract ---------------------------------------------------
+
+
+def test_delete_preview_run_scope_includes_orphan_job_directory(completed_run):
+    orphan_dir = completed_run.run_dir / OTHER_JOB
+    orphan_dir.mkdir()
+    (orphan_dir / "leftover.txt").write_bytes(b"leftover")
+
+    preview = preview_delete(run_id=completed_run.run_id, cwd=completed_run.repo)
+
+    assert str(orphan_dir) in preview["directories"]
+    paths = {item["path"] for item in preview["files"]}
+    assert f"{OTHER_JOB}/leftover.txt" in paths
+
+
+def test_delete_preview_job_scope_includes_only_the_selected_job_directory(completed_run):
+    orphan_dir = completed_run.run_dir / OTHER_JOB
+    orphan_dir.mkdir()
+    (orphan_dir / "leftover.txt").write_bytes(b"leftover")
+
+    preview = preview_delete(run_id=completed_run.run_id, job_id=completed_run.job_id, cwd=completed_run.repo)
+
+    assert preview["directories"] == [str(completed_run.job_dir)]
+    paths = {item["path"] for item in preview["files"]}
+    assert paths == {"manifest.json", "result.md"}
+
+
+def test_delete_run_scope_requires_run_completed(workspace_run):
+    with pytest.raises(WorkspaceError) as error:
+        preview_delete(run_id=workspace_run.run_id, cwd=workspace_run.repo)
+
+    assert error.value.code == "run_not_complete"
+
+
+def test_delete_job_scope_requires_terminal_job(tmp_path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    ledger_dir = repo / ".swingle" / "delegate" / "ledger"
+    _allocate(repo, ledger_dir)
+
+    with pytest.raises(WorkspaceError) as error:
+        preview_delete(run_id=RUN, job_id=JOB, cwd=repo)
+
+    assert error.value.code == "job_not_terminal"
+
+
+def test_delete_preview_rejects_symlink(completed_run, tmp_path):
+    outside = tmp_path / "outside.txt"
+    outside.write_text("x", encoding="utf-8")
+    (completed_run.job_dir / "linked").symlink_to(outside)
+
+    with pytest.raises(WorkspaceError) as error:
+        preview_delete(run_id=completed_run.run_id, cwd=completed_run.repo)
+
+    assert error.value.code == "symlink_rejected"
+    assert completed_run.job_dir.exists()
+
+
+# --- delete: apply contract ------------------------------------------------------
+
+
+def test_delete_apply_rejects_changed_selection(completed_run):
+    preview = preview_delete(run_id=completed_run.run_id, cwd=completed_run.repo)
+    (completed_run.job_dir / "result.md").write_bytes(b"tampered")
+
+    with pytest.raises(WorkspaceError) as error:
+        apply_delete(run_id=completed_run.run_id, expected_selection_sha256=preview["selection_sha256"], cwd=completed_run.repo)
+
+    assert error.value.code == "selection_changed"
+    assert (completed_run.job_dir / "result.md").exists()
+
+
+def test_delete_apply_rejects_symlink_and_deletes_nothing(completed_run, tmp_path):
+    outside = tmp_path / "outside.txt"
+    outside.write_text("x", encoding="utf-8")
+    (completed_run.job_dir / "linked").symlink_to(outside)
+
+    with pytest.raises(WorkspaceError) as error:
+        apply_delete(run_id=completed_run.run_id, expected_selection_sha256="0" * 64, cwd=completed_run.repo)
+
+    assert error.value.code == "symlink_rejected"
+    assert completed_run.run_dir.exists()
+    assert (completed_run.job_dir / "linked").is_symlink()
+
+
+def test_delete_apply_rejects_special_file(completed_run):
+    fifo_path = completed_run.job_dir / "pipe"
+    os.mkfifo(fifo_path)
+
+    with pytest.raises(WorkspaceError) as error:
+        apply_delete(run_id=completed_run.run_id, expected_selection_sha256="0" * 64, cwd=completed_run.repo)
+
+    assert error.value.code == "special_file_rejected"
+    assert completed_run.run_dir.exists()
+
+
+def test_delete_apply_never_touches_ledger_file(completed_run):
+    preview = preview_delete(run_id=completed_run.run_id, cwd=completed_run.repo)
+    ledger_file = next(completed_run.ledger_dir.glob("*.ndjson"))
+    before = ledger_file.read_bytes()
+
+    apply_delete(run_id=completed_run.run_id, expected_selection_sha256=preview["selection_sha256"], cwd=completed_run.repo)
+
+    assert ledger_file.read_bytes() == before
+
+
+def test_delete_run_apply_uses_exactly_one_rename(completed_run, monkeypatch):
+    import swingle.workspace as workspace_module
+
+    preview = preview_delete(run_id=completed_run.run_id, cwd=completed_run.repo)
+    real_rename = workspace_module.os.rename
+    calls = []
+
+    def counting_rename(*args, **kwargs):
+        calls.append((args, kwargs))
+        return real_rename(*args, **kwargs)
+
+    monkeypatch.setattr(workspace_module.os, "rename", counting_rename)
+
+    result = apply_delete(run_id=completed_run.run_id, expected_selection_sha256=preview["selection_sha256"], cwd=completed_run.repo)
+
+    assert len(calls) == 1
+    assert result["deleted_path"] == str(completed_run.run_dir)
+    assert result["deleted_files"] == 2
+    assert not completed_run.run_dir.exists()
+
+
+def test_delete_job_apply_uses_exactly_one_rename(completed_run, monkeypatch):
+    import swingle.workspace as workspace_module
+
+    preview = preview_delete(run_id=completed_run.run_id, job_id=completed_run.job_id, cwd=completed_run.repo)
+    real_rename = workspace_module.os.rename
+    calls = []
+
+    def counting_rename(*args, **kwargs):
+        calls.append((args, kwargs))
+        return real_rename(*args, **kwargs)
+
+    monkeypatch.setattr(workspace_module.os, "rename", counting_rename)
+
+    result = apply_delete(
+        run_id=completed_run.run_id, job_id=completed_run.job_id,
+        expected_selection_sha256=preview["selection_sha256"], cwd=completed_run.repo,
+    )
+
+    assert len(calls) == 1
+    assert result["deleted_path"] == str(completed_run.job_dir)
+    assert not completed_run.job_dir.exists()
+    assert completed_run.run_dir.exists()
+
+
+def test_delete_apply_recursive_failure_reports_temp_path_and_resumes(completed_run, monkeypatch):
+    import swingle.workspace as workspace_module
+
+    preview = preview_delete(run_id=completed_run.run_id, cwd=completed_run.repo)
+    digest = preview["selection_sha256"]
+    real_delete_tree_at = workspace_module.workspace_io.delete_tree_at
+    state = {"failed": False}
+
+    def failing_delete_tree_at(parent_fd, name):
+        if not state["failed"]:
+            state["failed"] = True
+            raise WorkspaceError("workspace_io_error", "delete: simulated failure")
+        return real_delete_tree_at(parent_fd, name)
+
+    monkeypatch.setattr(workspace_module.workspace_io, "delete_tree_at", failing_delete_tree_at)
+
+    with pytest.raises(WorkspaceError) as error:
+        apply_delete(run_id=completed_run.run_id, expected_selection_sha256=digest, cwd=completed_run.repo)
+
+    assert error.value.code == "workspace_io_error"
+    assert not completed_run.run_dir.exists()
+    temp_path = completed_run.run_dir.parent / f".swingle-delete-{completed_run.run_id}-run-{digest}"
+    assert temp_path.is_dir()
+    assert str(temp_path) in str(error.value)
+
+    result = apply_delete(run_id=completed_run.run_id, expected_selection_sha256=digest, cwd=completed_run.repo)
+
+    assert result["applied"] is True
+    assert result["deleted_path"] == str(completed_run.run_dir)
+    assert not temp_path.exists()
+
+
+def test_delete_zero_job_run_previews_empty_and_applies_idempotent_noop(tmp_path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    ledger_dir = repo / ".swingle" / "delegate" / "ledger"
+    append_events(ledger_dir, SESSION, [draft("run-started", data={"kind": "batch"})])
+    finalize_run(repo, ledger_dir, SESSION, RUN)
+
+    preview = preview_delete(run_id=RUN, cwd=repo)
+    assert preview["directories"] == []
+    assert preview["files"] == []
+    assert preview["byte_count"] == 0
+
+    result = apply_delete(run_id=RUN, expected_selection_sha256=preview["selection_sha256"], cwd=repo)
+    assert result["applied"] is True
+    assert result["deleted_path"] is None
+    assert result["deleted_files"] == 0
+    assert result["deleted_bytes"] == 0
+
+    repeated = apply_delete(run_id=RUN, expected_selection_sha256=preview["selection_sha256"], cwd=repo)
+    assert repeated == result

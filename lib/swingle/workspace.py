@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import errno
+import fcntl
 import hashlib
 import json
 import os
@@ -124,15 +125,36 @@ def _job_relative_paths(
     return by_job
 
 
-def _select_workspace(
+@dataclass(frozen=True)
+class _LedgerScope:
+    repository_root: Path
+    workspace_root: Path
+    ledger_dir: Path
+    artifact_root: Path
+    controller_session_id: str
+    run_status: str | None
+    run_complete: bool
+    events: tuple[dict[str, Any], ...]
+    matching_records: tuple[LedgerRecord, ...]
+    allocation_events: dict[str, dict[str, Any]]
+    selected_job_ids: tuple[str, ...]
+
+
+def _resolve_ledger_scope(
     *,
     run_id: str,
     job_id: str | None,
-    file_paths: Sequence[str],
     require_terminal_job: bool,
     require_complete_run: bool,
     cwd: Path,
-) -> WorkspaceSelection:
+) -> _LedgerScope:
+    """Discover the workspace and resolve the ledger-derived run/job scope.
+
+    Shared by every workspace operation. Validates identity, repository
+    and workspace presence, run completeness, job allocation, and job
+    terminality. Never inspects a manifest: manifest validity is each
+    caller's own concern (copy and show require it; deletion does not).
+    """
     ledger_schema.validate_uuid(run_id, "run_id")
     if job_id is not None:
         ledger_schema.validate_uuid(job_id, "job_id")
@@ -154,7 +176,7 @@ def _select_workspace(
         raise LedgerLifecycleError(f"run_id is duplicated across session ledgers: {run_id}")
     controller_session_id = next(iter(sessions))
 
-    events = [record.event for record in matching_records]
+    events = tuple(record.event for record in matching_records)
     run_status: str | None = None
     run_complete = False
     for event in events:
@@ -176,6 +198,55 @@ def _select_workspace(
     else:
         selected_job_ids = tuple(allocation_events)
 
+    if require_terminal_job:
+        for selected_job_id in selected_job_ids:
+            job_events = [event for event in events if event["job_id"] == selected_job_id]
+            if not any(event["event"] == "complete" for event in job_events):
+                raise WorkspaceError("job_not_terminal", f"job is not terminal: {selected_job_id}")
+
+    return _LedgerScope(
+        repository_root=repository_root,
+        workspace_root=workspace_root,
+        ledger_dir=ledger_dir,
+        artifact_root=artifact_root,
+        controller_session_id=controller_session_id,
+        run_status=run_status,
+        run_complete=run_complete,
+        events=events,
+        matching_records=matching_records,
+        allocation_events=allocation_events,
+        selected_job_ids=selected_job_ids,
+    )
+
+
+def _select_workspace(
+    *,
+    run_id: str,
+    job_id: str | None,
+    file_paths: Sequence[str],
+    require_terminal_job: bool,
+    require_complete_run: bool,
+    cwd: Path,
+) -> WorkspaceSelection:
+    scope = _resolve_ledger_scope(
+        run_id=run_id,
+        job_id=job_id,
+        require_terminal_job=require_terminal_job,
+        require_complete_run=require_complete_run,
+        cwd=cwd,
+    )
+    repository_root = scope.repository_root
+    workspace_root = scope.workspace_root
+    ledger_dir = scope.ledger_dir
+    artifact_root = scope.artifact_root
+    controller_session_id = scope.controller_session_id
+    run_status = scope.run_status
+    run_complete = scope.run_complete
+    events = scope.events
+    matching_records = scope.matching_records
+    allocation_events = scope.allocation_events
+    selected_job_ids = scope.selected_job_ids
+
     raw_file_paths = _dedupe_preserve_order(tuple(file_paths))
     file_filter_active = bool(raw_file_paths)
     files_by_job = _job_relative_paths(raw_file_paths, job_id=job_id, allocated_job_ids=set(allocation_events))
@@ -189,8 +260,6 @@ def _select_workspace(
         complete_events = [event for event in job_events if event["event"] == "complete"]
         dispatched_events = [event for event in job_events if event["event"] == "dispatched"]
         is_terminal = bool(complete_events)
-        if require_terminal_job and not is_terminal:
-            raise WorkspaceError("job_not_terminal", f"job is not terminal: {selected_job_id}")
 
         terminal_status = complete_events[-1]["data"]["status"] if complete_events else None
         provider = dispatched_events[-1]["data"]["provider"] if dispatched_events else None
@@ -741,5 +810,223 @@ def copy_workspace(
         "file_count": file_count,
         "byte_count": byte_count,
         "tree_sha256": _tree_sha256(tree_facts),
+        "errors": [],
+    }
+
+
+def _deletion_root(scope: _LedgerScope, run_id: str, job_id: str | None) -> Path | None:
+    """Return the selected artifact root, or `None` for a zero-job run.
+
+    A run selector with allocated jobs targets the exact run directory
+    (including any orphan job directory, since apply removes the whole
+    run directory). A job selector targets the exact job directory. A
+    completed run with zero allocated jobs has no artifact directory.
+    """
+    if job_id is not None:
+        return scope.artifact_root / run_id / job_id
+    if not scope.allocation_events:
+        return None
+    return scope.artifact_root / run_id
+
+
+def _scan_deletion_tree(root: Path) -> tuple[TreeFact, ...]:
+    """Walk every entry below `root`, rejecting a symlink or special file.
+
+    Returns every directory and file, in unsigned UTF-8 path order,
+    relative to `root`. Unlike copy's tree walk, nothing here is
+    ledger-derived: deletion scans exactly what is on disk, including an
+    orphan directory a run selector must still remove.
+    """
+    root_fd = workspace_io._open_dir_no_follow_path(root, operation="delete")
+    try:
+        return workspace_io.verify_regular_tree_at(
+            root_fd, (), reject_unlisted_files=False, reject_unlisted_directories=False
+        )
+    finally:
+        os.close(root_fd)
+
+
+def _deletion_digest(run_id: str, job_id: str | None, entries: Sequence[TreeFact]) -> str:
+    """Compute the stateless selection digest over the canonical preimage.
+
+    Directory metadata never changes the digest: a directory entry always
+    contributes `size_bytes: 0` and `sha256: None`. Any file byte, size,
+    type, path, or selector change does.
+    """
+    payload = {
+        "selector": {"run_id": run_id, "job_id": job_id},
+        "entries": [
+            {
+                "path": fact.path,
+                "type": fact.entry_type,
+                "size_bytes": 0 if fact.entry_type == "directory" else fact.size_bytes,
+                "sha256": None if fact.entry_type == "directory" else fact.sha256,
+            }
+            for fact in entries
+        ],
+    }
+    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def preview_delete(*, run_id: str, job_id: str | None = None, cwd: Path | None = None) -> dict[str, Any]:
+    """Preview an exact run or job deletion selection. Changes nothing.
+
+    Returns exact directories, files, byte count, and a stateless digest
+    over the selector and selection. Writes no plan file, marker, or
+    receipt.
+    """
+    resolved_cwd = Path(cwd) if cwd is not None else Path.cwd()
+    scope = _resolve_ledger_scope(
+        run_id=run_id,
+        job_id=job_id,
+        require_terminal_job=True,
+        require_complete_run=(job_id is None),
+        cwd=resolved_cwd,
+    )
+    selected_root = _deletion_root(scope, run_id, job_id)
+
+    entries: tuple[TreeFact, ...] = () if selected_root is None else _scan_deletion_tree(selected_root)
+
+    directories: list[str] = []
+    files: list[dict[str, Any]] = []
+    if selected_root is not None:
+        directories.append(str(selected_root))
+    for fact in entries:
+        absolute = str(selected_root / fact.path)
+        if fact.entry_type == "directory":
+            directories.append(absolute)
+        else:
+            files.append({"path": fact.path, "size_bytes": fact.size_bytes, "sha256": fact.sha256})
+
+    byte_count = sum(item["size_bytes"] for item in files)
+
+    return {
+        "run_id": run_id,
+        "job_id": job_id,
+        "directories": directories,
+        "files": files,
+        "byte_count": byte_count,
+        "selection_sha256": _deletion_digest(run_id, job_id, entries),
+        "applied": False,
+        "errors": [],
+    }
+
+
+def _deletion_temp_prefix(run_id: str, job_id: str | None) -> str:
+    return f".swingle-delete-{run_id}-{job_id or 'run'}-"
+
+
+def _find_matching_temps(parent_fd: int, prefix: str) -> list[str]:
+    try:
+        names = os.listdir(parent_fd)
+    except OSError as exc:
+        raise workspace_io._io_error("delete", "<directory>", exc) from exc
+    return sorted(name for name in names if name.startswith(prefix))
+
+
+def apply_delete(
+    *,
+    run_id: str,
+    expected_selection_sha256: str,
+    job_id: str | None = None,
+    cwd: Path | None = None,
+) -> dict[str, Any]:
+    """Apply a previously previewed deletion, rejecting a changed selection.
+
+    Rebuilds the selection under the workspace's exclusive lock and
+    rejects a digest that no longer matches. Renames the selection to an
+    internal deletion name in one rename, then deletes that tree without
+    following a symbolic link. A repeated apply with the same selector
+    and digest resumes a tree a prior failed deletion left behind. Never
+    deletes a ledger file.
+    """
+    resolved_cwd = Path(cwd) if cwd is not None else Path.cwd()
+    scope = _resolve_ledger_scope(
+        run_id=run_id,
+        job_id=job_id,
+        require_terminal_job=True,
+        require_complete_run=(job_id is None),
+        cwd=resolved_cwd,
+    )
+    selected_root = _deletion_root(scope, run_id, job_id)
+
+    if selected_root is None:
+        digest = _deletion_digest(run_id, job_id, ())
+        if digest != expected_selection_sha256:
+            raise WorkspaceError("selection_changed", f"delete: selection changed for run: {run_id}")
+        return {
+            "run_id": run_id,
+            "job_id": job_id,
+            "selection_sha256": digest,
+            "deleted_path": None,
+            "deleted_files": 0,
+            "deleted_bytes": 0,
+            "applied": True,
+            "errors": [],
+        }
+
+    parent_dir = selected_root.parent
+    name = selected_root.name
+    temp_prefix = _deletion_temp_prefix(run_id, job_id)
+
+    workspace_fd = workspace_io._open_dir_no_follow_path(scope.workspace_root, operation="delete")
+    try:
+        fcntl.flock(workspace_fd, fcntl.LOCK_EX)
+        try:
+            parent_fd = workspace_io._open_dir_no_follow_path(parent_dir, operation="delete")
+            try:
+                if selected_root.exists():
+                    entries = _scan_deletion_tree(selected_root)
+                    digest = _deletion_digest(run_id, job_id, entries)
+                    if digest != expected_selection_sha256:
+                        raise WorkspaceError("selection_changed", f"delete: selection changed: {selected_root}")
+                    target_name = f"{temp_prefix}{expected_selection_sha256}"
+                    try:
+                        os.rename(name, target_name, src_dir_fd=parent_fd, dst_dir_fd=parent_fd)
+                    except OSError as exc:
+                        raise workspace_io._io_error("delete", str(selected_root), exc) from exc
+                else:
+                    matches = _find_matching_temps(parent_fd, temp_prefix)
+                    if len(matches) > 1:
+                        raise WorkspaceError(
+                            "selection_changed", f"delete: multiple temporary trees for selector: {temp_prefix}"
+                        )
+                    if not matches:
+                        raise WorkspaceError(
+                            "selection_changed",
+                            f"delete: selection is absent and no temporary tree exists: {selected_root}",
+                        )
+                    target_name = matches[0]
+                    found_digest = target_name[len(temp_prefix):]
+                    if found_digest != expected_selection_sha256:
+                        raise WorkspaceError("selection_changed", f"delete: temporary tree digest mismatch: {target_name}")
+                    entries = _scan_deletion_tree(parent_dir / target_name)
+
+                try:
+                    workspace_io.delete_tree_at(parent_fd, target_name)
+                except WorkspaceError as exc:
+                    raise WorkspaceError(
+                        exc.code, f"delete: recursive deletion failed, tree kept at: {parent_dir / target_name}"
+                    ) from exc
+                os.fsync(parent_fd)
+            finally:
+                os.close(parent_fd)
+        finally:
+            fcntl.flock(workspace_fd, fcntl.LOCK_UN)
+    finally:
+        os.close(workspace_fd)
+
+    deleted_files = sum(1 for fact in entries if fact.entry_type == "file")
+    deleted_bytes = sum(fact.size_bytes for fact in entries if fact.entry_type == "file")
+
+    return {
+        "run_id": run_id,
+        "job_id": job_id,
+        "selection_sha256": expected_selection_sha256,
+        "deleted_path": str(selected_root),
+        "deleted_files": deleted_files,
+        "deleted_bytes": deleted_bytes,
+        "applied": True,
         "errors": [],
     }

@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from .workspace import copy_workspace, show_workspace, verify_workspace
+from .workspace import apply_delete, copy_workspace, preview_delete, show_workspace, verify_workspace
 
 
 def add_workspace_parser(commands: Any, parser_class: Any) -> None:
@@ -28,6 +28,13 @@ def add_workspace_parser(commands: Any, parser_class: Any) -> None:
     copy.add_argument("--file", action="append", default=[])
     copy.add_argument("--to", required=True)
     copy.add_argument("--json", action="store_true")
+
+    delete = workspace_commands.add_parser("delete")
+    delete.add_argument("--run", required=True)
+    delete.add_argument("--job")
+    delete.add_argument("--expect-selection-sha256")
+    delete.add_argument("--apply", action="store_true")
+    delete.add_argument("--json", action="store_true")
 
 
 def _render_show_text(result: dict[str, Any]) -> str:
@@ -68,6 +75,24 @@ def _render_copy_text(result: dict[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _render_delete_text(result: dict[str, Any]) -> str:
+    if result["applied"]:
+        lines = [
+            f"run {result['run_id']} job {result['job_id']} applied=true",
+            f"deleted_path={result['deleted_path']}",
+            f"deleted_files={result['deleted_files']} deleted_bytes={result['deleted_bytes']}",
+        ]
+        return "\n".join(lines) + "\n"
+    lines = [
+        f"run {result['run_id']} job {result['job_id']} applied=false",
+        f"selection_sha256={result['selection_sha256']}",
+        f"byte_count={result['byte_count']}",
+    ]
+    lines.extend(f"dir {path}" for path in result["directories"])
+    lines.extend(f"file {item['path']} ({item['size_bytes']}B)" for item in result["files"])
+    return "\n".join(lines) + "\n"
+
+
 def handle_workspace(args: Any, *, cwd: Path) -> dict[str, Any] | str:
     if args.workspace_command == "show":
         result = show_workspace(
@@ -82,4 +107,17 @@ def handle_workspace(args: Any, *, cwd: Path) -> dict[str, Any] | str:
             run_id=args.run, job_id=args.job, file_paths=tuple(args.file), destination=args.to, cwd=cwd
         )
         return result if args.json else _render_copy_text(result)
+    if args.workspace_command == "delete":
+        if args.apply and args.expect_selection_sha256 is None:
+            raise ValueError("--apply requires --expect-selection-sha256")
+        if args.expect_selection_sha256 is not None and not args.apply:
+            raise ValueError("--expect-selection-sha256 requires --apply")
+        if args.apply:
+            result = apply_delete(
+                run_id=args.run, job_id=args.job,
+                expected_selection_sha256=args.expect_selection_sha256, cwd=cwd,
+            )
+        else:
+            result = preview_delete(run_id=args.run, job_id=args.job, cwd=cwd)
+        return result if args.json else _render_delete_text(result)
     raise ValueError(f"unsupported workspace command: {args.workspace_command}")

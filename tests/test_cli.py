@@ -596,3 +596,76 @@ def test_workspace_copy_cli_rejects_destination_inside_workspace(tmp_path):
     payload = json.loads(result.stdout)
     assert payload["code"] == "destination_inside_workspace"
     assert not inside.exists()
+
+
+def test_workspace_delete_cli_preview_reports_selection_and_digest(tmp_path):
+    project, run_id, job_id = _begin_and_finish_via_cli(tmp_path)
+
+    result = run_cli("workspace", "delete", "--run", run_id, "--json", cwd=str(project))
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    payload = json.loads(result.stdout)
+    assert payload["applied"] is False
+    assert payload["selection_sha256"]
+    paths = {item["path"] for item in payload["files"]}
+    assert paths == {f"{job_id}/manifest.json", f"{job_id}/result.md"}
+    job_dir = Path(project) / ".swingle" / "delegate" / "artifacts" / run_id / job_id
+    assert (job_dir / "result.md").exists()
+
+
+def test_workspace_delete_cli_apply_deletes_selection(tmp_path):
+    project, run_id, job_id = _begin_and_finish_via_cli(tmp_path)
+    preview = run_cli("workspace", "delete", "--run", run_id, "--json", cwd=str(project))
+    digest = json.loads(preview.stdout)["selection_sha256"]
+
+    result = run_cli(
+        "workspace", "delete", "--run", run_id,
+        "--expect-selection-sha256", digest, "--apply", "--json", cwd=str(project),
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    payload = json.loads(result.stdout)
+    assert payload["applied"] is True
+    assert payload["deleted_files"] == 2
+    run_dir = Path(project) / ".swingle" / "delegate" / "artifacts" / run_id
+    assert not run_dir.exists()
+    ledger_file = next((Path(project) / ".swingle" / "delegate" / "ledger").glob("*.ndjson"))
+    assert ledger_file.exists()
+
+
+def test_workspace_delete_cli_apply_requires_expect_selection_sha256(tmp_path):
+    project, run_id, job_id = _begin_and_finish_via_cli(tmp_path)
+
+    result = run_cli("workspace", "delete", "--run", run_id, "--apply", "--json", cwd=str(project))
+
+    assert result.returncode == 1
+    payload = json.loads(result.stdout)
+    assert "code" not in payload
+    assert payload["errors"]
+    job_dir = Path(project) / ".swingle" / "delegate" / "artifacts" / run_id / job_id
+    assert (job_dir / "result.md").exists()
+
+
+def test_workspace_delete_cli_expect_selection_sha256_requires_apply(tmp_path):
+    project, run_id, job_id = _begin_and_finish_via_cli(tmp_path)
+
+    result = run_cli(
+        "workspace", "delete", "--run", run_id,
+        "--expect-selection-sha256", "0" * 64, "--json", cwd=str(project),
+    )
+
+    assert result.returncode == 1
+    payload = json.loads(result.stdout)
+    assert "code" not in payload
+    assert payload["errors"]
+
+
+def test_workspace_delete_cli_text_output_by_default(tmp_path):
+    project, run_id, job_id = _begin_and_finish_via_cli(tmp_path)
+
+    result = run_cli("workspace", "delete", "--run", run_id, cwd=str(project))
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "applied=false" in result.stdout
+    with pytest.raises(json.JSONDecodeError):
+        json.loads(result.stdout)

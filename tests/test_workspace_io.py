@@ -192,8 +192,14 @@ def test_scan_detects_file_replaced_during_read(tmp_path, monkeypatch):
         calls["n"] += 1
         if calls["n"] == 2 and kwargs.get("dir_fd") is not None and not kwargs.get("follow_symlinks", True):
             # Simulate the file being replaced between hash and re-inspection.
-            target.unlink()
-            target.write_bytes(b"replaced-with-different-length")
+            # Write the replacement at a distinct path first, while the
+            # original inode is still live, then rename it over the
+            # original. This guarantees a different (dev, ino) pair on
+            # POSIX regardless of how eagerly a filesystem (e.g. tmpfs on
+            # CI) recycles a freed inode number after unlink+recreate.
+            replacement = target.with_name("result.md.replacement")
+            replacement.write_bytes(b"replaced-with-different-length")
+            os.replace(replacement, target)
         return real_stat(path, *args, **kwargs)
 
     monkeypatch.setattr(workspace_io.os, "stat", flaky_stat)

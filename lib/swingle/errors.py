@@ -22,3 +22,14 @@ class LedgerEventTooLarge(LedgerValidationError):
 
 class LedgerLifecycleError(LedgerValidationError):
     code = "ledger_invalid_lifecycle"
+
+
+class WorkspaceError(SwingleError):
+    """Raised for a workspace-command domain failure with a stable code.
+
+    The message always starts with the code, followed by the operation and
+    the exact path or identity that caused the failure.
+    """
+
+    def __init__(self, code: str, message: str) -> None:
+        super().__init__(f"{code}: {message}", code)

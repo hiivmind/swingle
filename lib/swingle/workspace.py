@@ -447,12 +447,44 @@ def _tree_sha256(facts: Sequence[TreeFact]) -> str:
 
 
 def _reject_destination_inside_workspace(destination_abs: str, workspace_root: Path) -> None:
-    workspace_abs = os.path.normpath(str(workspace_root))
-    dest_norm = os.path.normpath(destination_abs)
-    if dest_norm == workspace_abs or dest_norm.startswith(workspace_abs + os.sep):
-        raise WorkspaceError(
-            "destination_inside_workspace", f"copy: destination is inside the live workspace: {destination_abs}"
-        )
+    """Reject a destination that resolves inside the live workspace.
+
+    Compares every existing component of the destination's path chain,
+    including the final name, against the workspace root's device and
+    inode through no-follow lookups. A lexical prefix comparison misses
+    case-insensitive aliases such as `.Swingle/DelEGATE` on APFS, which
+    resolve to the workspace while remaining genuine directories.
+    """
+    workspace_fd = workspace_io._open_dir_no_follow_path(workspace_root, operation="copy")
+    try:
+        workspace_identity = os.fstat(workspace_fd)
+    finally:
+        os.close(workspace_fd)
+
+    parent_path, name = os.path.split(os.path.normpath(destination_abs))
+    components = [component for component in parent_path.split(os.sep) if component]
+    fd = os.open("/", workspace_io._DIR_NOFOLLOW)
+    try:
+        for component in [*components, name]:
+            try:
+                entry_stat = os.stat(component, dir_fd=fd, follow_symlinks=False)
+            except (FileNotFoundError, NotADirectoryError):
+                return
+            if (
+                entry_stat.st_dev == workspace_identity.st_dev
+                and entry_stat.st_ino == workspace_identity.st_ino
+            ):
+                raise WorkspaceError(
+                    "destination_inside_workspace",
+                    f"copy: destination is inside the live workspace: {destination_abs}",
+                )
+            if not stat.S_ISDIR(entry_stat.st_mode):
+                return
+            next_fd = workspace_io._open_dir_no_follow(fd, component, operation="copy", path=component)
+            os.close(fd)
+            fd = next_fd
+    finally:
+        os.close(fd)
 
 
 def _inspect_destination_state(destination_abs: str, expected: tuple[TreeFact, ...]) -> str:
@@ -629,6 +661,15 @@ def show_workspace(
     orphan_job_ids = _allocated_job_ids(selection.ledger_dir, run_id)
     orphans = _orphan_artifact_directories(selection.artifact_root, run_id, orphan_job_ids)
 
+    stale_manifest_temps: list[str] = []
+    run_dir = selection.artifact_root / run_id
+    if run_dir.is_dir():
+        stale_manifest_temps = [
+            str(run_dir / entry.name)
+            for entry in sorted(run_dir.iterdir())
+            if entry.name.startswith(".manifest-") and entry.name.endswith(".tmp")
+        ]
+
     jobs_payload = [
         {
             "job_id": job.job_id,
@@ -661,6 +702,7 @@ def show_workspace(
         "destination": destination_abs,
         "destination_state": destination_state,
         "errors": [],
+        "stale_manifest_temps": stale_manifest_temps,
     }
 
 
@@ -886,14 +928,40 @@ def preview_delete(*, run_id: str, job_id: str | None = None, cwd: Path | None =
     )
     selected_root = _deletion_root(scope, run_id, job_id)
 
-    entries: tuple[TreeFact, ...] = () if selected_root is None else _scan_deletion_tree(selected_root)
+    pending_deletion: dict[str, Any] | None = None
+    scan_root = selected_root
+    if selected_root is not None and not selected_root.exists():
+        # The selection root is gone but an interrupted apply may have
+        # left the renamed deletion temp beside it. Report that tree so a
+        # caller can resume the apply without knowing the prior digest.
+        temp_prefix = _deletion_temp_prefix(run_id, job_id)
+        parent_fd = workspace_io._open_dir_no_follow_path(selected_root.parent, operation="delete")
+        try:
+            matches = _find_matching_temps(parent_fd, temp_prefix)
+        finally:
+            os.close(parent_fd)
+        if len(matches) == 1:
+            temp_path = selected_root.parent / matches[0]
+            pending_deletion = {
+                "temp_path": str(temp_path),
+                "selection_sha256": matches[0][len(temp_prefix) :],
+            }
+            scan_root = temp_path
+        elif len(matches) > 1:
+            pending_deletion = {
+                "temp_paths": [str(selected_root.parent / match) for match in matches],
+                "selection_sha256": None,
+            }
+            scan_root = None
+
+    entries: tuple[TreeFact, ...] = () if scan_root is None else _scan_deletion_tree(scan_root)
 
     directories: list[str] = []
     files: list[dict[str, Any]] = []
-    if selected_root is not None:
-        directories.append(str(selected_root))
+    if scan_root is not None:
+        directories.append(str(scan_root))
     for fact in entries:
-        absolute = str(selected_root / fact.path)
+        absolute = str(scan_root / fact.path)
         if fact.entry_type == "directory":
             directories.append(absolute)
         else:
@@ -901,13 +969,19 @@ def preview_delete(*, run_id: str, job_id: str | None = None, cwd: Path | None =
 
     byte_count = sum(item["size_bytes"] for item in files)
 
+    if pending_deletion is not None:
+        selection_sha256: str | None = pending_deletion["selection_sha256"]
+    else:
+        selection_sha256 = _deletion_digest(run_id, job_id, entries)
+
     return {
         "run_id": run_id,
         "job_id": job_id,
+        "pending_deletion": pending_deletion,
         "directories": directories,
         "files": files,
         "byte_count": byte_count,
-        "selection_sha256": _deletion_digest(run_id, job_id, entries),
+        "selection_sha256": selection_sha256,
         "applied": False,
         "errors": [],
     }

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import heapq
 import json
 import re
 import sys
@@ -13,6 +12,8 @@ from .ledger import (
     begin_direct,
     finalize_run,
     finish_direct,
+    iter_event_records,
+    record_complete,
     record_event,
     start_run,
 )
@@ -153,9 +154,10 @@ def command_record(args: Any) -> dict[str, Any]:
         _required(args, "attempt", "provider_session_id", "reason")
         data = {"attempt": args.attempt, "provider_session_id": args.provider_session_id, "reason": args.reason}
     elif event == "complete":
-        _required(args, "status", "outcome", "evidence_file", "completion_file")
+        _required(args, "project", "status", "outcome", "evidence_file", "completion_file")
         completion = _completion(args)
-        data = {"status": args.status, "outcome": args.outcome, "evidence": _evidence(args), **completion}
+        result = record_complete(project=_path(args.project), ledger_dir=_path(args.dir), controller_session_id=args.controller_session_id, run_id=args.run_id, job_id=args.job_id, provider_outcome=completion["provider_outcome"], repository_verification=completion["repository_verification"], outcome=args.outcome, evidence=_evidence(args), status=args.status)
+        return _json_paths(result)
     else:
         raise LedgerValidationError(f"unsupported record event {event!r}")
     return _json_paths(record_event(ledger_dir=_path(args.dir), controller_session_id=args.controller_session_id, run_id=args.run_id, event=event, data=data, job_id=args.job_id))
@@ -171,15 +173,15 @@ def _nullable_float(value: str | None) -> float | None:
 
 
 def command_finish_direct(args: Any) -> dict[str, Any]:
-    _required(args, "dir", "controller_session_id", "run_id", "job_id", "status", "outcome", "evidence_file", "completion_file")
+    _required(args, "project", "dir", "controller_session_id", "run_id", "job_id", "status", "outcome", "evidence_file", "completion_file")
     completion = _completion(args)
-    result = finish_direct(ledger_dir=_path(args.dir), controller_session_id=args.controller_session_id, run_id=args.run_id, job_id=args.job_id, provider_outcome=completion["provider_outcome"], repository_verification=completion["repository_verification"], outcome=args.outcome, evidence=_evidence(args), status=args.status, provider_session_id=args.provider_session_id)
+    result = finish_direct(project=_path(args.project), ledger_dir=_path(args.dir), controller_session_id=args.controller_session_id, run_id=args.run_id, job_id=args.job_id, provider_outcome=completion["provider_outcome"], repository_verification=completion["repository_verification"], outcome=args.outcome, evidence=_evidence(args), status=args.status, provider_session_id=args.provider_session_id)
     return _json_paths(result)
 
 
 def command_finalize(args: Any) -> dict[str, Any]:
-    _required(args, "dir", "controller_session_id", "run_id")
-    path, event = finalize_run(_path(args.dir), args.controller_session_id, args.run_id)
+    _required(args, "project", "dir", "controller_session_id", "run_id")
+    path, event = finalize_run(_path(args.project), _path(args.dir), args.controller_session_id, args.run_id)
     return _json_paths(_result(path, [event], controller_session_id=args.controller_session_id, run_id=args.run_id))
 
 
@@ -208,54 +210,17 @@ def _event_matches(event: dict[str, Any], filters: dict[str, Any]) -> bool:
     return True
 
 
-def _stream_file(path: Path) -> Iterator[tuple[dict[str, Any], int]]:
-    offset = 0
-    with path.open("rb") as handle:
-        for line in handle:
-            current = offset
-            offset += len(line)
-            if not line.strip():
-                continue
-            try:
-                event = json.loads(line)
-            except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-                raise LedgerValidationError(f"{path}: invalid JSON") from exc
-            validate_event(event)
-            yield event, current
-
-
 def stream_events(ledger_dir: Path, *, controller_session_id: str | None = None, limit: int | None = None, **filters: Any) -> Iterator[dict[str, Any]]:
     directory = _path(ledger_dir)
     if controller_session_id is not None:
         validate_uuid(controller_session_id, "controller_session_id")
-    if not directory.exists():
-        return
-    if not directory.is_dir():
-        raise NotADirectoryError(f"ledger directory is not a directory: {directory}")
-    paths = [directory / f"{controller_session_id}.ndjson"] if controller_session_id else sorted(directory.glob("*.ndjson"))
-    heap: list[tuple[str, str, int, int, dict[str, Any], Iterator[tuple[dict[str, Any], int]]]] = []
-    streams: list[Iterator[tuple[dict[str, Any], int]]] = []
-    for index, path in enumerate(paths):
-        if not path.exists():
-            continue
-        iterator = _stream_file(path)
-        streams.append(iterator)
-        try:
-            event, offset = next(iterator)
-        except StopIteration:
-            continue
-        heapq.heappush(heap, (event["timestamp"], event["controller_session_id"], offset, index, event, iterator))
     emitted = 0
-    while heap and (limit is None or emitted < limit):
-        _, _, _, index, event, iterator = heapq.heappop(heap)
-        if _event_matches(event, filters):
-            yield event
+    for record in iter_event_records(directory, controller_session_id):
+        if limit is not None and emitted >= limit:
+            break
+        if _event_matches(record.event, filters):
+            yield record.event
             emitted += 1
-        try:
-            next_event, offset = next(iterator)
-        except StopIteration:
-            continue
-        heapq.heappush(heap, (next_event["timestamp"], next_event["controller_session_id"], offset, index, next_event, iterator))
 
 
 def show_ledger(ledger_dir: Path, *, format: str = "json", controller_session_id: str | None = None, run_id: str | None = None, job_id: str | None = None, event: str | None = None, status: str | None = None, since: str | None = None, until: str | None = None, limit: int | None = None) -> dict[str, Any] | str:
@@ -309,7 +274,8 @@ def validate_ledger(ledger_dir: Path, controller_session_id: str | None = None) 
                 continue
             session_events: list[dict[str, Any]] = []
             try:
-                for event, _ in _stream_file(path):
+                for record in iter_event_records(directory, controller_session_id=path.stem):
+                    event = record.event
                     event_id = event["event_id"]
                     if event_id in seen_event_ids:
                         errors.append(f"{path}: duplicate event ID {event_id} (first in {seen_event_ids[event_id]})")

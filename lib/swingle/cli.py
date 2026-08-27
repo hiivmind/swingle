@@ -27,6 +27,7 @@ from .ledger_cli import (
 )
 from .ledger_schema import STATUSES
 from .providers import discover_provider_ids
+from .workspace_cli import add_workspace_parser, handle_workspace
 
 
 class _ArgumentError(ValueError):
@@ -216,16 +217,17 @@ def _parser() -> argparse.ArgumentParser:
     resumed.add_argument("--attempt", type=int, required=True)
 
     complete = record_parser("complete")
+    complete.add_argument("--project", required=True)
     for name in ("status", "outcome", "evidence-file", "completion-file"):
         complete.add_argument("--" + name, required=True)
     record_parser("run-started")
     record_parser("run-completed")
     record_parser("allocated")
     finalize = ledger_commands.add_parser("finalize-run")
-    for name in ("dir", "controller-session-id", "run-id"):
+    for name in ("project", "dir", "controller-session-id", "run-id"):
         finalize.add_argument("--" + name, required=True)
     finish = ledger_commands.add_parser("finish-direct")
-    for name in ("dir", "controller-session-id", "run-id", "job-id", "status", "outcome", "evidence-file", "completion-file"):
+    for name in ("project", "dir", "controller-session-id", "run-id", "job-id", "status", "outcome", "evidence-file", "completion-file"):
         finish.add_argument("--" + name, required=True)
     finish.add_argument("--provider-session-id")
     show = ledger_commands.add_parser("show")
@@ -246,6 +248,7 @@ def _parser() -> argparse.ArgumentParser:
     validate.add_argument("--controller-session-id")
     add_grounding_parser(commands, ARGUMENT_PARSER)
     add_dispatch_parser(commands, ARGUMENT_PARSER)
+    add_workspace_parser(commands, ARGUMENT_PARSER)
     return parser
 
 
@@ -269,6 +272,8 @@ def main(
             return _emit(command_dispatch(args, root))
         if args.command == "grounding":
             return _emit(command_grounding(args, root))
+        if args.command == "workspace":
+            return _emit(handle_workspace(args, cwd=Path.cwd()))
         handlers = {
             "start": command_start,
             "begin-direct": command_begin_direct,

@@ -99,6 +99,23 @@ python3 scripts/swingle ledger show --dir <ledger-directory> --format text
 python3 scripts/swingle ledger validate --dir <ledger-directory>
 ```
 
+Every terminal job carries an automatic manifest: the ledger is authoritative for
+lifecycle state, the manifest is authoritative for file inventory and hashes. Inspect,
+verify, publish, or remove the workspace with:
+
+```bash
+python3 scripts/swingle workspace show --run <run-id> [--job <job-id>] [--json]
+python3 scripts/swingle workspace verify --run <run-id> [--job <job-id>] [--json]
+python3 scripts/swingle workspace copy --run <run-id> [--job <job-id>] --to <destination> [--json]
+python3 scripts/swingle workspace delete --run <run-id> [--job <job-id>] [--json]
+```
+
+Copy never sends files to a network service and never runs Git. Deletion never removes
+ledger files; it applies only with `--expect-selection-sha256 <digest> --apply`, the
+exact digest a prior preview returned. Swingle has no workspace classification or
+retention policy: the workspace modules do not import `subprocess`, network clients, or
+Git bindings.
+
 The session-ledger directory is
 `<project-root>/.swingle/delegate/ledger/`. Each session is an NDJSON stream selected
 by its controller-session ID. A job's artifact directory is

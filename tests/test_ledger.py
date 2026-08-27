@@ -6,13 +6,14 @@ from pathlib import Path
 
 import pytest
 
-from swingle.errors import LedgerEventTooLarge, LedgerValidationError
+from swingle.errors import LedgerEventTooLarge, LedgerLifecycleError, LedgerValidationError, WorkspaceError
 from swingle.ledger import (
     allocate_job,
     append_events,
     begin_direct,
     finalize_run,
     finish_direct,
+    record_complete,
     record_event,
 )
 from swingle.ledger_cli import validate_ledger
@@ -224,7 +225,9 @@ def _context(source="observed", receipt_id=None):
 def _begin(tmp_path, source="observed", receipt_id=None):
     project = tmp_path / "project"
     project.mkdir(exist_ok=True)
-    return begin_direct(project=project, ledger_dir=tmp_path / "ledger", controller_session_id=SESSION, role="reader", contract="$PLUGIN_ROOT/contracts/reader-contract.md", tier="standard", task="read", provider="codex", model="provider-default", effort="none", dispatch_context=_context(source, receipt_id))
+    result = begin_direct(project=project, ledger_dir=tmp_path / "ledger", controller_session_id=SESSION, role="reader", contract="$PLUGIN_ROOT/contracts/reader-contract.md", tier="standard", task="read", provider="codex", model="provider-default", effort="none", dispatch_context=_context(source, receipt_id))
+    result["project"] = project
+    return result
 
 
 def test_begin_direct_returns_artifact_directory_and_installs_local_ignore(tmp_path):
@@ -317,7 +320,7 @@ def test_begin_direct_preserves_cached_observed_receipt(tmp_path):
 
 def test_finish_direct_clean_emits_one_lock_final_sequence(tmp_path):
     started = _begin(tmp_path)
-    result = finish_direct(ledger_dir=tmp_path / "ledger", controller_session_id=SESSION, run_id=started["run_id"], job_id=started["job_id"], provider_outcome=_provider(), repository_verification=_repo(), outcome="result", evidence=[{"kind": "report", "value": "result.json"}], provider_session_id="provider-1")
+    result = finish_direct(project=started["project"], ledger_dir=tmp_path / "ledger", controller_session_id=SESSION, run_id=started["run_id"], job_id=started["job_id"], provider_outcome=_provider(), repository_verification=_repo(), outcome="result", evidence=[{"kind": "report", "value": "result.json"}], provider_session_id="provider-1")
     events = result["events"]
     assert [event["event"] for event in events] == ["provider-session", "complete", "run-completed"]
     assert events[0]["data"]["attempt"] == 1
@@ -331,10 +334,106 @@ def test_finish_direct_retry_omits_existing_provider_session(tmp_path):
     record_event(ledger_dir=ledger_dir, controller_session_id=SESSION, run_id=started["run_id"], job_id=started["job_id"], event="attempt-failed", data={"attempt": 1, "signature": "transient", "recovery": "retry"})
     record_event(ledger_dir=ledger_dir, controller_session_id=SESSION, run_id=started["run_id"], job_id=started["job_id"], event="resumed", data={"attempt": 2, "provider_session_id": "provider-2", "reason": "retry"})
     record_event(ledger_dir=ledger_dir, controller_session_id=SESSION, run_id=started["run_id"], job_id=started["job_id"], event="provider-session", data={"attempt": 2, "provider_session_id": "provider-2"})
-    result = finish_direct(ledger_dir=ledger_dir, controller_session_id=SESSION, run_id=started["run_id"], job_id=started["job_id"], provider_outcome=_provider(), repository_verification=_repo(), outcome="result", evidence=[{"kind": "report", "value": "result.json"}])
+    result = finish_direct(project=started["project"], ledger_dir=ledger_dir, controller_session_id=SESSION, run_id=started["run_id"], job_id=started["job_id"], provider_outcome=_provider(), repository_verification=_repo(), outcome="result", evidence=[{"kind": "report", "value": "result.json"}])
     assert [event["event"] for event in result["events"]] == ["complete", "run-completed"]
     assert result["events"][0]["data"]["status"] == "DONE"
     assert result["events"][1]["data"]["outcome"] == "jobs=1 done=1 done_with_concerns=0 needs_context=0 blocked=0"
+
+
+def test_finish_direct_writes_valid_manifest_before_complete_event(tmp_path, monkeypatch):
+    import swingle.ledger as ledger
+
+    started = _begin(tmp_path)
+    observed = []
+    real_write = ledger._write_events_locked
+
+    def observe_append(handle, events):
+        manifest = Path(started["artifact_dir"]) / "manifest.json"
+        assert manifest.is_file()
+        observed.append(json.loads(manifest.read_text(encoding="utf-8")))
+        return real_write(handle, events)
+
+    monkeypatch.setattr(ledger, "_write_events_locked", observe_append)
+    finish_direct(project=started["project"], ledger_dir=tmp_path / "ledger", controller_session_id=SESSION, run_id=started["run_id"], job_id=started["job_id"], provider_outcome=_provider(), repository_verification=_repo(), outcome="result", evidence=[{"kind": "report", "value": "result.json"}])
+
+    events = [
+        json.loads(line)
+        for line in (tmp_path / "ledger" / f"{SESSION}.ndjson").read_text(encoding="utf-8").splitlines()
+    ]
+    complete = next(event for event in events if event["event"] == "complete")
+    assert observed[0]["finished_at"] == complete["timestamp"]
+    assert observed[0]["terminal_status"] == complete["data"]["status"]
+
+
+def test_second_terminal_call_rejects_existing_terminal_event_and_does_not_rewrite_manifest(tmp_path):
+    started = _begin(tmp_path)
+    finish_direct(project=started["project"], ledger_dir=tmp_path / "ledger", controller_session_id=SESSION, run_id=started["run_id"], job_id=started["job_id"], provider_outcome=_provider(), repository_verification=_repo(), outcome="result", evidence=[{"kind": "report", "value": "result.json"}])
+    manifest_path = Path(started["artifact_dir"]) / "manifest.json"
+    before = manifest_path.read_bytes()
+
+    with pytest.raises(LedgerLifecycleError):
+        record_complete(project=started["project"], ledger_dir=tmp_path / "ledger", controller_session_id=SESSION, run_id=started["run_id"], job_id=started["job_id"], provider_outcome=_provider(), repository_verification=_repo(), outcome="result", evidence=[{"kind": "report", "value": "result.json"}])
+
+    assert manifest_path.read_bytes() == before
+    events = [
+        json.loads(line)
+        for line in (tmp_path / "ledger" / f"{SESSION}.ndjson").read_text(encoding="utf-8").splitlines()
+    ]
+    assert [event["event"] for event in events].count("complete") == 1
+
+
+def test_retry_after_manifest_write_but_before_ledger_append_recomputes_manifest(tmp_path, monkeypatch):
+    import swingle.ledger as ledger
+
+    started = _begin(tmp_path)
+
+    def crash(handle, events):
+        raise OSError("simulated crash after manifest write")
+
+    monkeypatch.setattr(ledger, "_write_events_locked", crash)
+    with pytest.raises(OSError):
+        finish_direct(project=started["project"], ledger_dir=tmp_path / "ledger", controller_session_id=SESSION, run_id=started["run_id"], job_id=started["job_id"], provider_outcome=_provider(), repository_verification=_repo(), outcome="result", evidence=[{"kind": "report", "value": "result.json"}])
+
+    manifest_path = Path(started["artifact_dir"]) / "manifest.json"
+    assert manifest_path.is_file()
+    events_after_crash = [
+        json.loads(line)
+        for line in (tmp_path / "ledger" / f"{SESSION}.ndjson").read_text(encoding="utf-8").splitlines()
+    ]
+    assert not any(event["event"] == "complete" for event in events_after_crash)
+
+    monkeypatch.undo()
+    result = finish_direct(project=started["project"], ledger_dir=tmp_path / "ledger", controller_session_id=SESSION, run_id=started["run_id"], job_id=started["job_id"], provider_outcome=_provider(), repository_verification=_repo(), outcome="result", evidence=[{"kind": "report", "value": "result.json"}])
+    assert [event["event"] for event in result["events"]] == ["complete", "run-completed"]
+    events_after_retry = [
+        json.loads(line)
+        for line in (tmp_path / "ledger" / f"{SESSION}.ndjson").read_text(encoding="utf-8").splitlines()
+    ]
+    assert [event["event"] for event in events_after_retry].count("complete") == 1
+
+
+
+def test_finalize_rejects_symlinked_workspace_directory(tmp_path):
+    import shutil
+
+    started = _begin(tmp_path)
+    project = started["project"]
+    workspace_dir = project / ".swingle" / "delegate"
+    outside = tmp_path / "outside-workspace"
+    outside.mkdir()
+    shutil.rmtree(workspace_dir)
+    workspace_dir.symlink_to(outside)
+
+    with pytest.raises(WorkspaceError) as error:
+        finish_direct(project=project, ledger_dir=tmp_path / "ledger", controller_session_id=SESSION, run_id=started["run_id"], job_id=started["job_id"], provider_outcome=_provider(), repository_verification=_repo(), outcome="result", evidence=[{"kind": "report", "value": "result.json"}])
+
+    assert error.value.code == "symlink_rejected"
+    assert not (outside / "artifacts").exists()
+    events = [
+        json.loads(line)
+        for line in (tmp_path / "ledger" / f"{SESSION}.ndjson").read_text(encoding="utf-8").splitlines()
+    ]
+    assert not any(event["event"] == "complete" for event in events)
 
 
 def test_controller_supplied_age_seconds_is_rejected(tmp_path):
@@ -451,16 +550,72 @@ def test_exact_encoded_cap_and_following_append(tmp_path):
         encode_event(oversized)
 
 
+def _finalize_job_for_test(ledger_dir, project, *, run=RUN, job=JOB, status="DONE", provider_status=None, repo_status="VERIFIED", exit_code=0):
+    (project / ".swingle" / "delegate" / "artifacts" / run / job).mkdir(parents=True, exist_ok=True)
+    append_events(
+        ledger_dir,
+        SESSION,
+        [
+            draft(
+                "dispatched",
+                run=run,
+                job=job,
+                data={
+                    "provider": "codex",
+                    "model": "provider-default",
+                    "effort": "none",
+                    "attempt": 1,
+                    "liveness_policy": {
+                        "check_interval_seconds": 60,
+                        "startup_grace_seconds": 300,
+                        "silence_warning_seconds": 300,
+                        "hard_timeout_seconds": None,
+                    },
+                    "grounding_receipt_id": RECEIPT,
+                    "grounding_receipt_revision": 1,
+                    "grounding_source": "reused",
+                },
+            )
+        ],
+    )
+    return record_complete(
+        project=project,
+        ledger_dir=ledger_dir,
+        controller_session_id=SESSION,
+        run_id=run,
+        job_id=job,
+        provider_outcome=_provider(provider_status or status, exit_code),
+        repository_verification=_repo(status=repo_status),
+        outcome="result",
+        evidence=[{"kind": "report", "value": "result.json"}],
+    )
+
+
 def test_run_finalization_one_job_exact_aggregate(tmp_path):
-    append_events(tmp_path, SESSION, _valid_opening() + [_complete()])
-    _, event = finalize_run(tmp_path, SESSION, RUN)
+    project = tmp_path / "project"
+    project.mkdir()
+    append_events(tmp_path, SESSION, _valid_opening())
+    _finalize_job_for_test(tmp_path, project)
+    _, event = finalize_run(project, tmp_path, SESSION, RUN)
     assert event["data"] == {"status": "DONE", "outcome": "jobs=1 done=1 done_with_concerns=0 needs_context=0 blocked=0"}
 
 
 def test_run_finalization_varied_order_mixed_result(tmp_path):
+    project = tmp_path / "project"
+    project.mkdir()
     job2 = "55555555-5555-4555-8555-555555555555"
-    append_events(tmp_path, SESSION, [draft("run-started", data={"kind": "batch"}), draft("allocated", job=JOB, data={"role": "reader", "contract": "$PLUGIN_ROOT/contracts/reader-contract.md", "tier": "standard", "task": "one"}), draft("allocated", job=job2, data={"role": "reader", "contract": "$PLUGIN_ROOT/contracts/reader-contract.md", "tier": "standard", "task": "two"}), _complete(job=job2, status="DONE_WITH_CONCERNS", provider_status="DONE_WITH_CONCERNS"), _complete(job=JOB, status="NEEDS_CONTEXT", provider_status="NEEDS_CONTEXT", repo_status="NOT_ATTEMPTED", exit_code=None)])
-    _, event = finalize_run(tmp_path, SESSION, RUN)
+    append_events(
+        tmp_path,
+        SESSION,
+        [
+            draft("run-started", data={"kind": "batch"}),
+            draft("allocated", job=JOB, data={"role": "reader", "contract": "$PLUGIN_ROOT/contracts/reader-contract.md", "tier": "standard", "task": "one"}),
+            draft("allocated", job=job2, data={"role": "reader", "contract": "$PLUGIN_ROOT/contracts/reader-contract.md", "tier": "standard", "task": "two"}),
+        ],
+    )
+    _finalize_job_for_test(tmp_path, project, job=job2, status="DONE_WITH_CONCERNS", provider_status="DONE_WITH_CONCERNS")
+    _finalize_job_for_test(tmp_path, project, job=JOB, status="NEEDS_CONTEXT", provider_status="NEEDS_CONTEXT", repo_status="NOT_ATTEMPTED", exit_code=None)
+    _, event = finalize_run(project, tmp_path, SESSION, RUN)
     assert event["data"]["status"] == "NEEDS_CONTEXT" and event["data"]["outcome"] == "jobs=2 done=0 done_with_concerns=1 needs_context=1 blocked=0"
 
 
@@ -474,18 +629,46 @@ def test_finalize_run_rejects_incomplete_duplicate_start_or_existing_completion(
     else:
         append_events(tmp_path, SESSION, opening + [_complete(), draft("run-completed", data={"status": "DONE", "outcome": "done"})])
     with pytest.raises(LedgerValidationError):
-        finalize_run(tmp_path, SESSION, RUN)
+        finalize_run(tmp_path / "project", tmp_path, SESSION, RUN)
+
+
+def test_finalize_run_rejects_terminal_job_with_missing_manifest(tmp_path):
+    project = tmp_path / "project"
+    project.mkdir()
+    (project / ".swingle" / "delegate" / "artifacts" / RUN / JOB).mkdir(parents=True)
+    append_events(tmp_path, SESSION, _valid_opening() + [_dispatched(), _complete()])
+    with pytest.raises(LedgerLifecycleError):
+        finalize_run(project, tmp_path, SESSION, RUN)
+
+
+def test_finalize_run_rejects_changed_manifest(tmp_path):
+    project = tmp_path / "project"
+    project.mkdir()
+    append_events(tmp_path, SESSION, _valid_opening())
+    _finalize_job_for_test(tmp_path, project)
+    manifest_path = project / ".swingle" / "delegate" / "artifacts" / RUN / JOB / "manifest.json"
+    tampered = json.loads(manifest_path.read_text())
+    tampered["provider"] = "claude-code"
+    manifest_path.write_text(json.dumps(tampered) + "\n")
+    with pytest.raises(LedgerLifecycleError):
+        finalize_run(project, tmp_path, SESSION, RUN)
 
 
 def test_stopping_path_terminalizes_then_finalizes(tmp_path):
-    append_events(tmp_path, SESSION, _valid_opening() + [_complete(status="BLOCKED", provider_status="BLOCKED", repo_status="NOT_ATTEMPTED", exit_code=None)])
-    _, event = finalize_run(tmp_path, SESSION, RUN)
+    project = tmp_path / "project"
+    project.mkdir()
+    append_events(tmp_path, SESSION, _valid_opening())
+    _finalize_job_for_test(tmp_path, project, status="BLOCKED", provider_status="BLOCKED", repo_status="NOT_ATTEMPTED", exit_code=None)
+    _, event = finalize_run(project, tmp_path, SESSION, RUN)
     assert event["data"]["status"] == "BLOCKED"
 
 
 def test_exactly_one_final_event_valid_ledger_and_no_warnings(tmp_path):
-    append_events(tmp_path, SESSION, _valid_opening() + [_complete()])
-    finalize_run(tmp_path, SESSION, RUN)
+    project = tmp_path / "project"
+    project.mkdir()
+    append_events(tmp_path, SESSION, _valid_opening())
+    _finalize_job_for_test(tmp_path, project)
+    finalize_run(project, tmp_path, SESSION, RUN)
     events = [json.loads(line) for line in (tmp_path / f"{SESSION}.ndjson").read_text().splitlines()]
     assert [event["event"] for event in events].count("run-completed") == 1 and events[-1]["event"] == "run-completed"
 
@@ -493,6 +676,7 @@ def test_finish_direct_rejects_derived_status_mismatch_before_append(tmp_path):
     started = _begin(tmp_path)
     with pytest.raises(LedgerValidationError):
         finish_direct(
+            project=started["project"],
             ledger_dir=tmp_path / "ledger",
             controller_session_id=SESSION,
             run_id=started["run_id"],
@@ -511,6 +695,7 @@ def test_finish_direct_reports_nested_validation_without_key_error(tmp_path):
     started = _begin(tmp_path)
     with pytest.raises(LedgerValidationError):
         finish_direct(
+            project=started["project"],
             ledger_dir=tmp_path / "ledger",
             controller_session_id=SESSION,
             run_id=started["run_id"],

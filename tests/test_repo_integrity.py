@@ -53,6 +53,12 @@ OBSOLETE_LIVING_GUIDANCE = (
     "result extract",
     "selector program",
     "runnable recipe",
+    "sensitivity",
+    "retention class",
+    "legal hold",
+    "archive receipt",
+    "publication receipt",
+    "workspace policy",
 )
 
 

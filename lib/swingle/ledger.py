@@ -1,13 +1,17 @@
 from __future__ import annotations
 
 import fcntl
+import heapq
 import json
 import os
 from copy import deepcopy
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any, Iterator, Sequence
 from . import ledger_schema as _schema
-from .errors import LedgerLifecycleError, LedgerValidationError
+from . import workspace_io
+from . import workspace_manifest
+from .errors import LedgerLifecycleError, LedgerValidationError, WorkspaceError
 from .ledger_schema import (
     MAX_ENCODED_EVENT_BYTES,
     EventDraft,
@@ -29,6 +33,89 @@ def utc_timestamp(now=None) -> str:
 
 _SESSION_EVENT_TAIL_BYTES = MAX_ENCODED_EVENT_BYTES + 1
 _ARTIFACT_IGNORE = "*\n!.gitignore\n"
+
+
+@dataclass(frozen=True)
+class LedgerRecord:
+    event: dict[str, Any]
+    source_path: Path
+    file_offset: int
+    line: bytes
+
+
+def _iter_records_file(path: Path) -> Iterator[LedgerRecord]:
+    offset = 0
+    with path.open("rb") as handle:
+        for line in handle:
+            current = offset
+            offset += len(line)
+            if not line.strip():
+                continue
+            try:
+                event = json.loads(line)
+            except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+                raise LedgerValidationError(f"{path}: invalid JSON") from exc
+            validate_event(event)
+            yield LedgerRecord(event=event, source_path=path, file_offset=current, line=line)
+
+
+def iter_event_records(ledger_dir: Path, controller_session_id: str | None = None) -> Iterator[LedgerRecord]:
+    """Merge every session's records by `(timestamp, controller_session_id, file_offset)`.
+
+    Lazily streams and heap-merges each session file so a bounded consumer
+    (a `limit`-capped reader) never reads past what it needs.
+    """
+    ledger_dir = Path(ledger_dir).expanduser()
+    if not ledger_dir.is_dir():
+        if ledger_dir.exists():
+            raise NotADirectoryError(f"ledger directory is not a directory: {ledger_dir}")
+        return
+    paths = (
+        [ledger_dir / f"{controller_session_id}.ndjson"]
+        if controller_session_id
+        else sorted(ledger_dir.glob("*.ndjson"))
+    )
+    heap: list[tuple[str, str, int, int, LedgerRecord, Iterator[LedgerRecord]]] = []
+    for index, path in enumerate(paths):
+        if not path.exists():
+            continue
+        iterator = _iter_records_file(path)
+        try:
+            record = next(iterator)
+        except StopIteration:
+            continue
+        heapq.heappush(
+            heap,
+            (record.event["timestamp"], record.event["controller_session_id"], record.file_offset, index, record, iterator),
+        )
+    while heap:
+        _, _, _, index, record, iterator = heapq.heappop(heap)
+        yield record
+        try:
+            next_record = next(iterator)
+        except StopIteration:
+            continue
+        heapq.heappush(
+            heap,
+            (
+                next_record.event["timestamp"],
+                next_record.event["controller_session_id"],
+                next_record.file_offset,
+                index,
+                next_record,
+                iterator,
+            ),
+        )
+
+
+def _open_workspace_dir(project: Path) -> int:
+    workspace_dir = Path(project).expanduser() / ".swingle" / "delegate"
+    return workspace_io._open_dir_no_follow_path(workspace_dir, operation="finalize")
+
+
+def _open_job_dir(project: Path, run_id: str, job_id: str) -> int:
+    job_dir = Path(project).expanduser() / ".swingle" / "delegate" / "artifacts" / run_id / job_id
+    return workspace_io._open_dir_no_follow_path(job_dir, operation="finalize")
 
 
 def _require_uuid(value: str, field: str) -> None:
@@ -76,11 +163,15 @@ def _open_session(ledger_dir: Path, controller_session_id: str):
     return path, handle
 
 
-def _append_events_locked(handle, drafts: Sequence[EventDraft], event_ids: Sequence[str], *, last_event: dict[str, Any] | None = None) -> tuple[dict[str, Any], ...]:
+def _stamp_events_locked(
+    drafts: Sequence[EventDraft],
+    event_ids: Sequence[str],
+    *,
+    last_event: dict[str, Any] | None = None,
+) -> tuple[dict[str, Any], ...]:
     last_timestamp = parse_timestamp(last_event["timestamp"]) if last_event is not None else None
     last_timestamp_text = last_event["timestamp"] if last_event is not None else None
     final_events: list[dict[str, Any]] = []
-    encoded_events: list[bytes] = []
     for draft, event_id in zip(drafts, event_ids):
         data = deepcopy(draft.data)
         current_text = utc_timestamp()
@@ -95,18 +186,27 @@ def _append_events_locked(handle, drafts: Sequence[EventDraft], event_ids: Seque
             data["age_seconds"] = max(0, int((current - grounded_at).total_seconds()))
         stamped = EventDraft(draft.event, draft.controller_session_id, draft.run_id, draft.job_id, data)
         event = build_event(stamped, timestamp=timestamp, event_id=event_id)
-        encoded_events.append(encode_event(event))
         last_timestamp = parse_timestamp(timestamp)
         last_timestamp_text = timestamp
         last_event = event
         final_events.append(event)
-    if encoded_events:
-        handle.seek(0, os.SEEK_END)
-        for encoded in encoded_events:
-            handle.write(encoded + b"\n")
-        handle.flush()
-        os.fsync(handle.fileno())
     return tuple(final_events)
+
+
+def _write_events_locked(handle, events: Sequence[dict[str, Any]]) -> None:
+    if not events:
+        return
+    handle.seek(0, os.SEEK_END)
+    for event in events:
+        handle.write(encode_event(event) + b"\n")
+    handle.flush()
+    os.fsync(handle.fileno())
+
+
+def _append_events_locked(handle, drafts: Sequence[EventDraft], event_ids: Sequence[str], *, last_event: dict[str, Any] | None = None) -> tuple[dict[str, Any], ...]:
+    events = _stamp_events_locked(drafts, event_ids, last_event=last_event)
+    _write_events_locked(handle, events)
+    return events
 def append_events(ledger_dir: Path, controller_session_id: str, drafts: Sequence[EventDraft]) -> tuple[Path, tuple[dict[str, Any], ...]]:
     drafts = tuple(drafts)
     validated_drafts: list[EventDraft] = []
@@ -195,7 +295,7 @@ def allocate_job(*, project: Path, ledger_dir: Path, controller_session_id: str,
 
 def record_event(*, ledger_dir: Path, controller_session_id: str, run_id: str, event: str, data: dict[str, Any], job_id: str | None = None) -> dict[str, Any]:
     if event == "run-completed":
-        raise LedgerValidationError("run-completed is emitted only by finish_direct or finalize_run")
+        raise LedgerValidationError("run-completed is emitted only by finish_direct, record_complete, or finalize_run")
     path, events = append_events(ledger_dir, controller_session_id, [EventDraft(event, controller_session_id, run_id, job_id, data)])
     return _result(path, events, controller_session_id=controller_session_id, run_id=run_id, job_id=job_id)
 
@@ -258,7 +358,75 @@ def begin_direct(*, project: Path, ledger_dir: Path, controller_session_id: str 
     output["receipt_id"] = receipt_id
     return output
 
-def finish_direct(*, ledger_dir: Path, controller_session_id: str, run_id: str, job_id: str, provider_outcome: dict[str, Any], repository_verification: dict[str, Any], outcome: str, evidence: Sequence[dict[str, Any]], status: str | None = None, provider_session_id: str | None = None) -> dict[str, Any]:
+def _derive_provider(events: Sequence[dict[str, Any]], job_id: str) -> str:
+    dispatched = [event for event in events if event["job_id"] == job_id and event["event"] == "dispatched"]
+    if not dispatched:
+        raise LedgerLifecycleError(f"job has no dispatched event: {job_id}")
+    return dispatched[-1]["data"]["provider"]
+
+
+def _finalize_job(
+    *,
+    project: Path,
+    ledger_dir: Path,
+    controller_session_id: str,
+    run_id: str,
+    job_id: str,
+    terminal_drafts: Sequence[EventDraft],
+) -> tuple[Path, tuple[dict[str, Any], ...]]:
+    """Finalize the manifest and append terminal events for one job.
+
+    Acquires the workspace shared lock, the job exclusive lock, and the
+    session ledger exclusive lock, in that order. Within the locks: reject
+    an already-terminal job, stamp the pending terminal events, finalize
+    the manifest with the stamped `complete` timestamp and status, then
+    append and flush the terminal ledger events. Manifest finalization
+    happens before the ledger append becomes durable.
+    """
+    project = Path(project).expanduser()
+    workspace_fd = _open_workspace_dir(project)
+    try:
+        fcntl.flock(workspace_fd, fcntl.LOCK_SH)
+        try:
+            job_fd = _open_job_dir(project, run_id, job_id)
+            try:
+                fcntl.flock(job_fd, fcntl.LOCK_EX)
+                try:
+                    path, handle = _open_session(ledger_dir, controller_session_id)
+                    try:
+                        events = _all_events(handle)
+                        job_events = [event for event in events if event["run_id"] == run_id and event["job_id"] == job_id]
+                        if any(event["event"] == "complete" for event in job_events):
+                            raise LedgerLifecycleError(f"job already has a complete event: {job_id}")
+                        event_ids = tuple(new_uuid() for _ in terminal_drafts)
+                        last_event = events[-1] if events else None
+                        stamped = _stamp_events_locked(terminal_drafts, event_ids, last_event=last_event)
+                        complete_event = next(event for event in stamped if event["event"] == "complete")
+                        provider = _derive_provider(events, job_id)
+                        workspace_manifest.finalize_job_manifest(
+                            project=project,
+                            controller_session_id=controller_session_id,
+                            run_id=run_id,
+                            job_id=job_id,
+                            provider=provider,
+                            terminal_status=complete_event["data"]["status"],
+                            finished_at=complete_event["timestamp"],
+                        )
+                        _write_events_locked(handle, stamped)
+                        return path, stamped
+                    finally:
+                        fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+                        handle.close()
+                finally:
+                    fcntl.flock(job_fd, fcntl.LOCK_UN)
+            finally:
+                os.close(job_fd)
+        finally:
+            fcntl.flock(workspace_fd, fcntl.LOCK_UN)
+    finally:
+        os.close(workspace_fd)
+
+def finish_direct(*, project: Path, ledger_dir: Path, controller_session_id: str, run_id: str, job_id: str, provider_outcome: dict[str, Any], repository_verification: dict[str, Any], outcome: str, evidence: Sequence[dict[str, Any]], status: str | None = None, provider_session_id: str | None = None) -> dict[str, Any]:
     _schema._validate_provider_outcome(provider_outcome)
     _schema._validate_repository_verification(repository_verification)
     derived_status = derive_complete_status(provider_outcome, repository_verification)
@@ -274,13 +442,26 @@ def finish_direct(*, ledger_dir: Path, controller_session_id: str, run_id: str, 
     ])
     for draft in drafts:
         validate_draft(draft, for_append=True)
-    event_ids = tuple(new_uuid() for _ in drafts)
-    path, handle = _open_session(ledger_dir, controller_session_id)
-    try:
-        events = _append_events_locked(handle, drafts, event_ids, last_event=_last_event_from_tail(handle))
-    finally:
-        fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
-        handle.close()
+    path, events = _finalize_job(project=project, ledger_dir=ledger_dir, controller_session_id=controller_session_id, run_id=run_id, job_id=job_id, terminal_drafts=drafts)
+    return _result(path, events, controller_session_id=controller_session_id, run_id=run_id, job_id=job_id)
+
+
+def record_complete(*, project: Path, ledger_dir: Path, controller_session_id: str, run_id: str, job_id: str, provider_outcome: dict[str, Any], repository_verification: dict[str, Any], outcome: str, evidence: Sequence[dict[str, Any]], status: str | None = None) -> dict[str, Any]:
+    """Finalize the manifest and append one `complete` event for a batch or SDD job.
+
+    Unlike `finish_direct`, this does not create a run or append
+    `run-completed`: the run finalizes separately once every allocated job
+    is terminal.
+    """
+    _schema._validate_provider_outcome(provider_outcome)
+    _schema._validate_repository_verification(repository_verification)
+    derived_status = derive_complete_status(provider_outcome, repository_verification)
+    if status is not None and status != derived_status:
+        raise LedgerValidationError(f"status must be {derived_status} for provider and repository outcomes")
+    complete_data = {"status": derived_status, "outcome": outcome, "evidence": list(evidence), "provider_outcome": deepcopy(provider_outcome), "repository_verification": deepcopy(repository_verification)}
+    draft = EventDraft("complete", controller_session_id, run_id, job_id, complete_data)
+    validate_draft(draft, for_append=True)
+    path, events = _finalize_job(project=project, ledger_dir=ledger_dir, controller_session_id=controller_session_id, run_id=run_id, job_id=job_id, terminal_drafts=[draft])
     return _result(path, events, controller_session_id=controller_session_id, run_id=run_id, job_id=job_id)
 
 def _all_events(handle) -> list[dict[str, Any]]:
@@ -301,9 +482,10 @@ def _all_events(handle) -> list[dict[str, Any]]:
     return events
 
 
-def finalize_run(ledger_dir: Path, controller_session_id: str, run_id: str) -> tuple[Path, dict[str, Any]]:
+def finalize_run(project: Path, ledger_dir: Path, controller_session_id: str, run_id: str) -> tuple[Path, dict[str, Any]]:
     # Allocate the final identity before opening the selected file or acquiring its lock.
     event_id = new_uuid()
+    project = Path(project).expanduser()
     path = _session_path(ledger_dir, controller_session_id)
     if not path.exists():
         raise LedgerLifecycleError("run session file does not exist")
@@ -334,6 +516,32 @@ def finalize_run(ledger_dir: Path, controller_session_id: str, run_id: str) -> t
             complete_index = matching.index(items[0])
             if any(event["job_id"] == job_id for event in matching[complete_index + 1:]):
                 raise LedgerLifecycleError("complete must be the terminal event for each allocated job")
+        if completions:
+            # The workspace lock is acquired only once ledger structure is
+            # already valid, so a run with no allocated jobs, or a run that
+            # fails structural validation, never needs a live workspace
+            # directory to reject.
+            workspace_fd = _open_workspace_dir(project)
+            try:
+                fcntl.flock(workspace_fd, fcntl.LOCK_SH)
+                for job_id, items in completions.items():
+                    complete_event = items[0]
+                    provider = _derive_provider(matching, job_id)
+                    try:
+                        workspace_manifest.verify_job_manifest(
+                            project=project,
+                            controller_session_id=controller_session_id,
+                            run_id=run_id,
+                            job_id=job_id,
+                            provider=provider,
+                            terminal_status=complete_event["data"]["status"],
+                            finished_at=complete_event["timestamp"],
+                        )
+                    except WorkspaceError as exc:
+                        raise LedgerLifecycleError(f"job manifest verification failed for {job_id}: {exc}") from exc
+            finally:
+                fcntl.flock(workspace_fd, fcntl.LOCK_UN)
+                os.close(workspace_fd)
         counts = {status: 0 for status in ("DONE", "DONE_WITH_CONCERNS", "NEEDS_CONTEXT", "BLOCKED")}
         for items in completions.values():
             counts[items[0]["data"]["status"]] += 1

@@ -180,6 +180,7 @@ Reconcile provider and repository outcomes, write one completion file containing
 
 ```bash
 python3 $PLUGIN_ROOT/scripts/swingle ledger finish-direct \
+  --project $REPO_ROOT \
   --dir <ledger-directory> \
   --controller-session-id <uuid> \
   --run-id <uuid> \
@@ -259,6 +260,7 @@ sole finalizer:
 
 ```bash
 python3 $PLUGIN_ROOT/scripts/swingle ledger finalize-run \
+  --project $REPO_ROOT \
   --dir <ledger-directory> \
   --controller-session-id <uuid> \
   --run-id <uuid>
@@ -289,3 +291,31 @@ Use `DONE`, `DONE_WITH_CONCERNS`, `NEEDS_CONTEXT`, or `BLOCKED`. Preserve provid
 repository evidence, artifact paths, liveness observations, and concerns in the selected
 report mode. Completion requires the applicable repository verification; provider
 self-report alone is never enough.
+
+## Reporting the workspace output
+
+Every terminal job's manifest is automatic; no extra step produces it. For direct work:
+
+1. Keep all useful provider inputs, outputs, and evidence in the allocated job directory.
+2. Call `ledger finish-direct --project $REPO_ROOT` after result interpretation and
+   repository verification.
+3. Report the request-named output path as the deliverable when one exists.
+4. When no request-named output exists, report the primary output path — the job's
+   main workspace output — as the deliverable.
+5. Report the job directory in both cases.
+6. Run `workspace copy` only when the original request names the exact destination and selection;
+   a proactive copy is never the default.
+
+A full-job copy publishes `manifest.json`; copying a narrowed file selection publishes
+`source-manifest.json` instead, so the destination never claims to be the complete job.
+
+Deletion uses one preview, one confirmation, and the exact preview digest:
+
+```bash
+python3 $PLUGIN_ROOT/scripts/swingle workspace delete --run <run-id> [--job <job-id>] --json
+python3 $PLUGIN_ROOT/scripts/swingle workspace delete --run <run-id> [--job <job-id>] \
+  --expect-selection-sha256 <digest> --apply --json
+```
+
+`workspace delete` never touches a ledger file: it deletes only the artifact tree the
+preview named.

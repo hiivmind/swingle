@@ -1,3 +1,4 @@
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -171,6 +172,7 @@ def test_complete_record_rejects_provider_session_flag(tmp_path):
     result = run_cli(
         "ledger", "record", "complete",
         "--dir", str(tmp_path / "ledger"),
+        "--project", str(tmp_path / "project"),
         "--controller-session-id", "11111111-1111-4111-8111-111111111111",
         "--run-id", "22222222-2222-4222-8222-222222222222",
         "--job-id", "33333333-3333-4333-8333-333333333333",
@@ -289,3 +291,117 @@ def test_record_subparser_rejects_irrelevant_event_flags(tmp_path):
     assert result.returncode == 1
     payload = json.loads(result.stdout)
     assert any("unrecognized arguments" in error for error in payload["errors"])
+
+
+def test_finish_direct_cli_writes_manifest_and_finalizes_run(tmp_path):
+    project = tmp_path / "project"
+    project.mkdir()
+    ledger_dir = tmp_path / "ledger"
+    dispatch_context = tmp_path / "dispatch-context.json"
+    dispatch_context.write_text(json.dumps({
+        "grounding_source": "observed",
+        "grounding_event": {
+            "event": "grounding-observed",
+            "data": {
+                "receipt_id": None,
+                "receipt_revision": None,
+                "storage": "none",
+                "provider": "codex",
+                "cache_path": None,
+                "grounded_at": "2026-08-24T04:15:30.123Z",
+                "expires_at": None,
+                "executable": "/usr/bin/codex",
+                "provider_guidance_sha256": "0" * 64,
+                "scopes": ["headless-command"],
+                "model_count": 0,
+                "evidence_commands": ["codex --help"],
+            },
+        },
+        "liveness_policy": {
+            "check_interval_seconds": 60,
+            "startup_grace_seconds": 300,
+            "silence_warning_seconds": 300,
+            "hard_timeout_seconds": None,
+        },
+    }))
+
+    begun = run_cli(
+        "ledger", "begin-direct",
+        "--project", str(project),
+        "--dir", str(ledger_dir),
+        "--controller-session-id", "11111111-1111-4111-8111-111111111111",
+        "--role", "reader",
+        "--contract", "$PLUGIN_ROOT/contracts/reader-contract.md",
+        "--tier", "standard",
+        "--task", "read",
+        "--dispatch-context-file", str(dispatch_context),
+        "--provider", "codex",
+        "--model", "provider-default",
+        "--effort", "none",
+    )
+    assert begun.returncode == 0, begun.stdout + begun.stderr
+    started = json.loads(begun.stdout)
+    run_id = started["run_id"]
+    job_id = started["job_id"]
+
+    result_file = Path(started["artifact_dir"]) / "result.md"
+    result_file.write_text("result\n", encoding="utf-8")
+
+    completion_file = tmp_path / "completion.json"
+    completion_file.write_text(json.dumps({
+        "provider_outcome": {
+            "status": "DONE", "claim": "WRITE_OK", "exit_code": 0,
+            "model_requested": "provider-default", "model_used": None, "session_id": None,
+            "stop_reason": "end_turn",
+            "usage": {"input_tokens": None, "output_tokens": None, "reasoning_tokens": None, "cache_read_tokens": None, "cache_write_tokens": None, "total_tokens": None},
+            "cost": None, "result_artifact": str(result_file),
+        },
+        "repository_verification": {
+            "required": False, "status": "NOT_APPLICABLE", "changed_path_count": None,
+            "summary": "no repository changes", "verification_artifact": None,
+        },
+    }))
+    evidence_file = tmp_path / "evidence.json"
+    evidence_file.write_text(json.dumps([{"kind": "report", "value": "result.md"}]))
+
+    finished = run_cli(
+        "ledger", "finish-direct",
+        "--project", str(project),
+        "--dir", str(ledger_dir),
+        "--controller-session-id", "11111111-1111-4111-8111-111111111111",
+        "--run-id", run_id,
+        "--job-id", job_id,
+        "--status", "DONE",
+        "--outcome", "result",
+        "--evidence-file", str(evidence_file),
+        "--completion-file", str(completion_file),
+    )
+    assert finished.returncode == 0, finished.stdout + finished.stderr
+    payload = json.loads(finished.stdout)
+    assert [event["event"] for event in payload["events"]] == ["complete", "run-completed"]
+
+    manifest_path = Path(started["artifact_dir"]) / "manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    assert manifest["files"] == [{
+        "path": "result.md",
+        "size_bytes": len(b"result\n"),
+        "sha256": hashlib.sha256(b"result\n").hexdigest(),
+    }]
+    assert manifest["provider"] == "codex"
+    assert manifest["terminal_status"] == "DONE"
+
+
+def test_record_complete_cli_missing_project_reports_stable_error(tmp_path):
+    result = run_cli(
+        "ledger", "record", "complete",
+        "--dir", str(tmp_path / "ledger"),
+        "--controller-session-id", "11111111-1111-4111-8111-111111111111",
+        "--run-id", "22222222-2222-4222-8222-222222222222",
+        "--job-id", "33333333-3333-4333-8333-333333333333",
+        "--status", "DONE",
+        "--outcome", "result",
+        "--evidence-file", str(tmp_path / "evidence.json"),
+        "--completion-file", str(tmp_path / "completion.json"),
+    )
+    assert result.returncode == 1
+    assert "--project" in json.loads(result.stdout)["errors"][0]

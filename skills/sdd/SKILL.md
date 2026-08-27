@@ -127,6 +127,7 @@ sole finalizer:
 
 ```bash
 python3 $PLUGIN_ROOT/scripts/swingle ledger finalize-run \
+  --project $REPO_ROOT \
   --dir $REPO_ROOT/.swingle/delegate/ledger/ \
   --controller-session-id <controller-session-id> \
   --run-id <run-id>

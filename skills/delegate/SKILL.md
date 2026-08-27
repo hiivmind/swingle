@@ -180,6 +180,7 @@ Reconcile provider and repository outcomes, write one completion file containing
 
 ```bash
 python3 $PLUGIN_ROOT/scripts/swingle ledger finish-direct \
+  --project $REPO_ROOT \
   --dir <ledger-directory> \
   --controller-session-id <uuid> \
   --run-id <uuid> \
@@ -259,6 +260,7 @@ sole finalizer:
 
 ```bash
 python3 $PLUGIN_ROOT/scripts/swingle ledger finalize-run \
+  --project $REPO_ROOT \
   --dir <ledger-directory> \
   --controller-session-id <uuid> \
   --run-id <uuid>

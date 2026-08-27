@@ -4,6 +4,22 @@ Swingle is a skills plugin for delegating work through coding-agent provider CLI
 LLM controls each dispatch; Python provides shared configuration, ledger, and authoring
 structure. Keep the Claude Code, Codex, and plain skills distribution surfaces aligned.
 
+## Canonical planning and backlog
+
+The canonical planning repository is `hiivmind/swingle-central`. Its local checkout is
+`/Users/nathanielramm/git/hiivmind/swingle-central/`.
+
+When a user says "the backlog", "our backlog", or "the Swingle backlog", read
+`../swingle-central/04.planning/backlog/README.md` and its linked item files. Do not
+substitute GitHub issues for this backlog. GitHub issues can feed backlog items, but they
+are implementation and verification trackers.
+
+Swingle design specs, implementation plans, and reviews also live in `swingle-central`:
+
+- `04.planning/superpowers/specs/`
+- `04.planning/superpowers/plans/`
+- `reviews/`
+
 ## Design Principles (MANDATORY)
 
 **You MUST read the relevant principle document before** adding or removing a provider

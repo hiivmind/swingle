@@ -345,3 +345,32 @@ def verify_regular_tree(
         )
     finally:
         os.close(root_fd)
+
+
+def read_file_fact(root: Path, relative_path: str) -> FileFact:
+    """Open, hash, and confirm one regular file's stable identity.
+
+    Walks `relative_path` relative to `root` through descriptor-relative,
+    no-follow opens at every component, then reads a stable `FileFact`
+    (including device and inode) from the final open descriptor. Used to
+    capture a fresh, TOCTOU-safe identity for one selected file at the
+    moment of selection, distinct from an earlier tree-verification pass.
+    """
+    segments = _validate_declared_path(relative_path)
+    root_fd = _open_dir_no_follow_path(Path(root), operation="select")
+    try:
+        fd = root_fd
+        opened: list[int] = []
+        try:
+            for segment in segments[:-1]:
+                fd = _open_dir_no_follow(fd, segment, operation="select", path=relative_path)
+                opened.append(fd)
+            size_bytes, sha256, device, inode = _read_stable_regular_file(
+                fd, segments[-1], relative_path, operation="select"
+            )
+        finally:
+            for handle in reversed(opened):
+                os.close(handle)
+    finally:
+        os.close(root_fd)
+    return FileFact(path=relative_path, size_bytes=size_bytes, sha256=sha256, device=device, inode=inode)

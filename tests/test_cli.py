@@ -5,16 +5,19 @@ from pathlib import Path
 import subprocess
 import sys
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "swingle"
 
 
-def run_cli(*args, env=None):
+def run_cli(*args, env=None, cwd=None):
     return subprocess.run(
         [sys.executable, str(SCRIPT), *args],
         capture_output=True,
         text=True,
         env=env,
+        cwd=cwd,
     )
 
 
@@ -405,3 +408,116 @@ def test_record_complete_cli_missing_project_reports_stable_error(tmp_path):
     )
     assert result.returncode == 1
     assert "--project" in json.loads(result.stdout)["errors"][0]
+
+
+def _begin_and_finish_via_cli(tmp_path):
+    project = tmp_path / "project"
+    project.mkdir()
+    ledger_dir = project / ".swingle" / "delegate" / "ledger"
+    dispatch_context = tmp_path / "dispatch-context.json"
+    dispatch_context.write_text(json.dumps({
+        "grounding_source": "observed",
+        "grounding_event": {
+            "event": "grounding-observed",
+            "data": {
+                "receipt_id": None, "receipt_revision": None, "storage": "none", "provider": "codex",
+                "cache_path": None, "grounded_at": "2026-08-24T04:15:30.123Z", "expires_at": None,
+                "executable": "/usr/bin/codex", "provider_guidance_sha256": "0" * 64,
+                "scopes": ["headless-command"], "model_count": 0, "evidence_commands": ["codex --help"],
+            },
+        },
+        "liveness_policy": {"check_interval_seconds": 60, "startup_grace_seconds": 300, "silence_warning_seconds": 300, "hard_timeout_seconds": None},
+    }))
+    begun = run_cli(
+        "ledger", "begin-direct",
+        "--project", str(project), "--dir", str(ledger_dir),
+        "--controller-session-id", "11111111-1111-4111-8111-111111111111",
+        "--role", "reader", "--contract", "$PLUGIN_ROOT/contracts/reader-contract.md",
+        "--tier", "standard", "--task", "read",
+        "--dispatch-context-file", str(dispatch_context),
+        "--provider", "codex", "--model", "provider-default", "--effort", "none",
+    )
+    assert begun.returncode == 0, begun.stdout + begun.stderr
+    started = json.loads(begun.stdout)
+    (Path(started["artifact_dir"]) / "result.md").write_text("result\n", encoding="utf-8")
+
+    completion_file = tmp_path / "completion.json"
+    completion_file.write_text(json.dumps({
+        "provider_outcome": {
+            "status": "DONE", "claim": "WRITE_OK", "exit_code": 0,
+            "model_requested": "provider-default", "model_used": None, "session_id": None,
+            "stop_reason": "end_turn",
+            "usage": {"input_tokens": None, "output_tokens": None, "reasoning_tokens": None, "cache_read_tokens": None, "cache_write_tokens": None, "total_tokens": None},
+            "cost": None, "result_artifact": str(Path(started["artifact_dir"]) / "result.md"),
+        },
+        "repository_verification": {
+            "required": False, "status": "NOT_APPLICABLE", "changed_path_count": None,
+            "summary": "no repository changes", "verification_artifact": None,
+        },
+    }))
+    evidence_file = tmp_path / "evidence.json"
+    evidence_file.write_text(json.dumps([{"kind": "report", "value": "result.md"}]))
+    finished = run_cli(
+        "ledger", "finish-direct",
+        "--project", str(project), "--dir", str(ledger_dir),
+        "--controller-session-id", "11111111-1111-4111-8111-111111111111",
+        "--run-id", started["run_id"], "--job-id", started["job_id"],
+        "--status", "DONE", "--outcome", "result",
+        "--evidence-file", str(evidence_file), "--completion-file", str(completion_file),
+    )
+    assert finished.returncode == 0, finished.stdout + finished.stderr
+    return project, started["run_id"], started["job_id"]
+
+
+def test_workspace_show_cli_json_reports_manifest_state(tmp_path):
+    project, run_id, job_id = _begin_and_finish_via_cli(tmp_path)
+
+    result = run_cli("workspace", "show", "--run", run_id, "--json", cwd=str(project))
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    payload = json.loads(result.stdout)
+    assert payload["job_ids"] == [job_id]
+    assert payload["jobs"][0]["manifest_state"] == "terminal"
+    assert payload["errors"] == []
+
+
+def test_workspace_show_cli_text_output_by_default(tmp_path):
+    project, run_id, job_id = _begin_and_finish_via_cli(tmp_path)
+
+    result = run_cli("workspace", "show", "--run", run_id, cwd=str(project))
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert job_id in result.stdout
+    with pytest.raises(json.JSONDecodeError):
+        json.loads(result.stdout)
+
+
+def test_workspace_verify_cli_json_reports_valid_job_scope(tmp_path):
+    project, run_id, job_id = _begin_and_finish_via_cli(tmp_path)
+
+    result = run_cli("workspace", "verify", "--run", run_id, "--job", job_id, "--json", cwd=str(project))
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    payload = json.loads(result.stdout)
+    assert payload["valid"] is True
+    assert payload["verified_files"] == 1
+
+
+def test_workspace_cli_reports_stable_error_code_for_unknown_run(tmp_path):
+    project, _run_id, _job_id = _begin_and_finish_via_cli(tmp_path)
+
+    result = run_cli("workspace", "show", "--run", "99999999-9999-4999-8999-999999999999", "--json", cwd=str(project))
+
+    assert result.returncode == 1
+    payload = json.loads(result.stdout)
+    assert payload["code"] == "run_not_found"
+
+
+def test_workspace_show_cli_rejects_escaping_file_path(tmp_path):
+    project, run_id, job_id = _begin_and_finish_via_cli(tmp_path)
+
+    result = run_cli("workspace", "show", "--run", run_id, "--job", job_id, "--file", "../result.md", "--json", cwd=str(project))
+
+    assert result.returncode == 1
+    payload = json.loads(result.stdout)
+    assert payload["code"] == "path_escape"

@@ -27,6 +27,7 @@ from .ledger_cli import (
 )
 from .ledger_schema import STATUSES
 from .providers import discover_provider_ids
+from .workspace_cli import add_workspace_parser, handle_workspace
 
 
 class _ArgumentError(ValueError):
@@ -247,6 +248,7 @@ def _parser() -> argparse.ArgumentParser:
     validate.add_argument("--controller-session-id")
     add_grounding_parser(commands, ARGUMENT_PARSER)
     add_dispatch_parser(commands, ARGUMENT_PARSER)
+    add_workspace_parser(commands, ARGUMENT_PARSER)
     return parser
 
 
@@ -270,6 +272,8 @@ def main(
             return _emit(command_dispatch(args, root))
         if args.command == "grounding":
             return _emit(command_grounding(args, root))
+        if args.command == "workspace":
+            return _emit(handle_workspace(args, cwd=Path.cwd()))
         handlers = {
             "start": command_start,
             "begin-direct": command_begin_direct,

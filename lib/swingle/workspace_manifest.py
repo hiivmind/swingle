@@ -278,6 +278,46 @@ def finalize_job_manifest(
     return manifest
 
 
+def _read_manifest_object(job_fd: int, job_id: str) -> tuple[JobManifest, bytes]:
+    """Open, read, and schema-validate `manifest.json` relative to `job_fd`.
+
+    Raises `manifest_missing` or `manifest_invalid`. Does not compare
+    identity against ledger truth and does not verify file contents.
+    """
+    try:
+        manifest_fd = workspace_io._open_file_no_follow(
+            job_fd, _MANIFEST_NAME, operation="verify", path=_MANIFEST_NAME
+        )
+    except WorkspaceError as exc:
+        if exc.code == "file_missing":
+            raise WorkspaceError("manifest_missing", f"verify: no manifest for job: {job_id}") from exc
+        raise
+
+    try:
+        with os.fdopen(manifest_fd, "rb", closefd=True) as handle:
+            raw = handle.read()
+    except OSError as exc:
+        raise workspace_io._io_error("verify", _MANIFEST_NAME, exc) from exc
+
+    data = _parse_manifest_bytes(raw)
+    manifest = _validate_manifest_object(data)
+    return manifest, raw
+
+
+def _manifest_tree_facts(manifest: JobManifest, raw: bytes) -> tuple[TreeFact, ...]:
+    return (
+        TreeFact(
+            path=_MANIFEST_NAME,
+            entry_type="file",
+            size_bytes=len(raw),
+            sha256=hashlib.sha256(raw).hexdigest(),
+        ),
+    ) + tuple(
+        TreeFact(path=item.path, entry_type="file", size_bytes=item.size_bytes, sha256=item.sha256)
+        for item in manifest.files
+    )
+
+
 def verify_job_manifest(
     *,
     project: Path,
@@ -297,23 +337,7 @@ def verify_job_manifest(
     job_dir = _job_dir(project, run_id, job_id)
     job_fd = workspace_io._open_dir_no_follow_path(job_dir, operation="verify")
     try:
-        try:
-            manifest_fd = workspace_io._open_file_no_follow(
-                job_fd, _MANIFEST_NAME, operation="verify", path=_MANIFEST_NAME
-            )
-        except WorkspaceError as exc:
-            if exc.code == "file_missing":
-                raise WorkspaceError("manifest_missing", f"verify: no manifest for job: {job_id}") from exc
-            raise
-
-        try:
-            with os.fdopen(manifest_fd, "rb", closefd=True) as handle:
-                raw = handle.read()
-        except OSError as exc:
-            raise workspace_io._io_error("verify", _MANIFEST_NAME, exc) from exc
-
-        data = _parse_manifest_bytes(raw)
-        manifest = _validate_manifest_object(data)
+        manifest, raw = _read_manifest_object(job_fd, job_id)
 
         expected_identity = {
             "controller_session_id": controller_session_id,
@@ -327,18 +351,30 @@ def verify_job_manifest(
             if getattr(manifest, field) != expected_value:
                 raise _invalid(f"manifest.{field} does not match the ledger record")
 
-        expected_tree = (
-            TreeFact(
-                path=_MANIFEST_NAME,
-                entry_type="file",
-                size_bytes=len(raw),
-                sha256=hashlib.sha256(raw).hexdigest(),
-            ),
-        ) + tuple(
-            TreeFact(path=item.path, entry_type="file", size_bytes=item.size_bytes, sha256=item.sha256)
-            for item in manifest.files
-        )
-        workspace_io.verify_regular_tree_at(job_fd, expected_tree)
+        workspace_io.verify_regular_tree_at(job_fd, _manifest_tree_facts(manifest, raw))
         return manifest
+    finally:
+        os.close(job_fd)
+
+
+def manifest_json_exists(project: Path, run_id: str, job_id: str) -> bool:
+    """Report whether `manifest.json` exists for a job, without reading it."""
+    return (_job_dir(project, run_id, job_id) / _MANIFEST_NAME).is_file()
+
+
+def verify_manifest_files_only(*, project: Path, run_id: str, job_id: str) -> tuple[JobManifest, tuple[TreeFact, ...]]:
+    """Read, schema-validate, and byte-verify a manifest without an identity check.
+
+    Used for a not-yet-terminal (`prepared`) manifest: a pre-terminal
+    finalize wrote it, but no ledger `complete` event exists yet to compare
+    identity against. Still verifies every listed file's size and digest
+    and rejects any unlisted regular file.
+    """
+    job_dir = _job_dir(project, run_id, job_id)
+    job_fd = workspace_io._open_dir_no_follow_path(job_dir, operation="verify")
+    try:
+        manifest, raw = _read_manifest_object(job_fd, job_id)
+        verified = workspace_io.verify_regular_tree_at(job_fd, _manifest_tree_facts(manifest, raw))
+        return manifest, verified
     finally:
         os.close(job_fd)

@@ -11,6 +11,7 @@ from swingle.errors import WorkspaceError
 from swingle.workspace_io import (
     FileFact,
     TreeFact,
+    read_file_fact,
     scan_regular_tree,
     verify_regular_tree,
     verify_regular_tree_at,
@@ -19,6 +20,45 @@ from swingle.workspace_io import (
 
 def _open_root(path):
     return os.open(path, os.O_DIRECTORY | os.O_NOFOLLOW)
+
+
+def test_read_file_fact_reads_nested_file_identity(tmp_path):
+    root = tmp_path / "root"
+    (root / "sub").mkdir(parents=True)
+    (root / "sub" / "result.md").write_bytes(b"result\n")
+
+    fact = read_file_fact(root, "sub/result.md")
+
+    assert fact == FileFact(
+        path="sub/result.md",
+        size_bytes=len(b"result\n"),
+        sha256=hashlib.sha256(b"result\n").hexdigest(),
+        device=fact.device,
+        inode=fact.inode,
+    )
+
+
+def test_read_file_fact_rejects_missing_file(tmp_path):
+    root = tmp_path / "root"
+    root.mkdir()
+
+    with pytest.raises(WorkspaceError) as error:
+        read_file_fact(root, "missing.txt")
+
+    assert error.value.code == "file_missing"
+
+
+def test_read_file_fact_rejects_symlink(tmp_path):
+    root = tmp_path / "root"
+    root.mkdir()
+    outside = tmp_path / "outside.txt"
+    outside.write_text("x", encoding="utf-8")
+    (root / "linked").symlink_to(outside)
+
+    with pytest.raises(WorkspaceError) as error:
+        read_file_fact(root, "linked")
+
+    assert error.value.code == "symlink_rejected"
 
 
 # --- scan_regular_tree: descriptor safety -----------------------------------

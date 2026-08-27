@@ -12,7 +12,9 @@ from swingle.workspace_manifest import (
     JobManifest,
     ManifestFile,
     finalize_job_manifest,
+    manifest_json_exists,
     verify_job_manifest,
+    verify_manifest_files_only,
 )
 
 SESSION = "11111111-1111-4111-8111-111111111111"
@@ -382,3 +384,49 @@ def test_verify_rejects_terminal_manifest_gaining_unlisted_file_after_creation(t
     assert manifest.files == (
         ManifestFile(path="result.md", size_bytes=1, sha256=hashlib.sha256(b"x").hexdigest()),
     )
+
+
+# --- prepared-manifest helpers (no ledger complete event yet) ----------------
+
+
+def test_manifest_json_exists_false_before_finalize(tmp_path):
+    _make_job(tmp_path, files={"result.md": b"x"})
+
+    assert manifest_json_exists(tmp_path, RUN, JOB) is False
+
+
+def test_manifest_json_exists_true_after_finalize(tmp_path):
+    _make_job(tmp_path, files={"result.md": b"x"})
+    _finalize(tmp_path)
+
+    assert manifest_json_exists(tmp_path, RUN, JOB) is True
+
+
+def test_verify_manifest_files_only_verifies_bytes_without_identity_args(tmp_path):
+    _make_job(tmp_path, files={"result.md": b"result\n"})
+    _finalize(tmp_path)
+
+    manifest, verified = verify_manifest_files_only(project=tmp_path, run_id=RUN, job_id=JOB)
+
+    assert manifest.files[0].path == "result.md"
+    assert {fact.path for fact in verified} == {"manifest.json", "result.md"}
+
+
+def test_verify_manifest_files_only_detects_tampered_bytes(tmp_path):
+    _make_job(tmp_path, files={"result.md": b"result\n"})
+    _finalize(tmp_path)
+    (_job_dir(tmp_path) / "result.md").write_bytes(b"tampered")
+
+    with pytest.raises(WorkspaceError) as error:
+        verify_manifest_files_only(project=tmp_path, run_id=RUN, job_id=JOB)
+
+    assert error.value.code == "hash_mismatch"
+
+
+def test_verify_manifest_files_only_missing_manifest(tmp_path):
+    _make_job(tmp_path, files={"result.md": b"x"})
+
+    with pytest.raises(WorkspaceError) as error:
+        verify_manifest_files_only(project=tmp_path, run_id=RUN, job_id=JOB)
+
+    assert error.value.code == "manifest_missing"

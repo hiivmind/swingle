@@ -1,14 +1,14 @@
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
-from pathlib import Path
 
 import pytest
 
 from swingle.errors import LedgerLifecycleError, WorkspaceError
 from swingle.ledger import append_events, finalize_run, record_complete
 from swingle.ledger_schema import EventDraft
-from swingle.workspace import discover_repository_root, show_workspace, verify_workspace
+from swingle.workspace import copy_workspace, discover_repository_root, show_workspace, verify_workspace
 
 SESSION = "11111111-1111-4111-8111-111111111111"
 OTHER_SESSION = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
@@ -87,6 +87,18 @@ def _allocate(repo: Path, ledger_dir: Path, *, run_id=RUN, job_id=JOB, session=S
     return job_dir
 
 
+def _allocate_job(repo: Path, ledger_dir: Path, *, run_id=RUN, job_id=JOB, session=SESSION) -> Path:
+    """Allocate an additional job on an already-started run."""
+    append_events(
+        ledger_dir,
+        session,
+        [draft("allocated", session=session, run=run_id, job=job_id, data={"role": "reader", "contract": "$PLUGIN_ROOT/contracts/reader-contract.md", "tier": "standard", "task": "read"})],
+    )
+    job_dir = repo / ".swingle" / "delegate" / "artifacts" / run_id / job_id
+    job_dir.mkdir(parents=True)
+    return job_dir
+
+
 def _finalize(repo: Path, ledger_dir: Path, *, run_id=RUN, job_id=JOB, session=SESSION, status="DONE", provider="codex"):
     append_events(ledger_dir, session, [_dispatched(run=run_id, job=job_id, provider=provider)])
     return record_complete(
@@ -113,6 +125,12 @@ def workspace_run(tmp_path) -> WorkspaceRun:
         run_dir=repo / ".swingle" / "delegate" / "artifacts" / RUN,
         job_dir=job_dir,
     )
+
+
+@pytest.fixture
+def completed_run(workspace_run) -> WorkspaceRun:
+    finalize_run(workspace_run.repo, workspace_run.ledger_dir, workspace_run.controller_session_id, workspace_run.run_id)
+    return workspace_run
 
 
 # --- repository discovery -----------------------------------------------------
@@ -370,7 +388,7 @@ def test_verify_active_run_is_invalid(tmp_path):
 
 
 def test_verify_mixed_run_reports_active_and_terminal(workspace_run):
-    active_job_dir = _allocate(workspace_run.repo, workspace_run.ledger_dir, run_id=workspace_run.run_id, job_id=OTHER_JOB)
+    active_job_dir = _allocate_job(workspace_run.repo, workspace_run.ledger_dir, run_id=workspace_run.run_id, job_id=OTHER_JOB)
 
     result = verify_workspace(run_id=workspace_run.run_id, cwd=workspace_run.repo)
 
@@ -438,7 +456,7 @@ def test_verify_corrupt_terminal_manifest_missing_file_raises_manifest_missing(w
 
 
 def test_verify_job_scope_terminal_job_inside_active_run_is_valid(workspace_run):
-    active_job_dir = _allocate(workspace_run.repo, workspace_run.ledger_dir, run_id=workspace_run.run_id, job_id=OTHER_JOB)
+    active_job_dir = _allocate_job(workspace_run.repo, workspace_run.ledger_dir, run_id=workspace_run.run_id, job_id=OTHER_JOB)
 
     result = verify_workspace(run_id=workspace_run.run_id, job_id=workspace_run.job_id, cwd=workspace_run.repo)
 
@@ -448,7 +466,7 @@ def test_verify_job_scope_terminal_job_inside_active_run_is_valid(workspace_run)
 
 
 def test_verify_job_scope_active_job_inside_active_run_is_invalid(workspace_run):
-    active_job_dir = _allocate(workspace_run.repo, workspace_run.ledger_dir, run_id=workspace_run.run_id, job_id=OTHER_JOB)
+    active_job_dir = _allocate_job(workspace_run.repo, workspace_run.ledger_dir, run_id=workspace_run.run_id, job_id=OTHER_JOB)
 
     result = verify_workspace(run_id=workspace_run.run_id, job_id=OTHER_JOB, cwd=workspace_run.repo)
 
@@ -470,3 +488,493 @@ def test_show_zero_job_complete_run_reports_only_ledger(tmp_path):
     assert result["selected_paths"] == ["ledger.ndjson"]
     ledger_bytes = next(ledger_dir.glob("*.ndjson")).stat().st_size
     assert result["byte_count"] == ledger_bytes
+
+
+# --- copy: selection forms ------------------------------------------------------
+
+
+def test_copy_run_scope_publishes_ledger_manifest_and_file(completed_run, tmp_path):
+    destination = tmp_path / "dest"
+
+    result = copy_workspace(run_id=completed_run.run_id, destination=str(destination), cwd=completed_run.repo)
+
+    assert result["status"] == "copied"
+    assert result["job_ids"] == [completed_run.job_id]
+    assert (destination / "ledger.ndjson").is_file()
+    assert (destination / "artifacts" / completed_run.run_id / completed_run.job_id / "manifest.json").is_file()
+    assert (destination / "artifacts" / completed_run.run_id / completed_run.job_id / "result.md").read_bytes() == b"result\n"
+
+
+def test_copy_job_scope_does_not_require_run_completed(workspace_run, tmp_path):
+    destination = tmp_path / "dest"
+
+    result = copy_workspace(
+        run_id=workspace_run.run_id, job_id=workspace_run.job_id, destination=str(destination), cwd=workspace_run.repo
+    )
+
+    assert result["status"] == "copied"
+    assert (destination / "artifacts" / workspace_run.run_id / workspace_run.job_id / "manifest.json").is_file()
+
+
+def test_copy_job_scope_with_file_filter_uses_source_manifest_name(workspace_run, tmp_path):
+    destination = tmp_path / "dest"
+
+    result = copy_workspace(
+        run_id=workspace_run.run_id, job_id=workspace_run.job_id, file_paths=("result.md",),
+        destination=str(destination), cwd=workspace_run.repo,
+    )
+
+    assert result["status"] == "copied"
+    job_dest = destination / "artifacts" / workspace_run.run_id / workspace_run.job_id
+    assert (job_dest / "source-manifest.json").is_file()
+    assert not (job_dest / "manifest.json").exists()
+    assert (job_dest / "result.md").read_bytes() == b"result\n"
+
+
+def test_copy_run_scope_with_multi_job_file_selection(tmp_path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    ledger_dir = repo / ".swingle" / "delegate" / "ledger"
+    _allocate(repo, ledger_dir)
+    job2_dir = _allocate_job(repo, ledger_dir, job_id=OTHER_JOB)
+    (repo / ".swingle" / "delegate" / "artifacts" / RUN / JOB / "result.md").write_bytes(b"result\n")
+    (job2_dir / "report.json").write_bytes(b"{}")
+    _finalize(repo, ledger_dir)
+    _finalize(repo, ledger_dir, job_id=OTHER_JOB)
+    finalize_run(repo, ledger_dir, SESSION, RUN)
+    destination = tmp_path / "dest"
+
+    result = copy_workspace(
+        run_id=RUN, file_paths=(f"{JOB}/result.md", f"{OTHER_JOB}/report.json"),
+        destination=str(destination), cwd=repo,
+    )
+
+    assert result["status"] == "copied"
+    assert (destination / "artifacts" / RUN / JOB / "source-manifest.json").is_file()
+    assert (destination / "artifacts" / RUN / JOB / "result.md").read_bytes() == b"result\n"
+    assert (destination / "artifacts" / RUN / OTHER_JOB / "source-manifest.json").is_file()
+    assert (destination / "artifacts" / RUN / OTHER_JOB / "report.json").read_bytes() == b"{}"
+
+
+def test_copy_ledger_ndjson_contains_only_run_level_and_selected_job_lines(tmp_path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    ledger_dir = repo / ".swingle" / "delegate" / "ledger"
+    _allocate(repo, ledger_dir)
+    _allocate_job(repo, ledger_dir, job_id=OTHER_JOB)
+    (repo / ".swingle" / "delegate" / "artifacts" / RUN / JOB / "result.md").write_bytes(b"result\n")
+    _finalize(repo, ledger_dir)
+    destination = tmp_path / "dest"
+
+    result = copy_workspace(run_id=RUN, job_id=JOB, destination=str(destination), cwd=repo)
+
+    assert result["status"] == "copied"
+    lines = (destination / "ledger.ndjson").read_bytes().splitlines()
+    job_ids_seen = {json.loads(line)["job_id"] for line in lines if json.loads(line)["job_id"] is not None}
+    assert job_ids_seen == {JOB}
+
+
+def test_copy_zero_job_complete_run_copies_only_ledger(tmp_path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    ledger_dir = repo / ".swingle" / "delegate" / "ledger"
+    append_events(ledger_dir, SESSION, [draft("run-started", data={"kind": "batch"})])
+    finalize_run(repo, ledger_dir, SESSION, RUN)
+    destination = tmp_path / "dest"
+
+    result = copy_workspace(run_id=RUN, destination=str(destination), cwd=repo)
+
+    assert result["status"] == "copied"
+    assert result["job_ids"] == []
+    assert (destination / "ledger.ndjson").is_file()
+    assert not (destination / "artifacts").exists()
+
+
+# --- copy: transaction behavior --------------------------------------------------
+
+
+def test_copy_missing_destination_publishes_with_one_rename(completed_run, tmp_path):
+    destination = tmp_path / "a" / "b" / "dest"
+
+    result = copy_workspace(run_id=completed_run.run_id, destination=str(destination), cwd=completed_run.repo)
+
+    assert result["status"] == "copied"
+    assert destination.is_dir()
+
+
+def test_copy_identical_destination_is_idempotent(completed_run, tmp_path):
+    destination = tmp_path / "dest"
+    copy_workspace(run_id=completed_run.run_id, destination=str(destination), cwd=completed_run.repo)
+
+    result = copy_workspace(run_id=completed_run.run_id, destination=str(destination), cwd=completed_run.repo)
+
+    assert result["status"] == "idempotent"
+
+
+def test_copy_different_destination_returns_conflict_and_changes_nothing(completed_run, tmp_path):
+    destination = tmp_path / "dest"
+    destination.mkdir()
+    (destination / "unexpected.txt").write_bytes(b"pre-existing")
+
+    with pytest.raises(WorkspaceError) as error:
+        copy_workspace(run_id=completed_run.run_id, destination=str(destination), cwd=completed_run.repo)
+
+    assert error.value.code == "copy_conflict"
+    assert (destination / "unexpected.txt").read_bytes() == b"pre-existing"
+    assert not (destination / "ledger.ndjson").exists()
+
+
+def test_copy_staging_failure_leaves_no_destination_tree(completed_run, tmp_path, monkeypatch):
+    import swingle.workspace as workspace_module
+
+    def broken_write_stage(stage_fd, selection):
+        raise WorkspaceError("workspace_io_error", "simulated staging failure")
+
+    monkeypatch.setattr(workspace_module, "_write_stage", broken_write_stage)
+    destination = tmp_path / "dest"
+
+    with pytest.raises(WorkspaceError):
+        copy_workspace(run_id=completed_run.run_id, destination=str(destination), cwd=completed_run.repo)
+
+    assert not destination.exists()
+    assert list(tmp_path.glob(".swingle-copy-*")) == []
+
+
+def test_copy_never_deletes_source_file(completed_run, tmp_path):
+    destination = tmp_path / "dest"
+
+    copy_workspace(run_id=completed_run.run_id, destination=str(destination), cwd=completed_run.repo)
+
+    assert (completed_run.job_dir / "result.md").read_bytes() == b"result\n"
+    assert (completed_run.job_dir / "manifest.json").is_file()
+
+
+def test_copy_rejects_destination_inside_workspace(completed_run):
+    inside = completed_run.repo / ".swingle" / "delegate" / "somewhere"
+
+    with pytest.raises(WorkspaceError) as error:
+        copy_workspace(run_id=completed_run.run_id, destination=str(inside), cwd=completed_run.repo)
+
+    assert error.value.code == "destination_inside_workspace"
+    assert not inside.exists()
+
+
+def test_copy_rejects_destination_equal_to_workspace_root(completed_run):
+    workspace_root = completed_run.repo / ".swingle" / "delegate"
+
+    with pytest.raises(WorkspaceError) as error:
+        copy_workspace(run_id=completed_run.run_id, destination=str(workspace_root), cwd=completed_run.repo)
+
+    assert error.value.code == "destination_inside_workspace"
+
+
+def test_show_to_reports_absent_for_missing_destination(completed_run, tmp_path):
+    destination = tmp_path / "dest"
+
+    result = show_workspace(run_id=completed_run.run_id, destination=str(destination), cwd=completed_run.repo)
+
+    assert result["destination_state"] == "absent"
+    assert not destination.exists()
+
+
+def test_show_to_reports_identical_without_staging(completed_run, tmp_path):
+    destination = tmp_path / "dest"
+    copy_workspace(run_id=completed_run.run_id, destination=str(destination), cwd=completed_run.repo)
+    before = {p: p.stat().st_mtime_ns for p in destination.rglob("*") if p.is_file()}
+
+    result = show_workspace(run_id=completed_run.run_id, destination=str(destination), cwd=completed_run.repo)
+
+    assert result["destination_state"] == "identical"
+    after = {p: p.stat().st_mtime_ns for p in destination.rglob("*") if p.is_file()}
+    assert before == after
+
+
+def test_show_to_reports_conflict_without_staging(completed_run, tmp_path):
+    destination = tmp_path / "dest"
+    destination.mkdir()
+    (destination / "unexpected.txt").write_bytes(b"x")
+
+    result = show_workspace(run_id=completed_run.run_id, destination=str(destination), cwd=completed_run.repo)
+
+    assert result["destination_state"] == "conflict"
+    assert list(destination.iterdir()) == [destination / "unexpected.txt"]
+
+
+# --- copy: symlink safety --------------------------------------------------------
+
+
+def test_copy_rejects_source_symlink(completed_run, tmp_path):
+    (completed_run.job_dir / "result.md").unlink()
+    outside = tmp_path / "outside.txt"
+    outside.write_text("x", encoding="utf-8")
+    (completed_run.job_dir / "result.md").symlink_to(outside)
+    destination = tmp_path / "dest"
+
+    with pytest.raises(WorkspaceError) as error:
+        copy_workspace(run_id=completed_run.run_id, destination=str(destination), cwd=completed_run.repo)
+
+    assert error.value.code == "symlink_rejected"
+    assert not destination.exists()
+
+
+def test_copy_rejects_destination_parent_symlink(completed_run, tmp_path):
+    real_parent = tmp_path / "real"
+    real_parent.mkdir()
+    linked_parent = tmp_path / "linked"
+    linked_parent.symlink_to(real_parent)
+    destination = linked_parent / "dest"
+
+    with pytest.raises(WorkspaceError) as error:
+        copy_workspace(run_id=completed_run.run_id, destination=str(destination), cwd=completed_run.repo)
+
+    assert error.value.code == "symlink_rejected"
+    assert not (real_parent / "dest").exists()
+
+
+def test_copy_rejects_existing_destination_symlink(completed_run, tmp_path):
+    somewhere_else = tmp_path / "somewhere_else"
+    somewhere_else.mkdir()
+    destination = tmp_path / "dest"
+    destination.symlink_to(somewhere_else)
+
+    with pytest.raises(WorkspaceError) as error:
+        copy_workspace(run_id=completed_run.run_id, destination=str(destination), cwd=completed_run.repo)
+
+    assert error.value.code == "symlink_rejected"
+    assert destination.is_symlink()
+    assert list(somewhere_else.iterdir()) == []
+
+
+def test_copy_rejects_existing_destination_file(completed_run, tmp_path):
+    destination = tmp_path / "dest"
+    destination.write_bytes(b"not a directory")
+
+    with pytest.raises(WorkspaceError) as error:
+        copy_workspace(run_id=completed_run.run_id, destination=str(destination), cwd=completed_run.repo)
+
+    assert error.value.code == "copy_conflict"
+    assert destination.read_bytes() == b"not a directory"
+
+
+# --- copy: staged corruption and source races -------------------------------------
+
+
+def test_copy_staged_corruption_before_verification_raises_hash_mismatch(completed_run, tmp_path, monkeypatch):
+    import os as os_module
+
+    import swingle.workspace as workspace_module
+
+    real_copy = workspace_module.workspace_io.copy_regular_file_at
+
+    def corrupting_copy(*, source_root_fd, source_path, destination_root_fd, destination_path, expected_size, expected_sha256):
+        fact = real_copy(
+            source_root_fd=source_root_fd, source_path=source_path,
+            destination_root_fd=destination_root_fd, destination_path=destination_path,
+            expected_size=expected_size, expected_sha256=expected_sha256,
+        )
+        if source_path == "result.md":
+            segments = destination_path.split("/")
+            fd = destination_root_fd
+            opened = []
+            for segment in segments[:-1]:
+                fd = os_module.open(segment, os_module.O_DIRECTORY | os_module.O_NOFOLLOW, dir_fd=fd)
+                opened.append(fd)
+            file_fd = os_module.open(segments[-1], os_module.O_WRONLY | os_module.O_TRUNC, dir_fd=fd)
+            os_module.write(file_fd, b"corrupted!")
+            os_module.close(file_fd)
+            for handle in reversed(opened):
+                os_module.close(handle)
+        return fact
+
+    monkeypatch.setattr(workspace_module.workspace_io, "copy_regular_file_at", corrupting_copy)
+    destination = tmp_path / "dest"
+
+    with pytest.raises(WorkspaceError) as error:
+        copy_workspace(run_id=completed_run.run_id, destination=str(destination), cwd=completed_run.repo)
+
+    assert error.value.code == "hash_mismatch"
+    assert "result.md" in str(error.value)
+    assert not destination.exists()
+
+
+def test_copy_staged_file_removed_before_verification_raises_file_missing(completed_run, tmp_path, monkeypatch):
+    import os as os_module
+
+    import swingle.workspace as workspace_module
+
+    real_copy = workspace_module.workspace_io.copy_regular_file_at
+
+    def vanishing_copy(*, source_root_fd, source_path, destination_root_fd, destination_path, expected_size, expected_sha256):
+        fact = real_copy(
+            source_root_fd=source_root_fd, source_path=source_path,
+            destination_root_fd=destination_root_fd, destination_path=destination_path,
+            expected_size=expected_size, expected_sha256=expected_sha256,
+        )
+        if source_path == "result.md":
+            segments = destination_path.split("/")
+            fd = destination_root_fd
+            opened = []
+            for segment in segments[:-1]:
+                fd = os_module.open(segment, os_module.O_DIRECTORY | os_module.O_NOFOLLOW, dir_fd=fd)
+                opened.append(fd)
+            os_module.unlink(segments[-1], dir_fd=fd)
+            for handle in reversed(opened):
+                os_module.close(handle)
+        return fact
+
+    monkeypatch.setattr(workspace_module.workspace_io, "copy_regular_file_at", vanishing_copy)
+    destination = tmp_path / "dest"
+
+    with pytest.raises(WorkspaceError) as error:
+        copy_workspace(run_id=completed_run.run_id, destination=str(destination), cwd=completed_run.repo)
+
+    assert error.value.code == "file_missing"
+    assert "result.md" in str(error.value)
+    assert not destination.exists()
+
+
+def test_copy_source_replaced_during_copy_raises_file_identity_changed(completed_run, tmp_path, monkeypatch):
+    import swingle.workspace as workspace_module
+
+    real_copy = workspace_module.workspace_io.copy_regular_file_at
+
+    def raising_copy(**kwargs):
+        if kwargs["source_path"] == "result.md":
+            raise WorkspaceError("file_identity_changed", f"copy: file changed during read: {kwargs['source_path']}")
+        return real_copy(**kwargs)
+
+    monkeypatch.setattr(workspace_module.workspace_io, "copy_regular_file_at", raising_copy)
+    destination = tmp_path / "dest"
+
+    with pytest.raises(WorkspaceError) as error:
+        copy_workspace(run_id=completed_run.run_id, destination=str(destination), cwd=completed_run.repo)
+
+    assert error.value.code == "file_identity_changed"
+    assert "result.md" in str(error.value)
+    assert not destination.exists()
+
+
+# --- copy: publication race protocol ----------------------------------------------
+
+
+def test_copy_concurrently_created_empty_destination_returns_conflict_never_replaced(completed_run, tmp_path):
+    destination = tmp_path / "dest"
+    destination.mkdir()
+    inode_before = destination.stat().st_ino
+
+    with pytest.raises(WorkspaceError) as error:
+        copy_workspace(run_id=completed_run.run_id, destination=str(destination), cwd=completed_run.repo)
+
+    assert error.value.code == "copy_conflict"
+    assert destination.stat().st_ino == inode_before
+    assert list(destination.iterdir()) == []
+
+
+def test_copy_extra_empty_directory_in_destination_returns_conflict(completed_run, tmp_path):
+    destination = tmp_path / "dest"
+    copy_workspace(run_id=completed_run.run_id, destination=str(destination), cwd=completed_run.repo)
+    (destination / "artifacts" / completed_run.run_id / completed_run.job_id / "extra_dir").mkdir()
+
+    with pytest.raises(WorkspaceError) as error:
+        copy_workspace(run_id=completed_run.run_id, destination=str(destination), cwd=completed_run.repo)
+
+    assert error.value.code == "copy_conflict"
+
+
+def test_copy_unsupported_rename_primitive_returns_workspace_io_error(completed_run, tmp_path, monkeypatch):
+    import swingle.workspace_io as workspace_io_module
+
+    monkeypatch.setattr(workspace_io_module, "_renameat_func", lambda: (None, 0))
+    destination = tmp_path / "dest"
+
+    with pytest.raises(WorkspaceError) as error:
+        copy_workspace(run_id=completed_run.run_id, destination=str(destination), cwd=completed_run.repo)
+
+    assert error.value.code == "workspace_io_error"
+    assert not destination.exists()
+    assert list(tmp_path.glob(".swingle-copy-*")) == []
+
+
+def test_copy_publication_instability_exceeds_race_limit_leaves_destination_unchanged(completed_run, tmp_path, monkeypatch):
+    import swingle.workspace as workspace_module
+
+    destination = tmp_path / "dest"
+    destination.mkdir()
+
+    real_matches = workspace_module.workspace_io.regular_tree_matches_at
+    call_count = {"n": 0}
+
+    def flaky_matches(root_fd, expected):
+        call_count["n"] += 1
+        result = real_matches(root_fd, expected)
+        # Replace the destination with a fresh empty directory so the
+        # post-comparison identity recheck always observes a different
+        # inode, forcing a retry every attempt. Deterministic; no timing.
+        destination.rmdir()
+        destination.mkdir()
+        return result
+
+    monkeypatch.setattr(workspace_module.workspace_io, "regular_tree_matches_at", flaky_matches)
+
+    with pytest.raises(WorkspaceError) as error:
+        copy_workspace(run_id=completed_run.run_id, destination=str(destination), cwd=completed_run.repo)
+
+    assert error.value.code == "workspace_io_error"
+    assert call_count["n"] == 8
+    assert destination.is_dir()
+    assert list(destination.iterdir()) == []
+    assert list(tmp_path.glob(".swingle-copy-*")) == []
+
+
+def test_copy_retries_from_stage_when_destination_replaced_during_comparison(completed_run, tmp_path, monkeypatch):
+    import swingle.workspace as workspace_module
+
+    destination = tmp_path / "dest"
+    destination.mkdir()
+
+    real_matches = workspace_module.workspace_io.regular_tree_matches_at
+    state = {"replaced": False}
+
+    def flaky_matches(root_fd, expected):
+        result = real_matches(root_fd, expected)
+        if not state["replaced"]:
+            state["replaced"] = True
+            destination.rmdir()
+        return result
+
+    monkeypatch.setattr(workspace_module.workspace_io, "regular_tree_matches_at", flaky_matches)
+
+    result = copy_workspace(run_id=completed_run.run_id, destination=str(destination), cwd=completed_run.repo)
+
+    assert result["status"] == "copied"
+    assert destination.is_dir()
+    assert (destination / "ledger.ndjson").is_file()
+
+
+# --- copy: narrowed selection verification ----------------------------------------
+
+
+def test_copy_narrowed_selection_verifies_staged_file_against_manifest(completed_run, tmp_path):
+    destination = tmp_path / "dest"
+
+    result = copy_workspace(
+        run_id=completed_run.run_id, job_id=completed_run.job_id, file_paths=("result.md",),
+        destination=str(destination), cwd=completed_run.repo,
+    )
+
+    assert result["status"] == "copied"
+    staged = destination / "artifacts" / completed_run.run_id / completed_run.job_id / "result.md"
+    assert staged.read_bytes() == b"result\n"
+
+
+def test_copy_narrowed_selection_rejects_tampered_source_file(completed_run, tmp_path):
+    (completed_run.job_dir / "result.md").write_bytes(b"tampered")
+    destination = tmp_path / "dest"
+
+    with pytest.raises(WorkspaceError) as error:
+        copy_workspace(
+            run_id=completed_run.run_id, job_id=completed_run.job_id, file_paths=("result.md",),
+            destination=str(destination), cwd=completed_run.repo,
+        )
+
+    assert error.value.code == "hash_mismatch"

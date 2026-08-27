@@ -1,9 +1,15 @@
 from __future__ import annotations
 
+import errno
+import hashlib
+import json
+import os
+import stat
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Literal
+from uuid import uuid4
 
 from . import ledger
 from . import ledger_schema
@@ -11,7 +17,7 @@ from . import workspace_io
 from . import workspace_manifest
 from .errors import LedgerLifecycleError, WorkspaceError
 from .ledger import LedgerRecord
-from .workspace_io import FileFact
+from .workspace_io import FileFact, TreeFact
 from .workspace_manifest import JobManifest
 
 ManifestState = Literal["absent", "prepared", "terminal", "corrupt"]
@@ -190,11 +196,14 @@ def _select_workspace(
         provider = dispatched_events[-1]["data"]["provider"] if dispatched_events else None
         manifest_path = artifact_root / run_id / selected_job_id / "manifest.json"
 
+        requested_relative_paths = files_by_job.get(selected_job_id)
+        require_valid_manifest = require_terminal_job or requested_relative_paths is not None
+
         manifest: JobManifest | None = None
         manifest_state: ManifestState
         if is_terminal:
             finished_at = complete_events[-1]["timestamp"]
-            try:
+            if require_valid_manifest:
                 manifest = workspace_manifest.verify_job_manifest(
                     project=repository_root,
                     controller_session_id=controller_session_id,
@@ -205,26 +214,40 @@ def _select_workspace(
                     finished_at=finished_at,
                 )
                 manifest_state = "terminal"
-            except WorkspaceError:
-                manifest_state = "corrupt"
+            else:
+                try:
+                    manifest = workspace_manifest.verify_job_manifest(
+                        project=repository_root,
+                        controller_session_id=controller_session_id,
+                        run_id=run_id,
+                        job_id=selected_job_id,
+                        provider=provider or "",
+                        terminal_status=terminal_status,
+                        finished_at=finished_at,
+                    )
+                    manifest_state = "terminal"
+                except WorkspaceError:
+                    manifest_state = "corrupt"
         elif workspace_manifest.manifest_json_exists(repository_root, run_id, selected_job_id):
-            try:
+            if require_valid_manifest:
                 manifest, _verified = workspace_manifest.verify_manifest_files_only(
                     project=repository_root, run_id=run_id, job_id=selected_job_id
                 )
                 manifest_state = "prepared"
-            except WorkspaceError:
-                manifest_state = "corrupt"
+            else:
+                try:
+                    manifest, _verified = workspace_manifest.verify_manifest_files_only(
+                        project=repository_root, run_id=run_id, job_id=selected_job_id
+                    )
+                    manifest_state = "prepared"
+                except WorkspaceError:
+                    manifest_state = "corrupt"
         else:
+            if require_valid_manifest:
+                raise WorkspaceError("manifest_missing", f"selection: no manifest for job: {selected_job_id}")
             manifest_state = "absent"
 
-        requested_relative_paths = files_by_job.get(selected_job_id)
         if requested_relative_paths is not None:
-            if manifest is None:
-                raise WorkspaceError(
-                    "manifest_missing" if manifest_state == "absent" else "manifest_invalid",
-                    f"selection: no readable manifest for job: {selected_job_id}",
-                )
             manifest_paths = {item.path for item in manifest.files}
             for relative_path in requested_relative_paths:
                 if relative_path not in manifest_paths:
@@ -301,6 +324,215 @@ def _allocated_job_ids(ledger_dir: Path, run_id: str) -> set[str]:
     }
 
 
+def _selection_tree_facts(selection: WorkspaceSelection) -> tuple[TreeFact, ...]:
+    """Build the complete expected tree a copy of `selection` would stage."""
+    file_facts: list[TreeFact] = []
+    ledger_bytes = b"".join(record.line for record in selection.ledger_records)
+    file_facts.append(
+        TreeFact(
+            path=_LEDGER_FILE_NAME,
+            entry_type="file",
+            size_bytes=len(ledger_bytes),
+            sha256=hashlib.sha256(ledger_bytes).hexdigest(),
+        )
+    )
+    for job in selection.jobs:
+        if job.manifest is None:
+            continue
+        manifest_bytes = workspace_manifest._serialize_manifest(job.manifest)
+        manifest_path = f"artifacts/{selection.run_id}/{job.job_id}/{job.manifest_destination_name}"
+        file_facts.append(
+            TreeFact(
+                path=manifest_path,
+                entry_type="file",
+                size_bytes=len(manifest_bytes),
+                sha256=hashlib.sha256(manifest_bytes).hexdigest(),
+            )
+        )
+        for fact in job.selected_files:
+            file_facts.append(
+                TreeFact(
+                    path=f"artifacts/{selection.run_id}/{job.job_id}/{fact.path}",
+                    entry_type="file",
+                    size_bytes=fact.size_bytes,
+                    sha256=fact.sha256,
+                )
+            )
+
+    directory_paths: set[str] = set()
+    for fact in file_facts:
+        parts = fact.path.split("/")
+        for depth in range(1, len(parts)):
+            directory_paths.add("/".join(parts[:depth]))
+    directory_facts = [
+        TreeFact(path=path, entry_type="directory", size_bytes=0, sha256=None) for path in sorted(directory_paths)
+    ]
+    return tuple(file_facts) + tuple(directory_facts)
+
+
+def _tree_sha256(facts: Sequence[TreeFact]) -> str:
+    ordered = sorted(facts, key=lambda fact: fact.path.encode("utf-8"))
+    payload = {"entries": [asdict(fact) for fact in ordered]}
+    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def _reject_destination_inside_workspace(destination_abs: str, workspace_root: Path) -> None:
+    workspace_abs = os.path.normpath(str(workspace_root))
+    dest_norm = os.path.normpath(destination_abs)
+    if dest_norm == workspace_abs or dest_norm.startswith(workspace_abs + os.sep):
+        raise WorkspaceError(
+            "destination_inside_workspace", f"copy: destination is inside the live workspace: {destination_abs}"
+        )
+
+
+def _inspect_destination_state(destination_abs: str, expected: tuple[TreeFact, ...]) -> str:
+    """Read-only destination inspection for `workspace show --to`.
+
+    Returns `"absent"`, `"identical"`, or `"conflict"`. Never creates a
+    directory or a staging tree. Raises `symlink_rejected` for a
+    symbolic link anywhere in the destination path, matching copy's own
+    safety rule.
+    """
+    parent_path, name = os.path.split(destination_abs)
+    components = [component for component in parent_path.split(os.sep) if component]
+    fd = os.open("/", workspace_io._DIR_NOFOLLOW)
+    try:
+        for component in components:
+            try:
+                entry_stat = os.stat(component, dir_fd=fd, follow_symlinks=False)
+            except FileNotFoundError:
+                return "absent"
+            if stat.S_ISLNK(entry_stat.st_mode):
+                raise WorkspaceError("symlink_rejected", f"show: symbolic link in destination path: {component}")
+            if not stat.S_ISDIR(entry_stat.st_mode):
+                return "conflict"
+            next_fd = workspace_io._open_dir_no_follow(fd, component, operation="show", path=component)
+            os.close(fd)
+            fd = next_fd
+        try:
+            entry_stat = os.stat(name, dir_fd=fd, follow_symlinks=False)
+        except FileNotFoundError:
+            return "absent"
+        if stat.S_ISLNK(entry_stat.st_mode):
+            raise WorkspaceError("symlink_rejected", f"show: destination is a symbolic link: {name}")
+        if not stat.S_ISDIR(entry_stat.st_mode):
+            return "conflict"
+        destination_fd = workspace_io._open_dir_no_follow(fd, name, operation="show", path=name)
+        try:
+            matches = workspace_io.regular_tree_matches_at(destination_fd, expected)
+        finally:
+            os.close(destination_fd)
+        return "identical" if matches else "conflict"
+    finally:
+        os.close(fd)
+
+
+def _write_stage(stage_fd: int, selection: WorkspaceSelection) -> tuple[TreeFact, ...]:
+    ledger_bytes = b"".join(record.line for record in selection.ledger_records)
+    workspace_io.write_new_file_at(stage_fd, _LEDGER_FILE_NAME, ledger_bytes)
+
+    for job in selection.jobs:
+        if job.manifest is None:
+            continue
+        job_dir_rel = f"artifacts/{selection.run_id}/{job.job_id}"
+        manifest_bytes = workspace_manifest._serialize_manifest(job.manifest)
+        workspace_io.write_new_file_at(stage_fd, f"{job_dir_rel}/{job.manifest_destination_name}", manifest_bytes)
+
+        source_job_dir = selection.artifact_root / selection.run_id / job.job_id
+        source_root_fd = workspace_io._open_dir_no_follow_path(source_job_dir, operation="copy")
+        try:
+            for fact in job.selected_files:
+                nested_dir = "/".join(fact.path.split("/")[:-1])
+                if nested_dir:
+                    workspace_io.ensure_directory_at(stage_fd, f"{job_dir_rel}/{nested_dir}")
+                workspace_io.copy_regular_file_at(
+                    source_root_fd=source_root_fd,
+                    source_path=fact.path,
+                    destination_root_fd=stage_fd,
+                    destination_path=f"{job_dir_rel}/{fact.path}",
+                    expected_size=fact.size_bytes,
+                    expected_sha256=fact.sha256,
+                )
+        finally:
+            os.close(source_root_fd)
+
+    expected = _selection_tree_facts(selection)
+    return workspace_io.verify_regular_tree_at(
+        stage_fd, expected, reject_unlisted_files=True, reject_unlisted_directories=True
+    )
+
+
+def _publish_stage(parent_fd: int, stage_name: str, destination_name: str, expected: tuple[TreeFact, ...]) -> str:
+    """Publish the stage as `destination_name` via an exclusive rename.
+
+    Returns `"copied"` or `"idempotent"`. Raises `copy_conflict`,
+    `symlink_rejected`, or `workspace_io_error`. Always removes the stage
+    before returning or raising a domain error.
+    """
+    for _attempt in range(workspace_io.PUBLICATION_RACE_LIMIT):
+        try:
+            published = workspace_io.rename_directory_noreplace_at(parent_fd, stage_name, destination_name)
+        except WorkspaceError:
+            workspace_io.delete_tree_at(parent_fd, stage_name)
+            raise
+        if published:
+            return "copied"
+
+        try:
+            entry_stat = os.stat(destination_name, dir_fd=parent_fd, follow_symlinks=False)
+        except FileNotFoundError:
+            continue
+        except OSError as exc:
+            if exc.errno in (errno.ENOENT, errno.ELOOP, errno.ENOTDIR):
+                continue
+            workspace_io.delete_tree_at(parent_fd, stage_name)
+            raise workspace_io._io_error("copy", destination_name, exc) from exc
+
+        if stat.S_ISLNK(entry_stat.st_mode):
+            workspace_io.delete_tree_at(parent_fd, stage_name)
+            raise WorkspaceError("symlink_rejected", f"copy: destination is a symbolic link: {destination_name}")
+        if not stat.S_ISDIR(entry_stat.st_mode):
+            workspace_io.delete_tree_at(parent_fd, stage_name)
+            raise WorkspaceError("copy_conflict", f"copy: destination is not a directory: {destination_name}")
+
+        try:
+            winner_fd = os.open(destination_name, os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=parent_fd)
+        except OSError as exc:
+            if exc.errno in (errno.ENOENT, errno.ELOOP, errno.ENOTDIR):
+                continue
+            workspace_io.delete_tree_at(parent_fd, stage_name)
+            raise workspace_io._io_error("copy", destination_name, exc) from exc
+
+        try:
+            winner_stat = os.fstat(winner_fd)
+            matches = workspace_io.regular_tree_matches_at(winner_fd, expected)
+            try:
+                recheck_stat = os.stat(destination_name, dir_fd=parent_fd, follow_symlinks=False)
+            except FileNotFoundError:
+                continue
+            if (
+                stat.S_ISLNK(recheck_stat.st_mode)
+                or recheck_stat.st_dev != winner_stat.st_dev
+                or recheck_stat.st_ino != winner_stat.st_ino
+            ):
+                continue
+        finally:
+            os.close(winner_fd)
+
+        if matches:
+            workspace_io.delete_tree_at(parent_fd, stage_name)
+            return "idempotent"
+        workspace_io.delete_tree_at(parent_fd, stage_name)
+        raise WorkspaceError("copy_conflict", f"copy: destination differs: {destination_name}")
+
+    workspace_io.delete_tree_at(parent_fd, stage_name)
+    raise WorkspaceError(
+        "workspace_io_error",
+        f"copy: publication unstable after {workspace_io.PUBLICATION_RACE_LIMIT} attempts: {destination_name}",
+    )
+
+
 def show_workspace(
     *,
     run_id: str,
@@ -340,6 +572,13 @@ def show_workspace(
         for job in selection.jobs
     ]
 
+    destination_abs: str | None = None
+    destination_state: str | None = None
+    if destination is not None:
+        destination_abs = os.path.abspath(os.path.expanduser(destination))
+        _reject_destination_inside_workspace(destination_abs, selection.workspace_root)
+        destination_state = _inspect_destination_state(destination_abs, _selection_tree_facts(selection))
+
     return {
         "repository_root": str(selection.repository_root),
         "workspace_root": str(selection.workspace_root),
@@ -350,10 +589,32 @@ def show_workspace(
         "selected_paths": list(selection.selected_paths),
         "byte_count": selection.byte_count,
         "orphan_artifact_directories": list(orphans),
-        "destination": destination,
-        "destination_state": None,
+        "destination": destination_abs,
+        "destination_state": destination_state,
         "errors": [],
     }
+
+
+def _reraise_corrupt_terminal_manifest(selection: WorkspaceSelection, run_id: str) -> None:
+    """Re-verify any corrupt terminal job, letting the exact original
+    `WorkspaceError` propagate instead of the soft `"corrupt"` state.
+    """
+    for job in selection.jobs:
+        if job.terminal_status is not None and job.manifest_state == "corrupt":
+            complete_event = next(
+                record.event
+                for record in selection.ledger_records
+                if record.event["job_id"] == job.job_id and record.event["event"] == "complete"
+            )
+            workspace_manifest.verify_job_manifest(
+                project=selection.repository_root,
+                controller_session_id=selection.controller_session_id,
+                run_id=run_id,
+                job_id=job.job_id,
+                provider=job.provider or "",
+                terminal_status=job.terminal_status,
+                finished_at=complete_event["timestamp"],
+            )
 
 
 def verify_workspace(
@@ -381,22 +642,7 @@ def verify_workspace(
         cwd=resolved_cwd,
     )
 
-    for job in selection.jobs:
-        if job.terminal_status is not None and job.manifest_state == "corrupt":
-            complete_event = next(
-                record.event
-                for record in selection.ledger_records
-                if record.event["job_id"] == job.job_id and record.event["event"] == "complete"
-            )
-            workspace_manifest.verify_job_manifest(
-                project=selection.repository_root,
-                controller_session_id=selection.controller_session_id,
-                run_id=run_id,
-                job_id=job.job_id,
-                provider=job.provider or "",
-                terminal_status=job.terminal_status,
-                finished_at=complete_event["timestamp"],
-            )
+    _reraise_corrupt_terminal_manifest(selection, run_id)
 
     active_job_ids = [job.job_id for job in selection.jobs if job.terminal_status is None]
     manifest_states = {job.job_id: job.manifest_state for job in selection.jobs}
@@ -423,5 +669,77 @@ def verify_workspace(
         "manifest_states": manifest_states,
         "verified_files": verified_files,
         "verified_bytes": verified_bytes,
+        "errors": [],
+    }
+
+
+def copy_workspace(
+    *,
+    run_id: str,
+    destination: str,
+    job_id: str | None = None,
+    file_paths: Sequence[str] = (),
+    cwd: Path | None = None,
+) -> dict[str, Any]:
+    """Copy a verified run, job, or file selection to `destination`.
+
+    Every selected job must be terminal and have a valid manifest. Stages
+    the complete selection in a sibling directory, verifies every staged
+    byte against the source manifest, then publishes with an exclusive
+    no-replace directory rename. Never deletes a source file.
+    """
+    resolved_cwd = Path(cwd) if cwd is not None else Path.cwd()
+    selection = _select_workspace(
+        run_id=run_id,
+        job_id=job_id,
+        file_paths=file_paths,
+        require_terminal_job=True,
+        require_complete_run=(job_id is None),
+        cwd=resolved_cwd,
+    )
+
+    destination_abs = os.path.abspath(os.path.expanduser(destination))
+    _reject_destination_inside_workspace(destination_abs, selection.workspace_root)
+
+    parent_fd, destination_name, created_parents = workspace_io.open_verified_parent_at(destination_abs)
+    try:
+        stage_name = f".swingle-copy-{uuid4()}"
+        try:
+            os.mkdir(stage_name, 0o700, dir_fd=parent_fd)
+        except OSError as exc:
+            raise workspace_io._io_error("copy", stage_name, exc) from exc
+
+        try:
+            stage_fd = workspace_io._open_dir_no_follow(parent_fd, stage_name, operation="copy", path=stage_name)
+            try:
+                tree_facts = _write_stage(stage_fd, selection)
+            finally:
+                os.close(stage_fd)
+        except BaseException:
+            workspace_io.delete_tree_at(parent_fd, stage_name)
+            raise
+
+        status = _publish_stage(parent_fd, stage_name, destination_name, tree_facts)
+    except BaseException:
+        for created_path in reversed(created_parents):
+            try:
+                os.rmdir(created_path)
+            except OSError:
+                pass
+        raise
+    finally:
+        os.close(parent_fd)
+
+    file_count = sum(1 for fact in tree_facts if fact.entry_type == "file")
+    byte_count = sum(fact.size_bytes for fact in tree_facts if fact.entry_type == "file")
+
+    return {
+        "run_id": run_id,
+        "job_ids": [job.job_id for job in selection.jobs],
+        "destination": destination_abs,
+        "status": status,
+        "file_count": file_count,
+        "byte_count": byte_count,
+        "tree_sha256": _tree_sha256(tree_facts),
         "errors": [],
     }

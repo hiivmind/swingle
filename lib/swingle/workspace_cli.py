@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from .workspace import show_workspace, verify_workspace
+from .workspace import copy_workspace, show_workspace, verify_workspace
 
 
 def add_workspace_parser(commands: Any, parser_class: Any) -> None:
@@ -14,12 +14,20 @@ def add_workspace_parser(commands: Any, parser_class: Any) -> None:
     show.add_argument("--run", required=True)
     show.add_argument("--job")
     show.add_argument("--file", action="append", default=[])
+    show.add_argument("--to")
     show.add_argument("--json", action="store_true")
 
     verify = workspace_commands.add_parser("verify")
     verify.add_argument("--run", required=True)
     verify.add_argument("--job")
     verify.add_argument("--json", action="store_true")
+
+    copy = workspace_commands.add_parser("copy")
+    copy.add_argument("--run", required=True)
+    copy.add_argument("--job")
+    copy.add_argument("--file", action="append", default=[])
+    copy.add_argument("--to", required=True)
+    copy.add_argument("--json", action="store_true")
 
 
 def _render_show_text(result: dict[str, Any]) -> str:
@@ -33,6 +41,8 @@ def _render_show_text(result: dict[str, Any]) -> str:
     if result["orphan_artifact_directories"]:
         lines.append("orphan artifact directories:")
         lines.extend(f"  {path}" for path in result["orphan_artifact_directories"])
+    if result["destination"] is not None:
+        lines.append(f"destination {result['destination']} state={result['destination_state']}")
     return "\n".join(lines) + "\n"
 
 
@@ -48,11 +58,28 @@ def _render_verify_text(result: dict[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _render_copy_text(result: dict[str, Any]) -> str:
+    lines = [
+        f"run {result['run_id']} status={result['status']}",
+        f"destination {result['destination']}",
+        f"file_count={result['file_count']} byte_count={result['byte_count']}",
+        f"tree_sha256={result['tree_sha256']}",
+    ]
+    return "\n".join(lines) + "\n"
+
+
 def handle_workspace(args: Any, *, cwd: Path) -> dict[str, Any] | str:
     if args.workspace_command == "show":
-        result = show_workspace(run_id=args.run, job_id=args.job, file_paths=tuple(args.file), cwd=cwd)
+        result = show_workspace(
+            run_id=args.run, job_id=args.job, file_paths=tuple(args.file), destination=args.to, cwd=cwd
+        )
         return result if args.json else _render_show_text(result)
     if args.workspace_command == "verify":
         result = verify_workspace(run_id=args.run, job_id=args.job, cwd=cwd)
         return result if args.json else _render_verify_text(result)
+    if args.workspace_command == "copy":
+        result = copy_workspace(
+            run_id=args.run, job_id=args.job, file_paths=tuple(args.file), destination=args.to, cwd=cwd
+        )
+        return result if args.json else _render_copy_text(result)
     raise ValueError(f"unsupported workspace command: {args.workspace_command}")

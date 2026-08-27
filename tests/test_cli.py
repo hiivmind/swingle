@@ -521,3 +521,78 @@ def test_workspace_show_cli_rejects_escaping_file_path(tmp_path):
     assert result.returncode == 1
     payload = json.loads(result.stdout)
     assert payload["code"] == "path_escape"
+
+
+def test_workspace_copy_cli_publishes_destination(tmp_path):
+    project, run_id, job_id = _begin_and_finish_via_cli(tmp_path)
+    destination = tmp_path / "dest"
+
+    result = run_cli("workspace", "copy", "--run", run_id, "--to", str(destination), "--json", cwd=str(project))
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    payload = json.loads(result.stdout)
+    assert payload["status"] == "copied"
+    assert payload["job_ids"] == [job_id]
+    assert (destination / "ledger.ndjson").is_file()
+    assert (destination / "artifacts" / run_id / job_id / "manifest.json").is_file()
+    assert (destination / "artifacts" / run_id / job_id / "result.md").read_bytes() == b"result\n"
+    assert payload["errors"] == []
+
+
+def test_workspace_copy_cli_text_output_by_default(tmp_path):
+    project, run_id, job_id = _begin_and_finish_via_cli(tmp_path)
+    destination = tmp_path / "dest"
+
+    result = run_cli("workspace", "copy", "--run", run_id, "--to", str(destination), cwd=str(project))
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "copied" in result.stdout
+    with pytest.raises(json.JSONDecodeError):
+        json.loads(result.stdout)
+
+
+def test_workspace_copy_cli_conflict_reports_stable_code_and_changes_nothing(tmp_path):
+    project, run_id, job_id = _begin_and_finish_via_cli(tmp_path)
+    destination = tmp_path / "dest"
+    destination.mkdir()
+    (destination / "unexpected.txt").write_bytes(b"pre-existing")
+
+    result = run_cli("workspace", "copy", "--run", run_id, "--to", str(destination), "--json", cwd=str(project))
+
+    assert result.returncode == 1
+    payload = json.loads(result.stdout)
+    assert payload["code"] == "copy_conflict"
+    assert (destination / "unexpected.txt").read_bytes() == b"pre-existing"
+
+
+def test_workspace_show_to_cli_reports_absent_identical_and_conflict(tmp_path):
+    project, run_id, job_id = _begin_and_finish_via_cli(tmp_path)
+    destination = tmp_path / "dest"
+
+    absent = run_cli("workspace", "show", "--run", run_id, "--to", str(destination), "--json", cwd=str(project))
+    assert absent.returncode == 0, absent.stdout + absent.stderr
+    assert json.loads(absent.stdout)["destination_state"] == "absent"
+
+    copied = run_cli("workspace", "copy", "--run", run_id, "--job", job_id, "--to", str(destination), "--json", cwd=str(project))
+    assert copied.returncode == 0, copied.stdout + copied.stderr
+
+    identical = run_cli("workspace", "show", "--run", run_id, "--to", str(destination), "--json", cwd=str(project))
+    assert identical.returncode == 0, identical.stdout + identical.stderr
+    assert json.loads(identical.stdout)["destination_state"] == "identical"
+
+    (destination / "extra.txt").write_bytes(b"x")
+    conflict = run_cli("workspace", "show", "--run", run_id, "--to", str(destination), "--json", cwd=str(project))
+    assert conflict.returncode == 0, conflict.stdout + conflict.stderr
+    assert json.loads(conflict.stdout)["destination_state"] == "conflict"
+
+
+def test_workspace_copy_cli_rejects_destination_inside_workspace(tmp_path):
+    project, run_id, job_id = _begin_and_finish_via_cli(tmp_path)
+    inside = project / ".swingle" / "delegate" / "somewhere"
+
+    result = run_cli("workspace", "copy", "--run", run_id, "--job", job_id, "--to", str(inside), "--json", cwd=str(project))
+
+    assert result.returncode == 1
+    payload = json.loads(result.stdout)
+    assert payload["code"] == "destination_inside_workspace"
+    assert not inside.exists()

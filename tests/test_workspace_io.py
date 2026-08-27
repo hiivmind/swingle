@@ -11,10 +11,17 @@ from swingle.errors import WorkspaceError
 from swingle.workspace_io import (
     FileFact,
     TreeFact,
+    copy_regular_file_at,
+    delete_tree_at,
+    ensure_directory_at,
+    open_verified_parent_at,
     read_file_fact,
+    regular_tree_matches_at,
+    rename_directory_noreplace_at,
     scan_regular_tree,
     verify_regular_tree,
     verify_regular_tree_at,
+    write_new_file_at,
 )
 
 
@@ -368,3 +375,317 @@ def test_scan_translates_eio_to_workspace_io_error(tmp_path, monkeypatch):
 
     assert error.value.code == "workspace_io_error"
     assert error.value.__cause__.errno == errno.EIO
+
+
+# --- ensure_directory_at / write_new_file_at -----------------------------------
+
+
+def test_ensure_directory_at_creates_nested_path(tmp_path):
+    root = tmp_path / "root"
+    root.mkdir()
+    root_fd = _open_root(root)
+    try:
+        ensure_directory_at(root_fd, "a/b/c")
+    finally:
+        os.close(root_fd)
+
+    assert (root / "a" / "b" / "c").is_dir()
+
+
+def test_ensure_directory_at_is_idempotent(tmp_path):
+    root = tmp_path / "root"
+    (root / "a").mkdir(parents=True)
+    root_fd = _open_root(root)
+    try:
+        ensure_directory_at(root_fd, "a")
+    finally:
+        os.close(root_fd)
+
+    assert (root / "a").is_dir()
+
+
+def test_write_new_file_at_creates_nested_file(tmp_path):
+    root = tmp_path / "root"
+    root.mkdir()
+    root_fd = _open_root(root)
+    try:
+        write_new_file_at(root_fd, "a/b/result.md", b"result\n")
+    finally:
+        os.close(root_fd)
+
+    assert (root / "a" / "b" / "result.md").read_bytes() == b"result\n"
+
+
+def test_write_new_file_at_rejects_existing_file(tmp_path):
+    root = tmp_path / "root"
+    root.mkdir()
+    (root / "result.md").write_bytes(b"x")
+    root_fd = _open_root(root)
+    try:
+        with pytest.raises(WorkspaceError) as error:
+            write_new_file_at(root_fd, "result.md", b"y")
+    finally:
+        os.close(root_fd)
+
+    assert error.value.code == "workspace_io_error"
+
+
+# --- copy_regular_file_at -------------------------------------------------------
+
+
+def test_copy_regular_file_at_copies_verified_bytes(tmp_path):
+    source = tmp_path / "source"
+    source.mkdir()
+    (source / "result.md").write_bytes(b"result\n")
+    destination = tmp_path / "destination"
+    destination.mkdir()
+
+    source_fd = _open_root(source)
+    destination_fd = _open_root(destination)
+    try:
+        fact = copy_regular_file_at(
+            source_root_fd=source_fd, source_path="result.md",
+            destination_root_fd=destination_fd, destination_path="result.md",
+            expected_size=len(b"result\n"), expected_sha256=hashlib.sha256(b"result\n").hexdigest(),
+        )
+    finally:
+        os.close(source_fd)
+        os.close(destination_fd)
+
+    assert (destination / "result.md").read_bytes() == b"result\n"
+    assert fact.size_bytes == len(b"result\n")
+    assert fact.sha256 == hashlib.sha256(b"result\n").hexdigest()
+
+
+def test_copy_regular_file_at_rejects_source_mismatch(tmp_path):
+    source = tmp_path / "source"
+    source.mkdir()
+    (source / "result.md").write_bytes(b"changed")
+    destination = tmp_path / "destination"
+    destination.mkdir()
+
+    source_fd = _open_root(source)
+    destination_fd = _open_root(destination)
+    try:
+        with pytest.raises(WorkspaceError) as error:
+            copy_regular_file_at(
+                source_root_fd=source_fd, source_path="result.md",
+                destination_root_fd=destination_fd, destination_path="result.md",
+                expected_size=len(b"original"), expected_sha256=hashlib.sha256(b"original").hexdigest(),
+            )
+    finally:
+        os.close(source_fd)
+        os.close(destination_fd)
+
+    assert error.value.code == "hash_mismatch"
+
+
+def test_copy_regular_file_at_rejects_source_symlink(tmp_path):
+    source = tmp_path / "source"
+    source.mkdir()
+    outside = tmp_path / "outside.txt"
+    outside.write_text("x", encoding="utf-8")
+    (source / "linked").symlink_to(outside)
+    destination = tmp_path / "destination"
+    destination.mkdir()
+
+    source_fd = _open_root(source)
+    destination_fd = _open_root(destination)
+    try:
+        with pytest.raises(WorkspaceError) as error:
+            copy_regular_file_at(
+                source_root_fd=source_fd, source_path="linked",
+                destination_root_fd=destination_fd, destination_path="linked",
+                expected_size=1, expected_sha256=hashlib.sha256(b"x").hexdigest(),
+            )
+    finally:
+        os.close(source_fd)
+        os.close(destination_fd)
+
+    assert error.value.code == "symlink_rejected"
+    assert not (destination / "linked").exists()
+
+
+# --- regular_tree_matches_at -----------------------------------------------------
+
+
+def test_regular_tree_matches_at_true_for_identical_tree(tmp_path):
+    root = tmp_path / "root"
+    root.mkdir()
+    (root / "result.md").write_bytes(b"result\n")
+    expected = (TreeFact(path="result.md", entry_type="file", size_bytes=len(b"result\n"), sha256=hashlib.sha256(b"result\n").hexdigest()),)
+
+    root_fd = _open_root(root)
+    try:
+        assert regular_tree_matches_at(root_fd, expected) is True
+    finally:
+        os.close(root_fd)
+
+
+def test_regular_tree_matches_at_false_for_content_mismatch(tmp_path):
+    root = tmp_path / "root"
+    root.mkdir()
+    (root / "result.md").write_bytes(b"changed")
+    expected = (TreeFact(path="result.md", entry_type="file", size_bytes=len(b"original"), sha256=hashlib.sha256(b"original").hexdigest()),)
+
+    root_fd = _open_root(root)
+    try:
+        assert regular_tree_matches_at(root_fd, expected) is False
+    finally:
+        os.close(root_fd)
+
+
+def test_regular_tree_matches_at_false_for_missing_entry(tmp_path):
+    root = tmp_path / "root"
+    root.mkdir()
+    expected = (TreeFact(path="result.md", entry_type="file", size_bytes=7, sha256="a" * 64),)
+
+    root_fd = _open_root(root)
+    try:
+        assert regular_tree_matches_at(root_fd, expected) is False
+    finally:
+        os.close(root_fd)
+
+
+def test_regular_tree_matches_at_false_for_extra_entry(tmp_path):
+    root = tmp_path / "root"
+    root.mkdir()
+    (root / "extra.txt").write_bytes(b"x")
+
+    root_fd = _open_root(root)
+    try:
+        assert regular_tree_matches_at(root_fd, ()) is False
+    finally:
+        os.close(root_fd)
+
+
+def test_regular_tree_matches_at_raises_for_symlink(tmp_path):
+    root = tmp_path / "root"
+    root.mkdir()
+    outside = tmp_path / "outside.txt"
+    outside.write_text("x", encoding="utf-8")
+    (root / "linked").symlink_to(outside)
+
+    root_fd = _open_root(root)
+    try:
+        with pytest.raises(WorkspaceError) as error:
+            regular_tree_matches_at(root_fd, ())
+    finally:
+        os.close(root_fd)
+
+    assert error.value.code == "symlink_rejected"
+
+
+# --- delete_tree_at ---------------------------------------------------------------
+
+
+def test_delete_tree_at_removes_nested_tree(tmp_path):
+    root = tmp_path / "root"
+    (root / "a" / "b").mkdir(parents=True)
+    (root / "a" / "b" / "file.txt").write_bytes(b"x")
+    (root / "a" / "top.txt").write_bytes(b"y")
+
+    root_fd = _open_root(tmp_path)
+    try:
+        delete_tree_at(root_fd, "root")
+    finally:
+        os.close(root_fd)
+
+    assert not root.exists()
+
+
+def test_delete_tree_at_rejects_symlink_inside_tree(tmp_path):
+    root = tmp_path / "root"
+    root.mkdir()
+    outside = tmp_path / "outside.txt"
+    outside.write_text("x", encoding="utf-8")
+    (root / "linked").symlink_to(outside)
+
+    root_fd = _open_root(tmp_path)
+    try:
+        with pytest.raises(WorkspaceError) as error:
+            delete_tree_at(root_fd, "root")
+    finally:
+        os.close(root_fd)
+
+    assert error.value.code == "symlink_rejected"
+    assert outside.exists()
+
+
+def test_delete_tree_at_missing_entry_is_a_no_op(tmp_path):
+    root_fd = _open_root(tmp_path)
+    try:
+        delete_tree_at(root_fd, "does-not-exist")
+    finally:
+        os.close(root_fd)
+
+
+# --- rename_directory_noreplace_at ------------------------------------------------
+
+
+def test_rename_directory_noreplace_at_publishes_missing_destination(tmp_path):
+    (tmp_path / "stage").mkdir()
+    (tmp_path / "stage" / "file.txt").write_bytes(b"x")
+    parent_fd = _open_root(tmp_path)
+    try:
+        published = rename_directory_noreplace_at(parent_fd, "stage", "destination")
+    finally:
+        os.close(parent_fd)
+
+    assert published is True
+    assert (tmp_path / "destination" / "file.txt").read_bytes() == b"x"
+    assert not (tmp_path / "stage").exists()
+
+
+def test_rename_directory_noreplace_at_returns_false_for_existing_destination(tmp_path):
+    (tmp_path / "stage").mkdir()
+    (tmp_path / "destination").mkdir()
+    parent_fd = _open_root(tmp_path)
+    try:
+        published = rename_directory_noreplace_at(parent_fd, "stage", "destination")
+    finally:
+        os.close(parent_fd)
+
+    assert published is False
+    assert (tmp_path / "stage").exists()
+    assert (tmp_path / "destination").exists()
+
+
+# --- open_verified_parent_at ------------------------------------------------------
+
+
+def test_open_verified_parent_at_creates_missing_parents(tmp_path):
+    destination = tmp_path / "a" / "b" / "c"
+
+    parent_fd, name, created = open_verified_parent_at(str(destination))
+    try:
+        assert name == "c"
+        assert (tmp_path / "a" / "b").is_dir()
+        assert len(created) == 2
+    finally:
+        os.close(parent_fd)
+
+
+def test_open_verified_parent_at_rejects_symlink_component(tmp_path):
+    real = tmp_path / "real"
+    real.mkdir()
+    linked = tmp_path / "linked"
+    linked.symlink_to(real)
+    destination = linked / "dest"
+
+    with pytest.raises(WorkspaceError) as error:
+        open_verified_parent_at(str(destination))
+
+    assert error.value.code == "symlink_rejected"
+
+
+def test_open_verified_parent_at_reuses_existing_directories(tmp_path):
+    (tmp_path / "a" / "b").mkdir(parents=True)
+    destination = tmp_path / "a" / "b" / "c"
+
+    parent_fd, name, created = open_verified_parent_at(str(destination))
+    try:
+        assert name == "c"
+        assert created == ()
+    finally:
+        os.close(parent_fd)

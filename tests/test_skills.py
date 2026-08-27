@@ -230,6 +230,18 @@ def test_living_documentation_describes_v2_state_and_commands():
         "references/liveness.md",
         "exact authored briefing",
         "dynamic result interpretation",
+        "workspace show",
+        "workspace verify",
+        "workspace copy",
+        "workspace delete",
+        "The manifest is automatic.",
+        "The ledger is authoritative for lifecycle state.",
+        "The manifest is authoritative for file inventory and hashes.",
+        "Copy never sends files to a network service.",
+        "Copy never runs Git.",
+        "Deletion never removes ledger files.",
+        "Swingle has no workspace classification or retention policy.",
+        "The workspace modules do not import `subprocess`, network clients, or Git bindings.",
     ):
         assert required in "\n".join((concepts, config, tiering, entry_docs))
 
@@ -244,3 +256,50 @@ def test_living_documentation_describes_v2_state_and_commands():
         "runnable recipe",
     ):
         assert retired not in entry_docs
+
+
+FORBIDDEN_WORKSPACE_POLICY_VOCABULARY = (
+    "sensitivity",
+    "retention class",
+    "legal hold",
+    "archive receipt",
+    "publication receipt",
+    "workspace policy",
+)
+
+
+def test_delegate_reports_workspace_output_and_authorized_copy():
+    text = DELEGATE.read_text()
+    for required in (
+        "ledger finish-direct --project $REPO_ROOT",
+        "primary output path",
+        "job directory",
+        "workspace copy",
+        "source-manifest.json",
+        "original request names the exact destination and selection",
+        "one confirmation",
+    ):
+        assert required in text
+
+
+def test_sdd_passes_project_to_terminal_operations():
+    text = SDD.read_text()
+    for required in (
+        "ledger record complete --project $REPO_ROOT",
+        "ledger finalize-run --project $REPO_ROOT",
+    ):
+        assert required in text
+
+
+def test_setup_inspects_workspace_parent_without_creating_state():
+    text = SETUP.read_text()
+    assert "nearest existing parent" in text
+    assert "does not create the workspace during inspection" in text
+
+
+def test_normal_workspace_guidance_excludes_policy_vocabulary():
+    concepts = (ROOT / "references" / "concepts.md").read_text()
+    entry_docs = "\n".join((ROOT / name).read_text() for name in ("README.md", "CLAUDE.md"))
+    text = "\n".join((DELEGATE.read_text(), SDD.read_text(), SETUP.read_text(), concepts, entry_docs)).lower()
+    for forbidden in FORBIDDEN_WORKSPACE_POLICY_VOCABULARY:
+        assert forbidden not in text

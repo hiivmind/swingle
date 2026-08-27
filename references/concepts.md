@@ -112,3 +112,32 @@ assume one provider's pattern applies to another, and do not carry a pattern for
 an earlier session or an older provider version. Inspect the target provider's current
 `--help` before combining model and effort for a dispatch, the same help-first grounding
 `swingle-delegate` already applies before every dispatch.
+
+## Workspace
+
+Every terminal job carries an automatic manifest. Inspect, verify, publish, or remove
+the workspace with:
+
+```text
+workspace show --run <run-id> [--job <job-id>] [--file <path>] [--to <destination>] [--json]
+workspace verify --run <run-id> [--job <job-id>] [--json]
+workspace copy --run <run-id> [--job <job-id>] [--file <path>] --to <destination> [--json]
+workspace delete --run <run-id> [--job <job-id>] [--json]
+workspace delete --run <run-id> [--job <job-id>] --expect-selection-sha256 <digest> --apply [--json]
+```
+
+A healthy delegation asks no workspace question and no metadata question: `workspace
+copy` runs only when the original request names the exact destination and selection,
+and `workspace delete` applies with one preview and one confirmation using the exact
+preview digest.
+
+Boundaries:
+
+- The manifest is automatic.
+- The ledger is authoritative for lifecycle state.
+- The manifest is authoritative for file inventory and hashes.
+- Copy never sends files to a network service.
+- Copy never runs Git.
+- Deletion never removes ledger files.
+- Swingle has no workspace classification or retention policy.
+- The workspace modules do not import `subprocess`, network clients, or Git bindings.

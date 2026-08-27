@@ -100,6 +100,23 @@ Preserve the provider's raw output and authored evidence in the returned artifac
 directory; temporary parser and artifact management stay controller-owned. Do not
 replace either outcome with a provider self-report.
 
+Append the job's terminal record with `ledger record complete --project $REPO_ROOT`,
+passing the shared ledger directory, controller-session ID, run ID, job ID, status,
+outcome, and both independently interpreted outcomes as evidence:
+
+```bash
+python3 $PLUGIN_ROOT/scripts/swingle ledger record complete \
+  --project $REPO_ROOT \
+  --dir $REPO_ROOT/.swingle/delegate/ledger/ \
+  --controller-session-id <controller-session-id> \
+  --run-id <run-id> \
+  --job-id <job-id> \
+  --status <status> \
+  --outcome <outcome> \
+  --evidence-file <evidence.json> \
+  --completion-file <completion.json>
+```
+
 ## Shared ledger lifecycle
 
 The controller retains each job's terminal status in the one shared SDD run. Its
@@ -123,7 +140,7 @@ Do not finalize while an allocated job is active. Every allocated job must have 
 one terminal `complete` event before finalization.
 
 When all allocated jobs are terminal and no further jobs will be allocated, invoke the
-sole finalizer:
+sole finalizer, `ledger finalize-run --project $REPO_ROOT`:
 
 ```bash
 python3 $PLUGIN_ROOT/scripts/swingle ledger finalize-run \

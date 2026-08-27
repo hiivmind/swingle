@@ -48,6 +48,10 @@ python3 <root>/scripts/swingle ledger show --dir <project>/.swingle/delegate/led
 The command may show an empty directory as absent; Inspect does not create an empty ledger
 or a readiness marker.
 
+If the user asks about workspace readiness, inspect the nearest existing parent of
+`<project>/.swingle/delegate/` for writability and report a non-writable parent plainly.
+Inspect does not create the workspace during inspection.
+
 Only after an approved routing or model change names a provider, report executable
 presence with the harness command lookup. Summarize the result, for example
 `all known providers resolve` or `codex is missing`; do not turn this into an

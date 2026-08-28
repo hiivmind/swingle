@@ -177,6 +177,67 @@ def test_delegate_announces_warm_attempt_after_begin_and_before_launch():
         assert required in section
 
 
+def test_delegate_announces_ttl_zero_attempt_after_begin_and_before_launch():
+    text = DELEGATE.read_text()
+    section = _section(
+        text,
+        "### Announce TTL-zero attempt 1",
+        "## Failure recovery",
+    )
+    block = _single_text_block(section)
+    announcement_at = section.index(f"```text\n{block}\n```")
+
+    assert block == ANNOUNCEMENT_BLOCK
+    assert section.index("ledger begin-direct") < section.index(
+        "compose the complete provider Bash command"
+    )
+    assert section.index("compose the complete provider Bash command") < announcement_at
+    assert announcement_at < section.index("launch provider Bash")
+    for required in (
+        "ground_without_cache",
+        "storage: none",
+        "null receipt fields",
+        "run_id",
+        "job_id",
+        "artifact_dir",
+        "known constant `1`",
+    ):
+        assert required in section
+
+
+def test_delegate_announces_each_batch_job_after_dispatched_and_before_launch():
+    text = DELEGATE.read_text()
+    section = _section(
+        text,
+        "### Announce each batch attempt",
+        "### Finalize the batch",
+    )
+    block = _single_text_block(section)
+    announcement_at = section.index(f"```text\n{block}\n```")
+
+    assert block == ANNOUNCEMENT_BLOCK
+    assert section.index("ledger allocate") < section.index(
+        "ledger record dispatched --attempt 1"
+    )
+    assert section.index("ledger record dispatched --attempt 1") < section.index(
+        "compose the complete provider command for that job"
+    )
+    assert (
+        section.index("compose the complete provider command for that job")
+        < announcement_at
+    )
+    assert announcement_at < section.index("launch that job")
+    for required in (
+        "one block per job per attempt",
+        "shared run_id",
+        "job_id",
+        "artifact_dir",
+        "returned by",
+        "resolved selection transported",
+    ):
+        assert required in section
+
+
 def test_setup_manages_only_swingle_owned_state():
     text = SETUP.read_text()
     for required in (

@@ -269,6 +269,24 @@ If live grounding cannot resolve the executable, do not cache negative availabil
 do not allocate a ledger job. For a configured provider, offer `repair=provider-routing`.
 For an explicit missing provider, return `BLOCKED` without substitution.
 
+### Announce TTL-zero attempt 1
+
+For `ground_without_cache`, retain the normalized uncached grounding event with
+`storage: none` and null receipt fields. Run the low-level uncached
+`ledger begin-direct`. After it succeeds, retain `run_id`, `job_id`, and
+`artifact_dir` from its JSON result and set the attempt to the known constant `1`.
+Use the resolved selection transported to that call, then compose the complete provider Bash command from the uncached mechanics and authored inputs. After the
+complete command is composed and immediately before launch, emit exactly:
+
+```text
+delegate: role=<role> contract=<contract> tier=<tier> provider=<provider> model=<model> effort=<effort> attempt=<attempt> run=<run-id> job=<job-id>
+artifacts: <artifact-dir> — inspect: cd <quoted-repo-root> && python3 <quoted-plugin-root>/scripts/swingle workspace show --run <run-id> --job <job-id>
+```
+
+Then launch provider Bash.
+
+The block does not add cache I/O or a second ledger call.
+
 ## Failure recovery
 
 After an observed failure, use this exact order:
@@ -292,6 +310,25 @@ Use one run and one provider context for a homogeneous batch. Start one run, all
 each job only after dispatchable context, and record each dispatch with typed ledger
 events. After a contradiction, rerun context before later jobs. Every mutating job gets
 independent repository verification; one job's evidence never proves another job.
+
+### Announce each batch attempt
+
+Use one block per job per attempt, never one block for the shared run. After
+`ledger allocate` succeeds, retain its `job_id` and `artifact_dir` returned by
+`ledger allocate`, alongside the shared run_id. Call
+`ledger record dispatched --attempt 1` with the provider, model, effort, liveness,
+and grounding values for that job. Use the resolved selection transported to
+`ledger record dispatched`, then compose the complete provider command for that job.
+After the complete command is composed and immediately before launch, emit exactly:
+
+```text
+delegate: role=<role> contract=<contract> tier=<tier> provider=<provider> model=<model> effort=<effort> attempt=<attempt> run=<run-id> job=<job-id>
+artifacts: <artifact-dir> — inspect: cd <quoted-repo-root> && python3 <quoted-plugin-root>/scripts/swingle workspace show --run <run-id> --job <job-id>
+```
+
+Then launch that job. Repeat the sequence independently for every allocated job.
+
+### Finalize the batch
 
 Retain every job's terminal status. The controller must wait or join concurrent jobs,
 then terminalize every remaining allocated job with one valid `complete` event if it is

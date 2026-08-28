@@ -300,6 +300,30 @@ After an observed failure, use this exact order:
 6. Rerun `dispatch context` after invalidation.
 7. Let the controller choose retry, resume, policy change, worktree reset, or stop.
 
+### Announce a same-job retry
+
+This block applies to retries from the warm `begin-direct`, TTL-zero, and batch paths.
+For the same job, choose N as the prior dispatched attempt plus one. First record
+`ledger record attempt-failed --attempt N-1`; after any required invalidation, rerun
+`dispatch context`; then record `ledger record dispatched --attempt N` with the full
+provider, model, effort, liveness, and grounding fields for the new launch. Use the
+exact integer passed to that dispatched record; never infer or recompute it in the
+announcement. Preserve the same run_id, job_id, and artifact_dir from attempt 1.
+
+Neither append-time validation nor `ledger validate` enforces this ordering; a ledger
+that violates it may still pass `ledger validate`. The controller must append
+`attempt-failed(N-1)` before `dispatched(N)`. After the dispatched record succeeds,
+compose the complete provider command for attempt N from the refreshed context and
+current provider mechanics. After the command is composed and immediately before
+launch, emit exactly:
+
+```text
+delegate: role=<role> contract=<contract> tier=<tier> provider=<provider> model=<model> effort=<effort> attempt=<attempt> run=<run-id> job=<job-id>
+artifacts: <artifact-dir> — inspect: cd <quoted-repo-root> && python3 <quoted-plugin-root>/scripts/swingle workspace show --run <run-id> --job <job-id>
+```
+
+Then launch attempt N.
+
 After `INVALID_RESULT`, `UNCHANGED`, or `FAILED_TESTS`, record repository evidence before
 recovery. A provider claim, changed-files field, or exit code never replaces independent
 verification. Capture, interpret, and verify each mutating job independently.

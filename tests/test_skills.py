@@ -238,6 +238,41 @@ def test_delegate_announces_each_batch_job_after_dispatched_and_before_launch():
         assert required in section
 
 
+def test_delegate_announces_same_job_retry_after_failure_and_dispatch_record():
+    text = DELEGATE.read_text()
+    section = _section(
+        text,
+        "### Announce a same-job retry",
+        "## Homogeneous batches and finalization",
+    )
+    block = _single_text_block(section)
+    announcement_at = section.index(f"```text\n{block}\n```")
+
+    assert block == ANNOUNCEMENT_BLOCK
+    assert section.index("ledger record attempt-failed --attempt N-1") < section.index(
+        "ledger record dispatched --attempt N"
+    )
+    assert section.index("ledger record dispatched --attempt N") < section.index(
+        "compose the complete provider command for attempt N"
+    )
+    assert (
+        section.index("compose the complete provider command for attempt N")
+        < announcement_at
+    )
+    assert announcement_at < section.index("launch attempt N")
+    for required in (
+        "prior dispatched attempt plus one",
+        "exact integer passed",
+        "never infer or recompute",
+        "same run_id, job_id, and artifact_dir",
+        "warm `begin-direct`, TTL-zero, and batch paths",
+        "Neither append-time validation nor `ledger validate` enforces",
+        "may still pass `ledger validate`",
+    ):
+        assert required in section
+    assert "dispatch prepare" not in section
+
+
 def test_setup_manages_only_swingle_owned_state():
     text = SETUP.read_text()
     for required in (

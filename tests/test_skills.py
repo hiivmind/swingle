@@ -157,7 +157,7 @@ def test_delegate_announces_warm_attempt_after_begin_and_before_launch():
     announcement_at = section.index(announcement_fence)
 
     assert block == ANNOUNCEMENT_BLOCK
-    assert announcement_fence not in section[
+    assert "```text\n" not in section[
         announcement_at + len(announcement_fence):
     ]
     assert section.index(

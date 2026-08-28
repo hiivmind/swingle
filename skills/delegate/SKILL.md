@@ -94,6 +94,34 @@ context and any typed dispatch event.
 Do not reconstruct the grounding cache state machine in prose or in the controller.
 The machine-computed action is the authority for the next step.
 
+## Contract selection announcement
+
+Emit one block per `dispatched` event, immediately before that attempt's provider
+launch; never emit one summary per run. The announcement is informational only:
+no pause, confirmation, consent, or prompt.
+
+Use the accepted role and tier. Derive `contract` from the basename of
+`$PLUGIN_ROOT/contracts/<role>-contract.md` by removing `-contract.md`. Use the
+provider, model, and effort resolved for and transported to this specific producing
+call, including `provider-default` or `none`. Use `attempt=1` as a known constant on
+attempt-1 paths; on a retry use the exact integer transported to
+`ledger record dispatched --attempt N`. Render run and job as full lowercase UUIDs.
+Use the producing call's `artifact_dir` field returned verbatim; never reconstruct it.
+Use the controller-held resolved `$REPO_ROOT` and `$PLUGIN_ROOT`.
+
+For the announcement fields and the displayed artifact directory, render a value bare
+only when it matches `^[A-Za-z0-9._/@+-]+$`; otherwise render it with
+`json.dumps(value, ensure_ascii=True)`. Examples:
+`gpt-5.2` → `model=gpt-5.2`; `foo effort=high` → `model="foo effort=high"`.
+
+For the inspection command's two shell operands, JSON quoting is unsafe. Render each
+resolved root with POSIX shell quoting via `shlex.quote` or equivalent before composing
+the command; `/tmp/Swingle repo` → `'/tmp/Swingle repo'`. If either root contains a
+literal CR or LF byte, reject the dispatch before rendering instead of emitting a
+broken multi-line command. `$REPO_ROOT=/tmp/repo\nbreak` → reject;
+`$PLUGIN_ROOT=/tmp/plugin\rbreak` → reject. The two roots are shell operands; the
+artifact directory is still a display value.
+
 ## Consent and isolation
 
 A direct task authorizes safe read-only inspection necessary for that task. It does not
@@ -153,6 +181,19 @@ argument, or one complete positional value. If shell quoting cannot preserve it,
 temporary launch script in the artifact directory. Never summarize, paraphrase, or omit
 the briefing. A read-only one-line task may use an inline prompt when no authored
 briefing exists.
+
+#### Announce warm attempt 1
+
+Retain `run_id`, `job_id`, and `artifact_dir` from the successful
+`ledger begin-direct` JSON result. Set the attempt to the known constant `1`; do not
+look for an attempt response field. Use the resolved selection transported to
+`ledger begin-direct`. After the complete provider command is composed and immediately
+before launch, emit exactly:
+
+```text
+delegate: role=<role> contract=<contract> tier=<tier> provider=<provider> model=<model> effort=<effort> attempt=<attempt> run=<run-id> job=<job-id>
+artifacts: <artifact-dir> — inspect: cd <quoted-repo-root> && python3 <quoted-plugin-root>/scripts/swingle workspace show --run <run-id> --job <job-id>
+```
 
 Launch only after the command is composed. Store stdout, stderr, reports, and event
 streams in the returned artifact directory. If output is large, write a temporary
@@ -228,6 +269,24 @@ If live grounding cannot resolve the executable, do not cache negative availabil
 do not allocate a ledger job. For a configured provider, offer `repair=provider-routing`.
 For an explicit missing provider, return `BLOCKED` without substitution.
 
+### Announce TTL-zero attempt 1
+
+For `ground_without_cache`, retain the normalized uncached grounding event with
+`storage: none` and null receipt fields. Run the low-level uncached
+`ledger begin-direct`. After it succeeds, retain `run_id`, `job_id`, and
+`artifact_dir` from its JSON result and set the attempt to the known constant `1`.
+Use the resolved selection transported to that call, then compose the complete provider Bash command from the uncached mechanics and authored inputs. After the
+complete command is composed and immediately before launch, emit exactly:
+
+```text
+delegate: role=<role> contract=<contract> tier=<tier> provider=<provider> model=<model> effort=<effort> attempt=<attempt> run=<run-id> job=<job-id>
+artifacts: <artifact-dir> — inspect: cd <quoted-repo-root> && python3 <quoted-plugin-root>/scripts/swingle workspace show --run <run-id> --job <job-id>
+```
+
+Then launch provider Bash.
+
+The block does not add cache I/O or a second ledger call.
+
 ## Failure recovery
 
 After an observed failure, use this exact order:
@@ -241,6 +300,30 @@ After an observed failure, use this exact order:
 6. Rerun `dispatch context` after invalidation.
 7. Let the controller choose retry, resume, policy change, worktree reset, or stop.
 
+### Announce a same-job retry
+
+This block applies to retries from the warm `begin-direct`, TTL-zero, and batch paths.
+For the same job, choose N as the prior dispatched attempt plus one. First record
+`ledger record attempt-failed --attempt N-1`; after any required invalidation, rerun
+`dispatch context`; then record `ledger record dispatched --attempt N` with the full
+provider, model, effort, liveness, and grounding fields for the new launch. Use the
+exact integer passed to that dispatched record; never infer or recompute it in the
+announcement. Preserve the same run_id, job_id, and artifact_dir from attempt 1.
+
+Neither append-time validation nor `ledger validate` enforces this ordering; a ledger
+that violates it may still pass `ledger validate`. The controller must append
+`attempt-failed(N-1)` before `dispatched(N)`. After the dispatched record succeeds,
+compose the complete provider command for attempt N from the refreshed context and
+current provider mechanics. After the command is composed and immediately before
+launch, emit exactly:
+
+```text
+delegate: role=<role> contract=<contract> tier=<tier> provider=<provider> model=<model> effort=<effort> attempt=<attempt> run=<run-id> job=<job-id>
+artifacts: <artifact-dir> — inspect: cd <quoted-repo-root> && python3 <quoted-plugin-root>/scripts/swingle workspace show --run <run-id> --job <job-id>
+```
+
+Then launch attempt N.
+
 After `INVALID_RESULT`, `UNCHANGED`, or `FAILED_TESTS`, record repository evidence before
 recovery. A provider claim, changed-files field, or exit code never replaces independent
 verification. Capture, interpret, and verify each mutating job independently.
@@ -251,6 +334,25 @@ Use one run and one provider context for a homogeneous batch. Start one run, all
 each job only after dispatchable context, and record each dispatch with typed ledger
 events. After a contradiction, rerun context before later jobs. Every mutating job gets
 independent repository verification; one job's evidence never proves another job.
+
+### Announce each batch attempt
+
+Use one block per job per attempt, never one block for the shared run. After
+`ledger allocate` succeeds, retain its `job_id` and `artifact_dir` returned by
+`ledger allocate`, alongside the shared run_id. Call
+`ledger record dispatched --attempt 1` with the provider, model, effort, liveness,
+and grounding values for that job. Use the resolved selection transported to
+`ledger record dispatched`, then compose the complete provider command for that job.
+After the complete command is composed and immediately before launch, emit exactly:
+
+```text
+delegate: role=<role> contract=<contract> tier=<tier> provider=<provider> model=<model> effort=<effort> attempt=<attempt> run=<run-id> job=<job-id>
+artifacts: <artifact-dir> — inspect: cd <quoted-repo-root> && python3 <quoted-plugin-root>/scripts/swingle workspace show --run <run-id> --job <job-id>
+```
+
+Then launch that job. Repeat the sequence independently for every allocated job.
+
+### Finalize the batch
 
 Retain every job's terminal status. The controller must wait or join concurrent jobs,
 then terminalize every remaining allocated job with one valid `complete` event if it is

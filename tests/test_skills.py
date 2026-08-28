@@ -6,6 +6,31 @@ SETUP = ROOT / "skills" / "swingle-setup" / "SKILL.md"
 SDD = ROOT / "skills" / "sdd" / "SKILL.md"
 ISOLATION = ROOT / "references" / "isolation.md"
 
+ANNOUNCEMENT_BLOCK = (
+    "delegate: role=<role> contract=<contract> tier=<tier> provider=<provider> "
+    "model=<model> effort=<effort> attempt=<attempt> run=<run-id> job=<job-id>\n"
+    "artifacts: <artifact-dir> — inspect: cd <quoted-repo-root> && python3 "
+    "<quoted-plugin-root>/scripts/swingle workspace show --run <run-id> --job <job-id>"
+)
+
+
+def _section(text: str, start_heading: str, end_heading: str) -> str:
+    start = text.index(start_heading)
+    end = text.index(end_heading, start + len(start_heading))
+    return text[start:end]
+
+
+def _single_text_block(section: str) -> str:
+    opener = "```text\n"
+    closer = "\n```"
+    _, found_opener, remainder = section.partition(opener)
+    assert found_opener
+    block, found_closer, suffix = remainder.partition(closer)
+    assert found_closer
+    assert opener not in suffix
+    return block
+
+
 RETIRED = (
     "verified-version",
     "models.yaml",
@@ -73,6 +98,179 @@ def test_delegate_uses_next_action_controller_flow():
         "prompt paraphrase",
     ):
         assert removed not in text
+
+
+def test_delegate_defines_contract_selection_announcement_fields_and_encoding():
+    text = DELEGATE.read_text()
+    section = _section(
+        text,
+        "## Contract selection announcement",
+        "## Consent and isolation",
+    )
+
+    for required in (
+        "^[A-Za-z0-9._/@+-]+$",
+        "json.dumps(value, ensure_ascii=True)",
+        "shlex.quote",
+        "full lowercase UUIDs",
+        "artifact_dir",
+        "returned verbatim",
+        "-contract.md",
+        "provider-default",
+        "attempt=1",
+        "$REPO_ROOT",
+        "$PLUGIN_ROOT",
+        "accepted role and tier",
+        "provider, model, and effort resolved",
+        "CR or LF",
+        "reject the dispatch before rendering",
+        "no pause, confirmation, consent, or prompt",
+        "one block per `dispatched` event",
+        "never emit one summary per run",
+        "`gpt-5.2` → `model=gpt-5.2`",
+        '`foo effort=high` → `model="foo effort=high"`',
+        "`/tmp/Swingle repo` → `'/tmp/Swingle repo'`",
+        "`$REPO_ROOT=/tmp/repo\\nbreak` → reject",
+        "`$PLUGIN_ROOT=/tmp/plugin\\rbreak` → reject",
+    ):
+        assert required in section
+
+    assert section.index("artifact_dir") < section.index("returned verbatim")
+    assert "JSON quoting" in section
+    assert "shell operands" in section
+
+
+def test_delegate_announces_warm_attempt_after_begin_and_before_launch():
+    text = DELEGATE.read_text()
+    section = _section(
+        text,
+        "### Warm cache path",
+        "## Positive-TTL miss and TTL-zero paths",
+    )
+    announcement_section = _section(
+        section,
+        "#### Announce warm attempt 1",
+        "Launch only after",
+    )
+    block = _single_text_block(announcement_section)
+    announcement_fence = f"```text\n{block}\n```"
+    announcement_at = section.index(announcement_fence)
+
+    assert block == ANNOUNCEMENT_BLOCK
+    assert "```text\n" not in section[
+        announcement_at + len(announcement_fence):
+    ]
+    assert section.index(
+        "python3 $PLUGIN_ROOT/scripts/swingle ledger begin-direct"
+    ) < section.index("Build Bash from current mechanics")
+    assert section.index("Build Bash from current mechanics") < announcement_at
+    assert announcement_at < section.index("Launch only after")
+    for required in (
+        "#### Announce warm attempt 1",
+        "run_id",
+        "job_id",
+        "artifact_dir",
+        "known constant `1`",
+        "resolved selection transported",
+        "complete provider command is composed",
+    ):
+        assert required in section
+
+
+def test_delegate_announces_ttl_zero_attempt_after_begin_and_before_launch():
+    text = DELEGATE.read_text()
+    section = _section(
+        text,
+        "### Announce TTL-zero attempt 1",
+        "## Failure recovery",
+    )
+    block = _single_text_block(section)
+    announcement_at = section.index(f"```text\n{block}\n```")
+
+    assert block == ANNOUNCEMENT_BLOCK
+    assert section.index("ledger begin-direct") < section.index(
+        "compose the complete provider Bash command"
+    )
+    assert section.index("compose the complete provider Bash command") < announcement_at
+    assert announcement_at < section.index("launch provider Bash")
+    for required in (
+        "ground_without_cache",
+        "storage: none",
+        "null receipt fields",
+        "run_id",
+        "job_id",
+        "artifact_dir",
+        "known constant `1`",
+    ):
+        assert required in section
+
+
+def test_delegate_announces_each_batch_job_after_dispatched_and_before_launch():
+    text = DELEGATE.read_text()
+    section = _section(
+        text,
+        "### Announce each batch attempt",
+        "### Finalize the batch",
+    )
+    block = _single_text_block(section)
+    announcement_at = section.index(f"```text\n{block}\n```")
+
+    assert block == ANNOUNCEMENT_BLOCK
+    assert section.index("ledger allocate") < section.index(
+        "ledger record dispatched --attempt 1"
+    )
+    assert section.index("ledger record dispatched --attempt 1") < section.index(
+        "compose the complete provider command for that job"
+    )
+    assert (
+        section.index("compose the complete provider command for that job")
+        < announcement_at
+    )
+    assert announcement_at < section.index("launch that job")
+    for required in (
+        "one block per job per attempt",
+        "shared run_id",
+        "job_id",
+        "artifact_dir",
+        "returned by",
+        "resolved selection transported",
+    ):
+        assert required in section
+
+
+def test_delegate_announces_same_job_retry_after_failure_and_dispatch_record():
+    text = DELEGATE.read_text()
+    section = _section(
+        text,
+        "### Announce a same-job retry",
+        "## Homogeneous batches and finalization",
+    )
+    block = _single_text_block(section)
+    announcement_at = section.index(f"```text\n{block}\n```")
+
+    assert block == ANNOUNCEMENT_BLOCK
+    assert section.index("ledger record attempt-failed --attempt N-1") < section.index(
+        "ledger record dispatched --attempt N"
+    )
+    assert section.index("ledger record dispatched --attempt N") < section.index(
+        "compose the complete provider command for attempt N"
+    )
+    assert (
+        section.index("compose the complete provider command for attempt N")
+        < announcement_at
+    )
+    assert announcement_at < section.index("launch attempt N")
+    for required in (
+        "prior dispatched attempt plus one",
+        "exact integer passed",
+        "never infer or recompute",
+        "same run_id, job_id, and artifact_dir",
+        "warm `begin-direct`, TTL-zero, and batch paths",
+        "Neither append-time validation nor `ledger validate` enforces",
+        "may still pass `ledger validate`",
+    ):
+        assert required in section
+    assert "dispatch prepare" not in section
 
 
 def test_setup_manages_only_swingle_owned_state():
